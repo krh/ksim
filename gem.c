@@ -22,6 +22,8 @@
 
 static int (*libc_close)(int fd);
 static int (*libc_ioctl)(int fd, unsigned long request, void *argp);
+static void *(*libc_mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+static int (*libc_munmap)(void *addr, size_t length);
 
 static int drm_fd = -1;
 static bool verbose = false;
@@ -34,11 +36,11 @@ struct ugem_bo {
 	uint64_t offset;
 	uint32_t read_domains;
 	uint32_t write_domain;
+	int kernel_handle;
 };
 
 struct gtt_entry {
 	uint32_t handle;
-	uint32_t page;
 };
 
 #define gtt_order 20
@@ -97,12 +99,11 @@ bind_bo(struct ugem_bo *bo, uint64_t offset)
 	for (uint32_t p = 0; p < num_pages; p++) {
 		gtt[start_page + p] = (struct gtt_entry) {
 			.handle = bo - bos,
-			.page = p
 		};
 	}
 }
 
-static void *
+void *
 map_gtt_offset(uint64_t offset, uint64_t *range)
 {
 	struct gtt_entry entry;
@@ -117,7 +118,7 @@ map_gtt_offset(uint64_t offset, uint64_t *range)
 
 	*range = bo->offset + bo->size - offset;
 
-	return bo->data + entry.page * 4096 + (offset & 4095);
+	return bo->data + (offset - bo->offset);
 }
 
 static void
@@ -156,10 +157,47 @@ validate_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 	if (bound_count != execbuffer2->buffer_count)
 		ksim_assert(!"could not bind all bos\n");
 
+	bool all_matches = true;
+	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
+		bo = get_bo(buffers[i].handle);
+		if (bo->offset != buffers[i].offset)
+			all_matches = false;
+	}
+
+	if (all_matches && (execbuffer2->flags & I915_EXEC_NO_RELOC))
+		/* can skip relocs */;
+
+	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
+		struct drm_i915_gem_relocation_entry *relocs;
+
+		bo = get_bo(buffers[i].handle);
+		relocs = (void *) buffers[i].relocs_ptr;
+
+		for (uint32_t j = 0; j < buffers[i].relocation_count; j++) {
+			uint32_t handle;
+			struct ugem_bo *target;
+			uint32_t *dst;
+
+			if (execbuffer2->flags & I915_EXEC_HANDLE_LUT) {
+				ksim_assert(relocs[j].target_handle <
+					    execbuffer2->buffer_count);
+				handle = buffers[relocs[j].target_handle].handle;
+			} else {
+				handle = relocs[j].target_handle;
+			}
+			
+			target = get_bo(handle);
+			ksim_assert(relocs[j].offset + sizeof(*dst) < bo->size);
+			dst = bo->data + relocs[j].offset;
+			if (relocs[j].presumed_offset != target->offset)
+				*dst = target->offset + relocs[j].delta;
+		}
+	}	
+
 	start_batch_buffer(bo->data + execbuffer2->batch_start_offset);
 }
 
-int
+__attribute__ ((visibility ("default"))) int
 close(int fd)
 {
 	if (fd == drm_fd)
@@ -168,7 +206,7 @@ close(int fd)
 	return libc_close(fd);
 }
 
-int
+__attribute__ ((visibility ("default"))) int
 ioctl(int fd, unsigned long request, ...)
 {
 	va_list args;
@@ -221,39 +259,33 @@ ioctl(int fd, unsigned long request, ...)
 
 	case DRM_IOCTL_I915_GEM_BUSY:
 		printf("busy\n");
-		return libc_ioctl(fd, request, argp);
+		return 0;
 			
 	case DRM_IOCTL_I915_GEM_SET_CACHING:
 		printf("set caching\n");
-		return libc_ioctl(fd, request, argp);
+		return 0;
 
 	case DRM_IOCTL_I915_GEM_GET_CACHING:
 		printf("get caching\n");
-		return libc_ioctl(fd, request, argp);
+		return 0;
 
 	case DRM_IOCTL_I915_GEM_THROTTLE:
 		printf("throttle\n");
-		return libc_ioctl(fd, request, argp);
+		return 0;
 
 	case DRM_IOCTL_I915_GEM_CREATE: {
 		struct drm_i915_gem_create *create = argp;
 
-		uint32_t handle = add_bo(create->size);
+		create->handle = add_bo(create->size);
 		printf("new bo, handle %d, size %ld\n",
-		       handle, create->size);
-				
-		ret = libc_ioctl(fd, request, argp);
+		       create->handle, create->size);
 
-		printf("gem handle: %d\n", create->handle);
-		if (handle != create->handle)
-			printf("*** MISMATCH\n");
-
-		return ret;
+		return 0;
 	}
 
 	case DRM_IOCTL_I915_GEM_PREAD:
 		printf("pread %d\n");
-		return libc_ioctl(fd, request, argp);
+		return 0;
 
 	case DRM_IOCTL_I915_GEM_PWRITE: {
 		struct drm_i915_gem_pwrite *pwrite = argp;
@@ -266,7 +298,7 @@ ioctl(int fd, unsigned long request, ...)
 		memcpy(bo->data + pwrite->offset,
 		       (void *) pwrite->data_ptr, pwrite->size);
 
-		return libc_ioctl(fd, request, argp);
+		return 0;
 	}
 
 	case DRM_IOCTL_I915_GEM_MMAP: {
@@ -283,21 +315,33 @@ ioctl(int fd, unsigned long request, ...)
 	}
 
 
-	case DRM_IOCTL_I915_GEM_MMAP_GTT:
-		return libc_ioctl(fd, request, argp);
+	case DRM_IOCTL_I915_GEM_MMAP_GTT: {
+		struct drm_i915_gem_mmap_gtt *map_gtt = argp;
+		struct ugem_bo *bo = get_bo(map_gtt->handle);
+
+		if (bo->tiling_mode != I915_TILING_NONE)
+			ksim_warn("gtt mapping tiled buffer");
+
+		map_gtt->offset = (uint64_t) bo;
+
+		return 0;
+	}
 
 	case DRM_IOCTL_I915_GEM_SET_DOMAIN: {
 		struct drm_i915_gem_set_domain *set_domain = argp;
 		struct ugem_bo *bo = get_bo(set_domain->handle);
 
+		printf("set_domain %d\n");
+
 		bo->read_domains |= set_domain->read_domains;
 		bo->write_domain |= set_domain->write_domain;
 			
-		return libc_ioctl(fd, request, argp);
+		return 0;
 	}
 
 	case DRM_IOCTL_I915_GEM_SW_FINISH:
-		return libc_ioctl(fd, request, argp);
+		printf("sw_finish %d\n");
+		return 0;
 
 	case DRM_IOCTL_I915_GEM_SET_TILING: {
 		struct drm_i915_gem_set_tiling *set_tiling = argp;
@@ -306,7 +350,7 @@ ioctl(int fd, unsigned long request, ...)
 		bo->tiling_mode = set_tiling->tiling_mode;
 		bo->stride = set_tiling->stride;
 
-		return libc_ioctl(fd, request, argp);
+		return 0;
 	}
 			
 	case DRM_IOCTL_I915_GEM_GET_TILING: {
@@ -315,18 +359,22 @@ ioctl(int fd, unsigned long request, ...)
 
 		get_tiling->tiling_mode = bo->tiling_mode;
 
-		return libc_ioctl(fd, request, argp);
+		return 0;
 	}
 
 	case DRM_IOCTL_I915_GEM_GET_APERTURE:
 	case DRM_IOCTL_I915_GEM_MADVISE:
 	case DRM_IOCTL_I915_GEM_WAIT:
+		return 0;
+		
 	case DRM_IOCTL_I915_GEM_CONTEXT_CREATE:
 	case DRM_IOCTL_I915_GEM_CONTEXT_DESTROY:
+		return libc_ioctl(fd, request, argp);
+
 	case DRM_IOCTL_I915_REG_READ:
 	case DRM_IOCTL_I915_GET_RESET_STATS:
 	case DRM_IOCTL_I915_GEM_USERPTR:
-		return libc_ioctl(fd, request, argp);
+		return 0;
 
 	case DRM_IOCTL_GEM_CLOSE: {
 		struct drm_gem_close *close = argp;
@@ -335,7 +383,7 @@ ioctl(int fd, unsigned long request, ...)
 		bo->data = bo_free_list;
 		bo_free_list = bo;
 
-		return libc_ioctl(fd, request, argp);
+		return 0;
 	}
 
 	case DRM_IOCTL_GEM_OPEN: {
@@ -361,13 +409,73 @@ ioctl(int fd, unsigned long request, ...)
 		return ret;
 	}
 
-	case DRM_IOCTL_PRIME_HANDLE_TO_FD:
-		return libc_ioctl(fd, request, argp);
+	case DRM_IOCTL_PRIME_HANDLE_TO_FD: {
+		struct drm_prime_handle *prime_handle = argp;
+		struct ugem_bo *bo = get_bo(prime_handle->handle);
+		int ret;
+
+		if (!bo->kernel_handle) {
+			struct drm_i915_gem_create create = { .size = bo->size };
+			libc_ioctl(fd, DRM_IOCTL_I915_GEM_CREATE, &create);
+			bo->kernel_handle = create.handle;
+
+			struct drm_i915_gem_set_tiling set_tiling = {
+				.handle = bo->kernel_handle,
+				.tiling_mode = bo->tiling_mode,
+				.stride = bo->stride,
+			};
+
+			libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
+
+			struct drm_i915_gem_mmap mmap = {
+				.handle = bo->kernel_handle,
+				.offset = 0,
+				.size = bo->size,
+			};
+
+			libc_ioctl(fd, DRM_IOCTL_I915_GEM_MMAP, &mmap);
+
+			free(bo->data);
+			bo->data = (void *) mmap.addr_ptr;
+		}
+		
+		struct drm_prime_handle r = {
+			.handle = bo->kernel_handle,
+			.flags = prime_handle->flags
+		};
+
+		ret = libc_ioctl(fd, request, &r);
+
+		prime_handle->fd = r.fd;
+
+		return ret;
+	}
 
 	default:
 		printf("unhandled ioctl 0x%x\n", _IOC_NR(request));
 		return libc_ioctl(fd, request, argp);
 	}
+}
+
+__attribute__ ((visibility ("default"))) void *
+mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+	if (fd == -1 || fd != drm_fd)
+		return libc_mmap(addr, length, prot, flags, fd, offset);
+
+	printf("mmap on drm fd\n");
+
+	struct ugem_bo *bo = (void *) offset;
+
+	return bo->data;
+}
+
+__attribute__ ((visibility ("default"))) int
+munmap(void *addr, size_t length)
+{
+	/* Argh, no good way to know if we're unmapping a bo. */
+
+	return libc_munmap(addr, length);
 }
 
 static void __attribute__ ((constructor))
@@ -386,6 +494,9 @@ init(void)
 
 	libc_close = dlsym(RTLD_NEXT, "close");
 	libc_ioctl = dlsym(RTLD_NEXT, "ioctl");
-	if (libc_close == NULL || libc_ioctl == NULL)
+	libc_mmap = dlsym(RTLD_NEXT, "mmap");
+	libc_munmap = dlsym(RTLD_NEXT, "munmap");
+	if (libc_close == NULL || libc_ioctl == NULL ||
+	    libc_mmap == NULL || libc_munmap == NULL)
 		error(-1, 0, "ksim: failed to get libc ioctl or close\n");
 }

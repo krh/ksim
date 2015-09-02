@@ -1,113 +1,41 @@
-#include <stdint.h>
-#include <stdbool.h>
+#include "ksim.h"
 
-#define __gen_address_type uint32_t
-#define __gen_combine_address(data, dst, address, delta) delta
-#define __gen_user_data void
-
-#include "gen8_pack.h"
-
-enum {
-	KSIM_VERTEX_STAGE,
-	KSIM_GEOMETRY_STAGE,
-	KSIM_HULL_STAGE,
-	KSIM_DOMAIN_STAGE,
-	KSIM_FRAGMENT_STAGE,
-	KSIM_COMPUTE_STAGE,
-	NUM_STAGES
+struct free_urb {
+	uint32_t next;
 };
 
-struct gen8 {
-	struct GEN8_VERTEX_BUFFER_STATE vb_state[32];
-	uint32_t valid_vbs;
+#define EMPTY 1
 
-	struct GEN8_VERTEX_ELEMENT_STATE ve_state[33];
-	uint32_t ve_count;
-
-	struct {
-		struct {
-			uint32_t length;
-			struct reg *reg;
-		} buffer[4];
-	} curbe[NUM_STAGES];
-
-	struct {
-		bool enable;
-		bool simd8;
-		uint32_t vue_read_length;
-		uint32_t vue_read_offset;
-	} vs;
-};
-
-static void ksim_assert(int cond)
+static void *
+alloc_urb_entry(struct urb *urb)
 {
+	struct free_urb *f;
+	void *p;
+
+	if (urb->free_list != EMPTY) {
+		f = p = urb->data + urb->free_list;
+		urb->free_list = f->next;
+	} else {
+		ksim_assert(urb->count < urb->total);
+		p = urb->data + urb->size * urb->count++;
+	}
+
+	return p;
 }
 
 static void
-decode_3dstate_vertex_elements(struct gen8 *g)
+free_urb_entry(struct urb* urb, void *entry)
 {
-	struct GEN8_3DSTATE_VERTEX_ELEMENTS ve;
+	struct free_urb *f = entry;
 
-	ksim_assert(ve->DwordLength <= 1 + (33 * 2));
-	ksim_assert(ve->DwordLength & 1);
-	g->ve_count = (ve->DwordLength - 1) / 2;
-}
-
-struct value {
-	union {
-		struct { float x, y, w, z; } vec4;
-		struct { int32_t x, y, w, z; } ivec4;
-		int32_t v[4];
-	};
-};
-
-static inline struct value
-vec4(float x, float y, float z, float w)
-{
-	return (struct value) { .vec4 = { x, y, z, w } };
-}
-
-static inline struct value
-ivec4(int32_t x, int32_t y, int32_t z, int32_t w)
-{
-	return (struct value) { .ivec4 = { x, y, z, w } };
-}
-
-static struct value *
-alloc_vs_vue(struct gen8 *g)
-{
-	return NULL;
+	f->next = urb->free_list;
+	urb->free_list = entry - urb->data;
 }
 
 static inline int32_t
 fp_as_int32(float f)
 {
 	return (union { float f; int32_t i; }) { .f = f }.i;
-}
-
-static uint32_t
-format_size(uint32_t format)
-{
-	switch (format) {
-	case R32G32B32A32_FLOAT:
-		return 16;
-	default:
-		assert(0);
-	}
-}
-
-static struct value
-fetch_format(void *p, uint32_t format)
-{
-	float *f;
-
-	switch (format) {
-	case R32G32B32A32_FLOAT:
-		f = p;
-		return vec4(f[0], f[1], f[2], f[3]);
-	default:
-		assert(0);
-	}
 }
 
 static int32_t
@@ -117,7 +45,7 @@ store_component(uint32_t cc, int32_t src)
 	case VFCOMP_NOSTORE:
 		return 77; /* shouldn't matter */
 	case VFCOMP_STORE_SRC:
-		src;
+		return src;
 	case VFCOMP_STORE_0:
 		return 0;
 	case VFCOMP_STORE_1_FP:
@@ -130,123 +58,190 @@ store_component(uint32_t cc, int32_t src)
 }
 
 static struct value *
-fetch_vertex(struct gen8 *g, uint32_t instance_id, uint32_t vertex_id)
+fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 {
 	struct value *vue;
 	struct value v;
 
-	vue = alloc_vs_vue(g);
-	for (uint32_t i = 0; i < g->ve_count; i++) {
-		struct GEN8_VERTEX_ELEMENT_STATE *ve = &g->ve_state[i];
-		ksim_assert((1 << s->VertexBufferIndex) & g->valid_vbs);
-		struct GEN8_VERTEX_BUFFER_STATE *vb = &g->vb_state[s->VertexBufferIndex];
+	vue = alloc_urb_entry(&gt.vs.urb);
+	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
+		struct ve *ve = &gt.vf.ve[i];
+		ksim_assert((1 << ve->vb) & gt.vf.vb_valid);
+		struct vb *vb = &gt.vf.vb[ve->vb];
+
+		if (!gt.vf.ve[i].valid)
+			continue;
 
 		uint32_t index;
-		if (g->vf.instancing[i].enable)
-			index = instance_id / g->vf.instancing[i].rate;
-		else
-			index = vertex_id;
+		if (gt.vf.ve[i].instancing) {
+			index = gt.prim.start_instance + instance_id / gt.vf.ve[i].step_rate;
+		} else if (gt.prim.access_type == RANDOM) {
+			uint64_t range;
+			void *ib = map_gtt_offset(gt.vf.ib.address, &range);
 
-		uint32_t offset = index * vb->BufferPitch + ve->SourceElementOffset;
-		if (offset + format_size(ve->SourceElementFormat) > vb->BufferSize) {
+			index = gt.prim.start_vertex + vertex_id;
+
+			switch (gt.vf.ib.format) {
+			case INDEX_BYTE:
+				index = ((uint8_t *) ib)[index] + gt.prim.base_vertex;
+				break;
+			case INDEX_WORD:
+				index = ((uint16_t *) ib)[index] + gt.prim.base_vertex;
+				break;
+			case INDEX_DWORD:
+				index = ((uint32_t *) ib)[index] + gt.prim.base_vertex;
+				break;
+			}
+		} else {
+			index = gt.prim.start_vertex + vertex_id;
+		}
+
+		uint32_t offset = index * vb->pitch + ve->offset;
+		ksim_assert(valid_vertex_format(ve->format));
+		if (offset + format_size(ve->format) > vb->size) {
 			ksim_warn("vertex element overflow");
 			v = vec4(0, 0, 0, 0);
 		} else {
-			void *address = vb->BufferStartingAddress + offset;
-			v = fetch_format(address, ve->SourceElementFormat);
+			v = fetch_format(vb->address + offset, ve->format);
 		}
 
-		vue[i].v[0] = store_component(ve->Component0Control, v.v[0]);
-		vue[i].v[1] = store_component(ve->Component0Control, v.v[1]);
-		vue[i].v[2] = store_component(ve->Component0Control, v.v[2]);
-		vue[i].v[3] = store_component(ve->Component0Control, v.v[3]);
+		for (uint32_t c = 0; c < 4; c++)
+			vue[i].v[c] = store_component(ve->cc[c], v.v[c]);
 
 		/* edgeflag */
 	}
 
 	/* 3DSTATE_VF_SGVS */
-	if (g->vf.iid_enable && g->vf.vid_enable)
-		ksim_assert(g->vf.iid_element != vf.vid_element ||
-			    g->vf.iid_component != g->vf.vid_component);
+	if (gt.vf.iid_enable && gt.vf.vid_enable)
+		ksim_assert(gt.vf.iid_element != gt.vf.vid_element ||
+			    gt.vf.iid_component != gt.vf.vid_component);
 
-	if (g->vf.iid_enable)
-		vue[g->vf.iid_element].v[g->vf.iid_component] = instance_id;
-	if (g->vf.vid_enable)
-		vue[g->vf.vid_element].v[g->vf.vid_component] = vertex_id;
+	if (gt.vf.iid_enable)
+		vue[gt.vf.iid_element].v[gt.vf.iid_component] = instance_id;
+	if (gt.vf.vid_enable)
+		vue[gt.vf.vid_element].v[gt.vf.vid_component] = vertex_id;
 
 	return vue;
 }
 
-#define for_each_bit(b, dword)                          \
-   for (uint32_t __dword = (dword);                     \
-        (b) = __builtin_ffs(__dword) - 1, __dword;      \
-        __dword &= ~(1 << (b)))
-
-struct thread {
-	struct reg {
-		float f[8];
-	} grf[128];
-};
-
-static void
-load_constants(struct gen8 *g, struct thread *t, uint32_t start, uint32_t stage)
+static uint32_t
+load_constants(struct thread *t, struct curbe *c, uint32_t start)
 {
 	uint32_t grf = start;
-	struct curbe *c = 
+	struct reg *regs;
+	uint64_t base, range;
 
 	for (uint32_t b = 0; b < 4; b++) {
-		for (uint32_t i = 0; i < c->length[b]; i++) {
-			t->grf[grf++] = c->buffer[b].reg[i];
+		if (b == 0 && gt.curbe_dynamic_state_base)
+			base = gt.dynamic_state_base_address;
+		else
+			base = 0;
+			
+		if (c->buffer[b].length > 0) {
+			regs = map_gtt_offset(c->buffer[b].address + base, &range);
+			ksim_assert(c->buffer[b].length * sizeof(regs[0]) <= range);
 		}
+
+		for (uint32_t i = 0; i < c->buffer[b].length; i++)
+			t->grf[grf++] = regs[i];
 	}
+
+	return grf;
 }
 
 static void
-run_vs(struct gen8 *g, struct value **vue, uint32_t mask)
+dispatch_vs(struct value **vue, uint32_t mask)
 {
 	struct thread t;
+	uint32_t g = 0, c;
 
-	if (!g->vs.enable)
+	if (!gt.vs.enable)
 		return;
 
-	assert(g->vs.simd8);
+	assert(gt.vs.simd8);
 	
-	/* FIXME: ff header */
-	t.grf[0] = (struct reg) { 0 };
+	/* Fixed function header */
+	t.grf[g++] = (struct reg) {
+		.u = {
+			0, /* MBZ */
+			0, /* MBZ */
+			0, /* MBZ */
+			0, /* per-thread scratch space, sampler ptr */
+			0, /* binding table pointer */
+			0, /* fftid, scratch offset */
+			0, /* thread id */
+			0, /* snapshot flag */
+		}
+	};
 
-	/* VUE handles */
-	for_each_bit(c, mask) {
-		t.grf[1].d[c] = (void *) vue - g->urb;
+	/* VUE handles. FIXME: VUE handles are supposed to be 16 bits. */
+	for_each_bit(c, mask)
+		t.grf[g++].f[c] = (char *) vue[c] - gt.urb;
 
-	/* SIMD8 payload */
-	for (uint32_t i = 0; i < g->vs.vue_read_length; i++) {
-		uint32_t c;
+	g = load_constants(&t, &gt.vs.curbe, gt.vs.urb_start_grf);
+
+	/* SIMD8 VS payload */
+	for (uint32_t i = 0; i < gt.vs.vue_read_length; i++) {
 		for_each_bit(c, mask) {
-			t.grf[2 + i * 4 + 0].f[c] = vue[c]->v[g->vs.vue_read_offset + i].v[0];
-			t.grf[2 + i * 4 + 1].f[c] = vue[c]->v[g->vs.vue_read_offset + i].v[1];
-			t.grf[2 + i * 4 + 2].f[c] = vue[c]->v[g->vs.vue_read_offset + i].v[2];
-			t.grf[2 + i * 4 + 3].f[c] = vue[c]->v[g->vs.vue_read_offset + i].v[3];
+			for (uint32_t j = 0; j < 4; j++)
+				t.grf[g++].f[c] = vue[c][gt.vs.vue_read_offset + i].v[j];
 		}
 	}
 
-	load_constants(g, &t, g->vs.curbe_start, KSIM_VERTEX_STAGE);
+	if (gt.vs.statistics)
+		gt.vs_invocation_count++;
 
-	run_eu(g, &t);
+	run_thread(&t);
 }
 
 static void
-run_primitive(struct gen8 *g)
+validate_vf_state(void)
 {
-	struct value *v;
+	uint32_t vb, vb_used;
+	
+	/* Make sure vue is big enough to hold all vertex elements */
+	ksim_assert(gt.vf.ve_count * 16 < gt.vs.urb.size);
 
-	for (instance_id = 0; instance_id < instance_count; instance_id++)
-		for (vertex_id = 0; vertex_id < vertex_count; vertex_id++) {
-			v = fetch_vertex(g, instance_id, vertex_id);
-			run_vs(g, v);
-		}
+	vb_used = 0;
+	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
+		if (gt.vf.ve[i].valid)
+			vb_used |= 1 << gt.vf.ve[i].vb;
+	}
+
+	/* Check all VEs reference valid VBs. */
+	ksim_assert(vb_used & gt.vf.vb_valid == vb_used);
 }
 
-int main(int argc, char *argv[])
+void
+dispatch_primitive(void)
 {
-	return 0;
+	struct value *v;
+	uint32_t i = 0, mask = 0;
+	struct value *vue[8];
+	uint32_t iid, vid, vb;
+	
+	validate_vf_state();
+
+	for (iid = 0; iid < gt.prim.instance_count; iid++) {
+		for (vid = 0; vid < gt.prim.vertex_count; vid++) {
+			vue[i] = fetch_vertex(iid, vid);
+			if (gt.vf.statistics)
+				gt.ia_vertices_count++;
+			mask |= 1 << i;
+			i++;
+			if (i == 8) {
+				dispatch_vs(vue, mask);
+				i = mask = 0;
+			}
+
+			/* assemble primitive, 
+			if (gt.vf.statistics)
+				gt.ia_primitives_count++;
+			*/
+
+		}
+	}
+
+	if (mask)
+		dispatch_vs(vue, mask);
 }
