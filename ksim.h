@@ -24,6 +24,7 @@ enum {
 	TRACE_GEM = 1 << 3,		/* gem layer trace messages */
 	TRACE_CS = 1 << 4,		/* command streamer trace */
 	TRACE_VF = 1 << 5,		/* vertex fetch trace */
+	TRACE_KERNELS = 1 << 6,		/* disassemble kernels */
 };
 
 extern uint32_t trace_mask;
@@ -255,7 +256,7 @@ struct thread {
 	struct reg grf[128];
 };
 
-void run_thread(struct thread *t);
+void run_thread(struct thread *t, uint64_t ksp);
 
 struct value {
 	union {
