@@ -20,6 +20,9 @@ alloc_urb_entry(struct urb *urb)
 		p = urb->data + urb->size * urb->count++;
 	}
 
+	ksim_assert(p >= urb->data && p < urb->data + urb->total * urb->size);
+	ksim_assert(p >= (void *) gt.urb && p < (void *) gt.urb + sizeof(gt.urb));
+
 	return p;
 }
 
@@ -99,7 +102,7 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 		uint32_t offset = index * vb->pitch + ve->offset;
 		ksim_assert(valid_vertex_format(ve->format));
 		if (offset + format_size(ve->format) > vb->size) {
-			ksim_warn("vertex element overflow");
+			ksim_trace(TRACE_WARN, "vertex element overflow");
 			v = vec4(0, 0, 0, 0);
 		} else {
 			v = fetch_format(vb->address + offset, ve->format);
@@ -120,6 +123,15 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 		vue[gt.vf.iid_element].v[gt.vf.iid_component] = instance_id;
 	if (gt.vf.vid_enable)
 		vue[gt.vf.vid_element].v[gt.vf.vid_component] = vertex_id;
+
+	if (trace_mask & TRACE_VF) {
+		ksim_trace(TRACE_VF, "Loaded vue for vid=%d, iid=%d:\n",
+			   vertex_id, instance_id);
+		const uint32_t count = gt.vs.urb.size / 16;
+		for (uint32_t i = 0; i < count; i++)
+			ksim_trace(TRACE_VF, "    %8.2f  %8.2f  %8.2f  %8.2f\n",
+				   vue[i].f[0], vue[i].f[1], vue[i].f[2], vue[i].f[3]);
+	}
 
 	return vue;
 }
@@ -192,6 +204,9 @@ dispatch_vs(struct value **vue, uint32_t mask)
 		gt.vs_invocation_count++;
 
 	run_thread(&t);
+
+	for_each_bit(c, mask)
+		free_urb_entry(&gt.vs.urb, vue[c]);
 }
 
 static void
@@ -212,6 +227,52 @@ validate_vf_state(void)
 	ksim_assert(vb_used & gt.vf.vb_valid == vb_used);
 }
 
+static void
+validate_urb_state(void)
+{
+	struct urb *all_urbs[] = {
+		&gt.vs.urb,
+		&gt.hs.urb,
+		&gt.ds.urb,
+		&gt.gs.urb,
+	}, *u, *v;
+
+	/* Validate that the URB allocations are properly sized and
+	 * don't overlap
+	 */
+
+	for (uint32_t i = 0; i < ARRAY_LENGTH(all_urbs); i++) {
+		u = all_urbs[i];
+		char *ustart = u->data;
+		char *uend = ustart + u->total * u->size;
+		ksim_assert(gt.urb <= ustart && uend <= gt.urb + sizeof(gt.urb));
+
+		for (uint32_t j = i + 1; j < ARRAY_LENGTH(all_urbs); j++) {
+			v = all_urbs[j];
+			char *vstart = v->data;
+			char *vend = v->data + v->total * v->size;
+			ksim_assert(vend <= ustart || uend <= vstart);
+		}
+	}
+}
+
+static void
+dump_sf_clip_viewport(void)
+{
+	uint64_t range;
+	float *p = map_gtt_offset(gt.sf.viewport_pointer, &range);
+
+	spam("gt.sf.viewport_pointer: 0x%08x, (w/o dyn base: 0x%08x)\n",
+	     gt.sf.viewport_pointer,
+	     gt.sf.viewport_pointer - gt.dynamic_state_base_address);
+
+	ksim_assert(range >= 14 * sizeof(*p));
+
+	spam("sf_clip viewport: %08x\n", gt.sf.viewport_pointer);
+	for (uint32_t i = 0; i < 14; i++)
+		spam("  %20.4f\n", p[i]);
+}
+
 void
 dispatch_primitive(void)
 {
@@ -221,6 +282,10 @@ dispatch_primitive(void)
 	uint32_t iid, vid, vb;
 	
 	validate_vf_state();
+
+	validate_urb_state();
+
+	dump_sf_clip_viewport();
 
 	for (iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (vid = 0; vid < gt.prim.vertex_count; vid++) {

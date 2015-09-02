@@ -26,7 +26,6 @@ static void *(*libc_mmap)(void *addr, size_t length, int prot, int flags, int fd
 static int (*libc_munmap)(void *addr, size_t length);
 
 static int drm_fd = -1;
-static bool verbose = false;
 
 struct ugem_bo {
 	uint64_t size;
@@ -103,6 +102,33 @@ bind_bo(struct ugem_bo *bo, uint64_t offset)
 	}
 }
 
+static void
+create_kernel_bo(int fd, struct ugem_bo *bo)
+{
+	struct drm_i915_gem_create create = { .size = bo->size };
+	libc_ioctl(fd, DRM_IOCTL_I915_GEM_CREATE, &create);
+	bo->kernel_handle = create.handle;
+
+	struct drm_i915_gem_set_tiling set_tiling = {
+		.handle = bo->kernel_handle,
+		.tiling_mode = bo->tiling_mode,
+		.stride = bo->stride,
+	};
+	libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
+
+	struct drm_i915_gem_mmap mmap = {
+		.handle = bo->kernel_handle,
+		.offset = 0,
+		.size = bo->size,
+	};
+	libc_ioctl(fd, DRM_IOCTL_I915_GEM_MMAP, &mmap);
+
+	free(bo->data);
+	bo->data = (void *) mmap.addr_ptr;
+
+	memset(bo->data, 55, bo->size);
+}
+
 void *
 map_gtt_offset(uint64_t offset, uint64_t *range)
 {
@@ -122,14 +148,13 @@ map_gtt_offset(uint64_t offset, uint64_t *range)
 }
 
 static void
-validate_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
+dispatch_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 {
 	struct drm_i915_gem_exec_object2 *buffers = (void *) execbuffer2->buffers_ptr;
 	uint32_t bound_count = 0;
 	struct ugem_bo *bo;
 
-	printf("validate execbuf2, next_offset %ld, gtt size %ld\n",
-	       next_offset, gtt_size);
+	ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER2:\n");
 	
 	ksim_assert((execbuffer2->batch_len & 7) == 0);
 	ksim_assert(execbuffer2->num_cliprects == 0);
@@ -139,15 +164,18 @@ validate_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 
 	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
 		bo = get_bo(buffers[i].handle);
-		printf("bo %d, size %ld at offset %08x\n",
-		       buffers[i].handle, bo->size, bo->offset);
+		ksim_trace(TRACE_GEM, "    bo %d, size %ld, ",
+			   buffers[i].handle, bo->size, bo->offset);
 		if (bo->offset == 0 && next_offset + bo->size <= gtt_size) {
 			uint64_t alignment = max_u64(buffers[i].alignment, 4096);
 
 			bind_bo(bo, align_u64(next_offset, alignment));
 			next_offset = bo->offset + bo->size;
-			printf("  bound to %08x\n", bo->offset);
+			ksim_trace(TRACE_GEM, "binding to %08x\n", bo->offset);
+		} else {
+			ksim_trace(TRACE_GEM, "keeping at %08x\n", bo->offset);
 		}
+
 		if (bo->offset != 0)
 			bound_count++;
 
@@ -194,7 +222,7 @@ validate_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 		}
 	}	
 
-	start_batch_buffer(bo->data + execbuffer2->batch_start_offset);
+	start_batch_buffer(bo->offset + execbuffer2->batch_start_offset);
 }
 
 __attribute__ ((visibility ("default"))) int
@@ -222,8 +250,7 @@ ioctl(int fd, unsigned long request, ...)
 	    drm_fd != fd && fstat(fd, &buf) == 0 &&
 	    (buf.st_mode & S_IFMT) == S_IFCHR && major(buf.st_rdev) == DRM_MAJOR) {
 		drm_fd = fd;
-		if (verbose)
-			printf("[ksim: intercept drm ioctl on fd %d]\n", fd);
+		ksim_trace(TRACE_DEBUG, "intercept drm ioctl on fd %d\n", fd);
 	}
 
 	if (fd != drm_fd)
@@ -238,60 +265,60 @@ ioctl(int fd, unsigned long request, ...)
 		return ret;
 	}
 
-	case DRM_IOCTL_I915_SETPARAM:
-		printf("set param, handle %d\n");
-		return libc_ioctl(fd, request, argp);
+	case DRM_IOCTL_I915_SETPARAM: {
+		struct drm_i915_setparam *setparam = argp;
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_SETPARAM: param %d, value %d\n",
+			   setparam->param, setparam->value);
+
+		return 0;
+	}
 
 	case DRM_IOCTL_I915_GEM_EXECBUFFER: {
-		static bool once;
-		if (!once) {
-			fprintf(stderr, "ksim: "
-				"application uses DRM_IOCTL_I915_GEM_EXECBUFFER, not handled\n");
-			once = true;
-		}
-		return libc_ioctl(fd, request, argp);
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER: unhandled\n");
+		return -1;
 	}
 
 	case DRM_IOCTL_I915_GEM_EXECBUFFER2:
-		validate_execbuffer2(argp);
-
+		dispatch_execbuffer2(argp);
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_BUSY:
-		printf("busy\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_BUSY\n");
 		return 0;
 			
 	case DRM_IOCTL_I915_GEM_SET_CACHING:
-		printf("set caching\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_CACHING\n");
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_GET_CACHING:
-		printf("get caching\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_CACHING\n");
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_THROTTLE:
-		printf("throttle\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_THROTTLE\n");
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_CREATE: {
 		struct drm_i915_gem_create *create = argp;
 
 		create->handle = add_bo(create->size);
-		printf("new bo, handle %d, size %ld\n",
-		       create->handle, create->size);
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CREATE: handle %d, size %ld\n",
+			   create->handle, create->size);
 
 		return 0;
 	}
 
 	case DRM_IOCTL_I915_GEM_PREAD:
-		printf("pread %d\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_PREAD\n");
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_PWRITE: {
 		struct drm_i915_gem_pwrite *pwrite = argp;
 		struct ugem_bo *bo = get_bo(pwrite->handle);
-		printf("write: bo %d, offset %d, size %d, bo size %ld\n",
-		       pwrite->handle, pwrite->offset, pwrite->size, bo->size);
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_PWRITE: "
+			   "bo %d, offset %d, size %d, bo size %ld\n",
+			   pwrite->handle, pwrite->offset, pwrite->size, bo->size);
 
 		ksim_assert(pwrite->offset + pwrite->size > pwrite->offset &&
 			    pwrite->offset + pwrite->size <= bo->size);
@@ -304,6 +331,8 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_I915_GEM_MMAP: {
 		struct drm_i915_gem_mmap *mmap = argp;
 		struct ugem_bo *bo = get_bo(mmap->handle);
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP\n");
 			
 		ksim_assert(mmap->flags == 0);
 		ksim_assert(mmap->offset + mmap->size > mmap->offset &&
@@ -319,8 +348,10 @@ ioctl(int fd, unsigned long request, ...)
 		struct drm_i915_gem_mmap_gtt *map_gtt = argp;
 		struct ugem_bo *bo = get_bo(map_gtt->handle);
 
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP_GTT\n");
+
 		if (bo->tiling_mode != I915_TILING_NONE)
-			ksim_warn("gtt mapping tiled buffer");
+			ksim_trace(TRACE_WARN, "gtt mapping tiled buffer\n");
 
 		map_gtt->offset = (uint64_t) bo;
 
@@ -331,7 +362,7 @@ ioctl(int fd, unsigned long request, ...)
 		struct drm_i915_gem_set_domain *set_domain = argp;
 		struct ugem_bo *bo = get_bo(set_domain->handle);
 
-		printf("set_domain %d\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_DOMAIN\n");
 
 		bo->read_domains |= set_domain->read_domains;
 		bo->write_domain |= set_domain->write_domain;
@@ -340,12 +371,14 @@ ioctl(int fd, unsigned long request, ...)
 	}
 
 	case DRM_IOCTL_I915_GEM_SW_FINISH:
-		printf("sw_finish %d\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SW_FINISH\n");
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_SET_TILING: {
 		struct drm_i915_gem_set_tiling *set_tiling = argp;
 		struct ugem_bo *bo = get_bo(set_tiling->handle);
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_TILING\n");
 
 		bo->tiling_mode = set_tiling->tiling_mode;
 		bo->stride = set_tiling->stride;
@@ -357,29 +390,53 @@ ioctl(int fd, unsigned long request, ...)
 		struct drm_i915_gem_get_tiling *get_tiling = argp;
 		struct ugem_bo *bo = get_bo(get_tiling->handle);
 
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING\n");
+
 		get_tiling->tiling_mode = bo->tiling_mode;
 
 		return 0;
 	}
 
-	case DRM_IOCTL_I915_GEM_GET_APERTURE:
+	case DRM_IOCTL_I915_GEM_GET_APERTURE: {
+		struct drm_i915_gem_get_aperture *get_aperture = argp;
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_APERTURE\n");
+		get_aperture->aper_available_size = 4245561344; /* bdw gt3 */
+		return 0;
+	}
 	case DRM_IOCTL_I915_GEM_MADVISE:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MADVISE\n");
+		return 0;
+
 	case DRM_IOCTL_I915_GEM_WAIT:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_WAIT\n");
 		return 0;
 		
 	case DRM_IOCTL_I915_GEM_CONTEXT_CREATE:
-	case DRM_IOCTL_I915_GEM_CONTEXT_DESTROY:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CONTEXT_CREATE\n");
 		return libc_ioctl(fd, request, argp);
 
+	case DRM_IOCTL_I915_GEM_CONTEXT_DESTROY:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CONTEXT_DESTROY\n");
+		return libc_ioctl(fd, request, argp);
+
+
 	case DRM_IOCTL_I915_REG_READ:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_REG_READ\n");
+		return 0;
 	case DRM_IOCTL_I915_GET_RESET_STATS:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GET_RESET_STATS\n");
+		return 0;
 	case DRM_IOCTL_I915_GEM_USERPTR:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_USERPTR\n");
 		return 0;
 
 	case DRM_IOCTL_GEM_CLOSE: {
 		struct drm_gem_close *close = argp;
 		struct ugem_bo *bo = &bos[close->handle];
-		free(bo->data);
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_GEM_CLOSE\n");
+		if (!bo->kernel_handle)
+			free(bo->data);
 		bo->data = bo_free_list;
 		bo_free_list = bo;
 
@@ -389,13 +446,15 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_GEM_OPEN: {
 		struct drm_gem_open *open = argp;
 
-		ret = libc_ioctl(fd, request, argp);
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_GEM_OPEN\n");
 
-		return ret;
+		return -1;
 	}
 
 	case DRM_IOCTL_PRIME_FD_TO_HANDLE: {
 		struct drm_prime_handle *prime = argp;
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE\n");
 
 		ret = libc_ioctl(fd, request, argp);
 		if (ret == 0) {
@@ -414,30 +473,10 @@ ioctl(int fd, unsigned long request, ...)
 		struct ugem_bo *bo = get_bo(prime_handle->handle);
 		int ret;
 
-		if (!bo->kernel_handle) {
-			struct drm_i915_gem_create create = { .size = bo->size };
-			libc_ioctl(fd, DRM_IOCTL_I915_GEM_CREATE, &create);
-			bo->kernel_handle = create.handle;
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_PRIME_HANDLE_TO_FD\n");
 
-			struct drm_i915_gem_set_tiling set_tiling = {
-				.handle = bo->kernel_handle,
-				.tiling_mode = bo->tiling_mode,
-				.stride = bo->stride,
-			};
-
-			libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
-
-			struct drm_i915_gem_mmap mmap = {
-				.handle = bo->kernel_handle,
-				.offset = 0,
-				.size = bo->size,
-			};
-
-			libc_ioctl(fd, DRM_IOCTL_I915_GEM_MMAP, &mmap);
-
-			free(bo->data);
-			bo->data = (void *) mmap.addr_ptr;
-		}
+		if (!bo->kernel_handle)
+			create_kernel_bo(fd, bo);
 		
 		struct drm_prime_handle r = {
 			.handle = bo->kernel_handle,
@@ -452,8 +491,9 @@ ioctl(int fd, unsigned long request, ...)
 	}
 
 	default:
-		printf("unhandled ioctl 0x%x\n", _IOC_NR(request));
-		return libc_ioctl(fd, request, argp);
+		ksim_trace(TRACE_GEM, "unhandled ioctl 0x%x\n", _IOC_NR(request));
+
+		return 0;
 	}
 }
 
@@ -463,9 +503,10 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 	if (fd == -1 || fd != drm_fd)
 		return libc_mmap(addr, length, prot, flags, fd, offset);
 
-	printf("mmap on drm fd\n");
-
 	struct ugem_bo *bo = (void *) offset;
+
+	ksim_assert(length <= bo->size);
+	ksim_trace(TRACE_GEM, "mmap on drm fd, bo %d\n", bo - bos);
 
 	return bo->data;
 }
@@ -478,16 +519,87 @@ munmap(void *addr, size_t length)
 	return libc_munmap(addr, length);
 }
 
+static bool
+is_prefix(const char *arg, const char *prefix, const char **value)
+{
+	int l = strlen(prefix);
+
+	if (strncmp(arg, prefix, l) == 0 && (arg[l] == '\0' || arg[l] == '=')) {
+		if (arg[l] == '=')
+			*value = arg + l + 1;
+		else
+			*value = NULL;
+
+		return true;
+	}
+
+	return false;
+}
+
+static const struct { const char *name; uint32_t flag; } debug_tags[] = {
+	{ "debug", TRACE_DEBUG },
+	{ "spam", TRACE_SPAM },
+	{ "warn", TRACE_WARN },
+	{ "gem", TRACE_GEM },
+	{ "cs", TRACE_CS },
+	{ "vf", TRACE_VF },
+};
+
+uint32_t trace_mask = TRACE_WARN;
+FILE *trace_file;
+
+static void
+parse_trace_flags(const char *value)
+{
+	const char *p;
+
+	for (uint32_t i = 0, start = 0; ; i++) {
+		if (value[i] != ',' && value[i] != '\0')
+			continue;
+		for (uint32_t j = 0; j < ARRAY_LENGTH(debug_tags); j++) {
+			if (strlen(debug_tags[j].name) == i - start &&
+			    memcmp(debug_tags[j].name, &value[start], i - start) == 0) {
+				trace_mask |= debug_tags[j].flag;
+			}
+		}
+		if (value[i] == '\0')
+			break;
+		start = i + 1;
+	}
+}
+
 static void __attribute__ ((constructor))
 init(void)
 {
 	const char *args = getenv("KSIM_ARGS");
+	const char *value;
+	char buffer[256];
 
+	trace_file = stdout;
 	for (uint32_t i = 0, start = 0; args[i]; i++) {
 		if (args[i] == ';') {
-			if (i - start == 7 &&
-			    memcmp(&args[start], "verbose", 7) == 0)
-				verbose = true;
+
+			if (i - start + 1 > sizeof(buffer)) {
+				ksim_trace(TRACE_WARN, "arg too long: %.*s\n",
+					   i - start, &args[start]);
+				continue;
+			}
+			memcpy(buffer, &args[start], i - start);
+			buffer[i - start] = '\0';
+
+			if (is_prefix(buffer, "quiet", &value)) {
+				trace_mask = 0;
+			} else if (is_prefix(buffer, "file", &value))  {
+				trace_file = fopen(value, "w");
+				if (trace_file == NULL)
+					error(-1, errno,
+					      "ksim: failed to open output file %s\n", value);
+			} else if (is_prefix(buffer, "trace", &value)) {
+				if  (value == NULL)
+					trace_mask |= ~0;
+				else
+					parse_trace_flags(value);
+			}
 			start = i + 1;
 		}
 	}

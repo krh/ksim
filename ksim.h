@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <signal.h>
 
+#define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
+
 static inline void
 __ksim_assert(int cond, const char *file, int line, const char *msg)
 {
@@ -15,15 +17,36 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
 
+enum {
+	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
+	TRACE_SPAM = 1 << 1,		/* Intermittent junk messages */
+	TRACE_WARN = 1 << 2,		/* Warnings for out-of-bounds/unintended behavior. */
+	TRACE_GEM = 1 << 3,		/* gem layer trace messages */
+	TRACE_CS = 1 << 4,		/* command streamer trace */
+	TRACE_VF = 1 << 5,		/* vertex fetch trace */
+};
+
+extern uint32_t trace_mask;
+extern FILE *trace_file;
+
 static inline void
-ksim_warn(const char *fmt, ...)
+ksim_trace(uint32_t tag, const char *fmt, ...)
 {
 	va_list va;
 
+	if ((tag & trace_mask) == 0)
+		return;
+
 	va_start(va, fmt);
-	vfprintf(stdout, fmt, va);
+	vfprintf(trace_file, fmt, va);
 	va_end(va);
 }
+
+#define spam(format, ...) \
+	ksim_trace(TRACE_SPAM, format, ##__VA_ARGS__)
+
+#define ksim_warn(format, ...) \
+	ksim_trace(TRACE_WARN, format, ##__VA_ARGS__)
 
 static inline bool
 is_power_of_two(uint64_t v)
@@ -45,7 +68,7 @@ max_u64(uint64_t a, uint64_t b)
 	return a > b ? a : b;
 }
 
-void start_batch_buffer(uint32_t *p);
+void start_batch_buffer(uint64_t address);
 
 enum {
 	KSIM_VERTEX_STAGE,
@@ -113,6 +136,16 @@ struct gt {
 	} vf;
 
 	struct {
+		bool single_dispatch;
+		bool vector_mask;
+		uint32_t binding_table_entry_count;
+		bool priority;
+		bool alternate_fp;
+		bool opcode_exception;
+		bool access_uav;
+		bool sw_exception;
+		uint64_t scratch_pointer;
+		uint32_t scratch_size;
 		bool enable;
 		bool simd8;
 		bool statistics;
@@ -148,10 +181,18 @@ struct gt {
 	} gs;
 
 	struct {
+		uint64_t viewport_pointer;
+	} sf;
+
+	struct {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
 	} ps;
+
+	struct {
+		uint64_t viewport_pointer;
+	} cc;
 
 	char urb[URB_SIZE];
 
@@ -221,6 +262,7 @@ struct value {
 		struct { float x, y, w, z; } vec4;
 		struct { int32_t x, y, w, z; } ivec4;
 		int32_t v[4];
+		float f[4];
 	};
 };
 

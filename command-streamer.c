@@ -31,22 +31,27 @@ illegal_opcode(void)
 static void
 unhandled_command(uint32_t *p)
 {
-	printf("unhandled command\n");
+	ksim_trace(TRACE_CS, "unhandled command\n");
 }
+
+/* MI commands */
 
 static void
 handle_mi_noop(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_NOOP\n");
 }
 
 static void
 handle_mi_batch_buffer_end(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_BATCH_BUFFER_END\n");
 }
 
 static void
 handle_mi_math(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_MATH\n");
 }
 
 #define GEN7_3DPRIM_END_OFFSET          0x2420
@@ -95,6 +100,8 @@ write_register(uint32_t reg, uint32_t value)
 static void
 handle_mi_load_register_imm(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_LOAD_REGISTER_IMM\n");
+
 	write_register(p[1], p[2]);
 }
 
@@ -105,6 +112,8 @@ handle_mi_load_register_mem(uint32_t *p)
 	uint64_t range;
 	uint32_t *value = map_gtt_offset(address, &range);
 
+	ksim_trace(TRACE_CS, "MI_LOAD_REGISTER_MEM\n");
+
 	ksim_assert(range >= sizeof(*value));
 	write_register(p[1], *value);
 }
@@ -112,11 +121,13 @@ handle_mi_load_register_mem(uint32_t *p)
 static void
 handle_mi_atomic(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_ATOMIC\n");
 }
 
 static void
 handle_mi_batch_buffer_start(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "MI_BATCH_BUFFER_START\n");
 }
 
 typedef void (*command_handler_t)(uint32_t *);
@@ -134,8 +145,9 @@ static const command_handler_t mi_commands[] = {
 static void
 handle_state_base_address(uint32_t *p)
 {
-	const uint64_t mask = ~0x1fff;
-	const uint64_t size_mask = ~0x3fff;
+	const uint64_t mask = ~0xfff;
+
+	ksim_trace(TRACE_CS, "STATE_BASE_ADDRESS\n");
 
 	if (field(p[1], 0, 0))
 		gt.general_state_base_address = get_u64(&p[1]) & mask;
@@ -149,123 +161,119 @@ handle_state_base_address(uint32_t *p)
 		gt.instruction_base_address = get_u64(&p[10]) & mask;
 
 	if (field(p[12], 0, 0))
-		gt.general_state_buffer_size = p[12] & size_mask;
+		gt.general_state_buffer_size = p[12] & mask;
 	if (field(p[13], 0, 0))
-		gt.dynamic_state_buffer_size = p[13] & size_mask;
+		gt.dynamic_state_buffer_size = p[13] & mask;
 	if (field(p[14], 0, 0))
-		gt.indirect_object_buffer_size = p[14] & size_mask;
+		gt.indirect_object_buffer_size = p[14] & mask;
 	if (field(p[15], 0, 0))
-		gt.general_instruction_size = p[15] & size_mask;
+		gt.general_instruction_size = p[15] & mask;
 }
 
 static void
 handle_state_sip(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "STATE_SIP\n");
+
 	gt.sip_address = get_u64(&p[1]);
 }
 
 static void
 handle_swtess_base_address(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "SWTESS_BASE_ADDRESS\n");
 }
 
 static void
 handle_gpgpu_csr_base_address(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GPGPU_CSR_BASE_ADDRESS\n");
 }
 
-static const command_handler_t state_commands[] = {
+static const command_handler_t nonpipelined_common_commands[] = {
 	[ 1] = handle_state_base_address,
 	[ 2] = handle_state_sip,
 	[ 3] = handle_swtess_base_address,
 	[ 4] = handle_gpgpu_csr_base_address,
 };
 
-static void
-handle_state_command(uint32_t *p)
+static command_handler_t
+get_common_command(uint32_t *p)
 {
 	uint32_t h = p[0];
 	uint32_t opcode = field(h, 24, 26);
 	uint32_t subopcode = field(h, 16, 23);
 
-	if (opcode == 0) {
+	if (opcode == 0) { /* pipelined common state */
 		/* STATE_PREFETCH subopcode  3 */
+		return NULL;
 	} else if (opcode == 1) {
-		if (state_commands[subopcode])
-			state_commands[subopcode](p);
-		else
-			unhandled_command(p);
+		return nonpipelined_common_commands[subopcode];
 	} else {
-		illegal_opcode();
+		return NULL;
 	}
 }
 
 static void
 handle_pipeline_select(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "PIPELINE_SELECT\n");
+
+	uint32_t pipeline = field(p[0], 0, 1);
+
+	ksim_assert(pipeline == _3D);
 }
 
 static void
 handle_3dstate_vf_statistics(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VF_STATISTICS\n");
+
 	gt.vf.statistics = field(p[0], 0, 0);
 }
 
-static void
-handle_dword_command(uint32_t *p)
+static command_handler_t
+get_dword_command(uint32_t *p)
 {
 	uint32_t h = p[0];
 	uint32_t opcode = field(h, 24, 26);
 	uint32_t subopcode = field(h, 16, 23);
 
+	/* opcode 0 is pipelined, 1 is non-pipelined. */
 	if (opcode == 0 && subopcode == 11) {
-		handle_3dstate_vf_statistics(p);
+		return handle_3dstate_vf_statistics;
 	} else if (opcode == 1 && subopcode == 4) {
-		handle_pipeline_select(p);
+		return handle_pipeline_select;
 	} else {
-		illegal_opcode();
+		return NULL;
 	}
 
 }
 
-static void
-handle_3dprimitive(uint32_t *p)
-{
-	bool indirect = field(p[0], 10, 10);
-
-	gt.prim.predicate = field(p[0], 8, 8);
-	gt.prim.end_offset = field(p[1], 9, 9);
-	gt.prim.access_type = field(p[1], 8, 8);
-	
-	if (!indirect) {
-		gt.prim.vertex_count = p[2];
-		gt.prim.start_vertex = p[3];
-		gt.prim.instance_count = p[4];
-		gt.prim.start_instance = p[5];
-		gt.prim.base_vertex = p[6];
-	}
-
-	dispatch_primitive();
-}
+/* Pipelined 3dstate commands */
 
 static void
 handle_3dstate_clear_params(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CLEAR_PARAMS\n");
 }
 
 static void
 handle_3dstate_depth_buffer(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_DEPTH_BUFFER\n");
 }
 
 static void
 handle_3dstate_stencil_buffer(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_STENCIL_BUFFER\n");
 }
 
 static void
 handle_3dstate_hier_depth_buffer(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_HIER_DEPTH_BUFFER\n");
 }
 
 static void
@@ -274,6 +282,7 @@ handle_3dstate_vertex_buffers(uint32_t *p)
 	uint32_t h = p[0];
 	uint32_t length = field(h, 0, 7) + 2;
 
+	ksim_trace(TRACE_CS, "3DSTATE_VERTEX_BUFFERS\n");
 	ksim_assert((length - 1) % 4 == 0);
 
 	for (uint32_t i = 1; i < length; i += 4) {
@@ -293,6 +302,7 @@ handle_3dstate_vertex_elements(uint32_t *p)
 	uint32_t h = p[0];
 	uint32_t length = field(h, 0, 7) + 2;
 
+	ksim_trace(TRACE_CS, "3DSTATE_VERTEX_ELEMENTS\n");
 	ksim_assert((length - 1) % 2 == 0);
 
 	for (uint32_t i = 1, n = 0; i < length; i += 2, n++) {
@@ -313,6 +323,8 @@ handle_3dstate_vertex_elements(uint32_t *p)
 static void
 handle_3dstate_index_buffer(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_INDEX_BUFFER\n");
+
 	gt.vf.ib.format = field(p[1], 8, 9);
 	gt.vf.ib.address = get_u64(&p[2]);
 	gt.vf.ib.size = p[4];
@@ -321,28 +333,48 @@ handle_3dstate_index_buffer(uint32_t *p)
 static void
 handle_3dstate_vf(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VF\n");
+
 	gt.vf.cut_index = field(p[1], 0, 31);
 }
 
 static void
 handle_3dstate_multisample(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_MULTISAMPLE\n");
 }
 
 static void
 handle_3dstate_cc_state_pointers(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CC_STATE_POINTERS\n");
 }
 
 static void
 handle_3dstate_scissor_state_pointers(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SCISSOR_STATE_POINTERS\n");
 }
 
 static void
 handle_3dstate_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VS\n");
+
 	gt.vs.ksp = get_u64(&p[1]);
+
+	gt.vs.single_dispatch = field(p[3], 31, 31);
+	gt.vs.vector_mask = field(p[3], 30, 30);
+	gt.vs.binding_table_entry_count = field(p[3], 18, 25);
+	gt.vs.priority = field(p[3], 17, 17);
+	gt.vs.alternate_fp = field(p[3], 16, 16);
+	gt.vs.opcode_exception = field(p[3], 13, 13);
+	gt.vs.access_uav = field(p[3], 12, 12);
+	gt.vs.sw_exception = field(p[3], 7, 7);
+
+	gt.vs.scratch_pointer = get_u64(&p[4]) & ~1023;
+	gt.vs.scratch_size = field(p[4], 0, 3);
+
 	gt.vs.urb_start_grf = field(p[6], 20, 24);
 	gt.vs.vue_read_length = field(p[6], 11, 16);
 	gt.vs.vue_read_offset = field(p[6], 4, 9);
@@ -355,21 +387,25 @@ handle_3dstate_vs(uint32_t *p)
 static void
 handle_3dstate_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_GS\n");
 }
 
 static void
 handle_3dstate_clip(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CLIP\n");
 }
 
 static void
 handle_3dstate_sf(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SF\n");
 }
 
 static void
 handle_3dstate_wm(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_WM\n");
 }
 
 static void
@@ -389,140 +425,189 @@ fill_curbe(struct curbe *c, uint32_t *p)
 static void
 handle_3dstate_constant_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CONSTANT_VS\n");
+
 	fill_curbe(&gt.vs.curbe, p);
 }
 
 static void
 handle_3dstate_constant_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CONSTANT_GS\n");
+
 	fill_curbe(&gt.gs.curbe, p);
 }
 
 static void
 handle_3dstate_constant_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CONSTANT_PS\n");
+
 	fill_curbe(&gt.ps.curbe, p);
 }
 
 static void
 handle_3dstate_sample_mask(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLE_MASK\n");
 }
 
 static void
 handle_3dstate_constant_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CONSTANT_HS\n");
+
 	fill_curbe(&gt.hs.curbe, p);
 }
 
 static void
 handle_3dstate_constant_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_CONSTANT_DS\n");
+
 	fill_curbe(&gt.ds.curbe, p);
 }
 
 static void
 handle_3dstate_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_HS\n");
 }
 
 static void
 handle_3dstate_te(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_TE\n");
 }
 
 static void
 handle_3dstate_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_DS\n");
 }
 
 static void
 handle_3dstate_steamout(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_STEAMOUT\n");
 }
 
 static void
 handle_3dstate_sbe(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SBE\n");
 }
 
 static void
 handle_3dstate_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_PS\n");
 }
 
 static void
 handle_3dstate_viewport_state_pointer_sf_clip(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_SF_CLIP\n");
+
+	/* The driver is required to reemit dynamic indirect state
+	 * packets (viewports and such) after emitting
+	 * STATE_BASE_ADDRESS, which sounds like the dynamic state
+	 * base address is used by the command streamer. */
+
+	gt.sf.viewport_pointer = gt.dynamic_state_base_address + p[1];
 }
 
 static void
 handle_3dstate_viewport_state_pointer_cc(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_CC\n");
+
+	gt.cc.viewport_pointer = gt.dynamic_state_base_address + p[1];
 }
 
 static void
 handle_3dstate_blend_state_pointers(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BLEND_STATE_POINTERS\n");
 }
 
 static void
 handle_3dstate_binding_table_pointers_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POINTERS_VS\n");
+
 	gt.vs.binding_table_address = p[1];
 }
 
 static void
 handle_3dstate_binding_table_pointers_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POINTERS_HS\n");
+
 	gt.hs.binding_table_address = p[1];
 }
 
 static void
 handle_3dstate_binding_table_pointers_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POINTERS_DS\n");
+
 	gt.ds.binding_table_address = p[1];
 }
 
 static void
 handle_3dstate_binding_table_pointers_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POINTERS_GS\n");
+
 	gt.gs.binding_table_address = p[1];
 }
 
 static void
 handle_3dstate_binding_table_pointers_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POINTERS_PS\n");
+
 	gt.ps.binding_table_address = p[1];
 }
 
 static void
 handle_3dstate_sampler_state_pointers_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_STATE_POINTERS_VS\n");
+
 	gt.vs.sampler_state_address = p[1];
 }
 
 static void
 handle_3dstate_sampler_state_pointers_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_STATE_POINTERS_HS\n");
+
 	gt.hs.sampler_state_address = p[1];
 }
 
 static void
 handle_3dstate_sampler_state_pointers_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_STATE_POINTERS_DS\n");
+
 	gt.ds.sampler_state_address = p[1];
 }
 
 static void
 handle_3dstate_sampler_state_pointers_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_STATE_POINTERS_GS\n");
+
 	gt.gs.sampler_state_address = p[1];
 }
 
 static void
 handle_3dstate_sampler_state_pointers_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_STATE_POINTERS_PS\n");
+
 	gt.ps.sampler_state_address = p[1];
 }
 
@@ -533,7 +618,7 @@ set_urb_allocation(struct urb *urb, uint32_t *p)
 
 	urb->data = gt.urb + field(p[1], 25, 31) * chunk_size_bytes;
 	urb->size = (field(p[1], 16, 24) + 1) * 64;
-	urb->total = field(p[1], 0, 15) + 1;
+	urb->total = field(p[1], 0, 15);
 
 	urb->free_list = 1;
 	urb->count = 0;
@@ -542,81 +627,104 @@ set_urb_allocation(struct urb *urb, uint32_t *p)
 static void
 handle_3dstate_urb_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_URB_VS\n");
+
 	set_urb_allocation(&gt.vs.urb, p);
+	ksim_trace(TRACE_CS, "vs urb: start=%d, size=%d, total=%d\n",
+		   gt.vs.urb.data - (void *) gt.urb,
+		   gt.vs.urb.size, gt.vs.urb.total);
 }
 
 static void
 handle_3dstate_urb_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_URB_HS\n");
+
 	set_urb_allocation(&gt.hs.urb, p);
 }
 
 static void
 handle_3dstate_urb_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_URB_DS\n");
+
 	set_urb_allocation(&gt.ds.urb, p);
 }
 
 static void
 handle_3dstate_urb_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_URB_GS\n");
+
 	set_urb_allocation(&gt.gs.urb, p);
 }
 
 static void
 handle_gather_constant_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GATHER_CONSTANT_VS\n");
 }
 
 static void
 handle_gather_constant_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GATHER_CONSTANT_GS\n");
 }
 
 static void
 handle_gather_constant_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GATHER_CONSTANT_HS\n");
 }
 
 static void
 handle_gather_constant_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GATHER_CONSTANT_DS\n");
 }
 
 static void
 handle_gather_constant_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "GATHER_CONSTANT_PS\n");
 }
 
 static void
 handle_3dstate_binding_table_edit_vs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_EDIT_VS\n");
 }
 
 static void
 handle_3dstate_binding_table_edit_gs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_EDIT_GS\n");
 }
 
 static void
 handle_3dstate_binding_table_edit_hs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_EDIT_HS\n");
 }
 
 static void
 handle_3dstate_binding_table_edit_ds(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_EDIT_DS\n");
 }
 
 static void
 handle_3dstate_binding_table_edit_ps(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_EDIT_PS\n");
 }
 
 static void
 handle_3dstate_vf_instancing(uint32_t *p)
 {
 	uint32_t ve = field(p[1], 0, 5);
+
+	ksim_trace(TRACE_CS, "3DSTATE_VF_INSTANCING\n");
 
 	gt.vf.ve[ve].instancing = field(p[1], 8, 8);
 	gt.vf.ve[ve].step_rate = field(p[1], 0, 5);
@@ -625,6 +733,8 @@ handle_3dstate_vf_instancing(uint32_t *p)
 static void
 handle_3dstate_vf_sgvs(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VF_SGVS\n");
+
 	gt.vf.iid_enable = field(p[1], 31, 31);
 	gt.vf.iid_component = field(p[1], 29, 30);
 	gt.vf.iid_element = field(p[1], 16, 21);
@@ -637,42 +747,51 @@ handle_3dstate_vf_sgvs(uint32_t *p)
 static void
 handle_3dstate_vf_topology(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_VF_TOPOLOGY\n");
+
 	gt.vf.topology = field(p[1], 0, 5);
 }
 
 static void
 handle_3dstate_wm_chromakey(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_WM_CHROMAKEY\n");
 }
 
 static void
 handle_3dstate_ps_blend(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_PS_BLEND\n");
 }
 
 static void
 handle_3dstate_wm_depth_stencil(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_WM_DEPTH_STENCIL\n");
 }
 
 static void
 handle_3dstate_ps_extra(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_PS_EXTRA\n");
 }
 
 static void
 handle_3dstate_raster(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_RASTER\n");
 }
 
 static void
 handle_3dstate_sbe_swiz(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_SBE_SWIZ\n");
 }
 
 static void
 handle_3dstate_wm_hz_op(uint32_t *p)
 {
+	ksim_trace(TRACE_CS, "3DSTATE_WM_HZ_OP\n");
 }
 
 static const command_handler_t pipelined_3dstate_commands[] = {
@@ -752,10 +871,7 @@ static const command_handler_t pipelined_3dstate_commands[] = {
 	[82] = handle_3dstate_wm_hz_op,
 };
 
-static void
-handle_pipe_control(uint32_t *p)
-{
-}
+/* Non-pipelined 3dstate commands */
 
 static void
 fill_curbe_alloc(struct curbe *c, uint32_t *p)
@@ -764,107 +880,230 @@ fill_curbe_alloc(struct curbe *c, uint32_t *p)
 }
 
 static void
-handle_3dstate_nonpipelined_command(uint32_t *p)
+handle_3dstate_drawing_rectangle(uint32_t *p)
 {
-	uint32_t h = p[0];
-	uint32_t opcode = field(h, 24, 26);
-	uint32_t subopcode = field(h, 16, 23);
-
-	switch (subopcode) {
-	case 0: /* 3DSTATE_DRAWING_RECTANGLE subopcode 0 */
-		break;
-	case 2: /* 3DSTATE_SAMPLER_PALETTE_LOAD0 */
-		break;
-	case 4: /* 3DSTATE_CHROMA_KEY */
-		break;
-	case 6: /* 3DSTATE_POLY_STIPPLE_OFFSET */
-		break;
-	case 7: /* 3DSTATE_POLY_STIPPLE_PATTERN */
-		break;
-	case 8: /* 3DSTATE_LINE_STIPPLE */
-		break;
-	case 10: /* 3DSTATE_AA_LINE_PARAMETERS */
-		break;
-	case 12: /* 3DSTATE_SAMPLER_PALETTE_LOAD1 */
-		break;
-	case 17: /* 3DSTATE_MONOFILTER_SIZE */
-		break;
-	case 18: /* 3DSTATE_PUSH_CONSTANT_ALLOC_VS */
-		fill_curbe_alloc(&gt.vs.curbe, p);
-		break;
-	case 19: /* 3DSTATE_PUSH_CONSTANT_ALLOC_HS */
-		fill_curbe_alloc(&gt.hs.curbe, p);
-		break;
-	case 20: /* 3DSTATE_PUSH_CONSTANT_ALLOC_DS */
-		fill_curbe_alloc(&gt.ds.curbe, p);
-		break;
-	case 21: /* 3DSTATE_PUSH_CONSTANT_ALLOC_GS */
-		fill_curbe_alloc(&gt.gs.curbe, p);
-		break;
-	case 22: /* 3DSTATE_PUSH_CONSTANT_ALLOC_PS */
-		fill_curbe_alloc(&gt.ps.curbe, p);
-		break;
-	case 23: /* 3DSTATE_DECL_LIST, */
-		break;
-	case 24: /* 3DSTATE_SO_BUFFER, */
-		break;
-	case 25: /* 3DSTATE_BINDING_TABLE_POOL_ALLOC, */
-		break;
-	case 26: /* 3DSTATE_GATHER_POOL_ALLOC, */
-		break;
-	case 28: /* 3DSTATE_SAMPLE_PATTERN, */
-		break;
-	}
+	ksim_trace(TRACE_CS, "3DSTATE_DRAWING_RECTANGLE\n");
 }
 
 static void
-handle_3dstate_command(uint32_t *p)
+handle_3dstate_sampler_palette_load0(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_PALETTE_LOAD0\n");
+}
+
+static void
+handle_3dstate_chroma_key(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_CHROMA_KEY\n");
+}
+
+static void
+handle_3dstate_poly_stipple_offset(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_POLY_STIPPLE_OFFSET\n");
+}
+
+static void
+handle_3dstate_poly_stipple_pattern(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_POLY_STIPPLE_PATTERN\n");
+}
+
+static void
+handle_3dstate_line_stipple(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_LINE_STIPPLE\n");
+}
+
+static void
+handle_3dstate_aa_line_parameters(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_AA_LINE_PARAMETERS\n");
+}
+
+static void
+handle_3dstate_sampler_palette_load1(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLER_PALETTE_LOAD1\n");
+}
+
+static void
+handle_3dstate_monofilter_size(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_MONOFILTER_SIZE\n");
+}
+
+static void
+handle_3dstate_push_constant_alloc_vs(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_PUSH_CONSTANT_ALLOC_VS\n");
+
+	fill_curbe_alloc(&gt.vs.curbe, p);
+}
+
+static void
+handle_3dstate_push_constant_alloc_hs(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_PUSH_CONSTANT_ALLOC_HS\n");
+
+	fill_curbe_alloc(&gt.hs.curbe, p);
+}
+
+static void
+handle_3dstate_push_constant_alloc_ds(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_PUSH_CONSTANT_ALLOC_DS\n");
+
+	fill_curbe_alloc(&gt.ds.curbe, p);
+}
+
+static void
+handle_3dstate_push_constant_alloc_gs(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_PUSH_CONSTANT_ALLOC_GS\n");
+
+	fill_curbe_alloc(&gt.gs.curbe, p);
+}
+
+static void
+handle_3dstate_push_constant_alloc_ps(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_PUSH_CONSTANT_ALLOC_PS\n");
+
+	fill_curbe_alloc(&gt.ps.curbe, p);
+}
+
+static void
+handle_3dstate_so_decl_list(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_SO_DECL_LIST\n");
+}
+
+static void
+handle_3dstate_so_buffer(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_SO_BUFFER\n");
+}
+
+static void
+handle_3dstate_binding_table_pool_alloc(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_BINDING_TABLE_POOL_ALLOC\n");
+}
+
+static void
+handle_3dstate_gather_pool_alloc(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_GATHER_POOL_ALLOC\n");
+}
+
+static void
+handle_3dstate_sample_pattern(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DSTATE_SAMPLE_PATTERN\n");
+}
+
+static const command_handler_t nonpipelined_3dstate_commands[] = {
+	[ 0] = handle_3dstate_drawing_rectangle,
+	[ 2] = handle_3dstate_sampler_palette_load0,
+	[ 4] = handle_3dstate_chroma_key,
+	[ 6] = handle_3dstate_poly_stipple_offset,
+	[ 7] = handle_3dstate_poly_stipple_pattern,
+	[ 8] = handle_3dstate_line_stipple,
+	[10] = handle_3dstate_aa_line_parameters,
+	[12] = handle_3dstate_sampler_palette_load1,
+	[17] = handle_3dstate_monofilter_size,
+	[18] = handle_3dstate_push_constant_alloc_vs,
+	[19] = handle_3dstate_push_constant_alloc_hs,
+	[20] = handle_3dstate_push_constant_alloc_ds,
+	[21] = handle_3dstate_push_constant_alloc_gs,
+	[22] = handle_3dstate_push_constant_alloc_ps,
+	[23] = handle_3dstate_so_decl_list,
+	[24] = handle_3dstate_so_buffer,
+	[25] = handle_3dstate_binding_table_pool_alloc,
+	[26] = handle_3dstate_gather_pool_alloc,
+	[28] = handle_3dstate_sample_pattern,
+};
+
+static void
+handle_pipe_control(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "PIPE_CONTROL\n");
+}
+
+static void
+handle_3dprimitive(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "3DPRIMITIVE\n");
+
+	bool indirect = field(p[0], 10, 10);
+
+	gt.prim.predicate = field(p[0], 8, 8);
+	gt.prim.end_offset = field(p[1], 9, 9);
+	gt.prim.access_type = field(p[1], 8, 8);
+
+	if (!indirect) {
+		gt.prim.vertex_count = p[2];
+		gt.prim.start_vertex = p[3];
+		gt.prim.instance_count = p[4];
+		gt.prim.start_instance = p[5];
+		gt.prim.base_vertex = p[6];
+	}
+
+	dispatch_primitive();
+}
+
+static command_handler_t
+get_3dstate_command(uint32_t *p)
 {
 	uint32_t h = p[0];
 	uint32_t opcode = field(h, 24, 26);
 	uint32_t subopcode = field(h, 16, 23);
+	command_handler_t handler;
 
-	if (opcode == 0) {
-		if (pipelined_3dstate_commands[subopcode])
-			pipelined_3dstate_commands[subopcode](p);
-		else
-			unhandled_command(p);
-
-	} else if (opcode == 1) {
-		handle_3dstate_nonpipelined_command(p);
-	} else if (opcode == 2) {
+	switch (opcode) {
+	case 0:
+		return pipelined_3dstate_commands[subopcode];
+	case 1:
+		return nonpipelined_3dstate_commands[subopcode];
+	case 2:
 		if (subopcode == 0)
-			handle_pipe_control(p);
+			return handle_pipe_control;
 		else
-			unhandled_command(p);
-	} else if (opcode == 3) {
+			return NULL;
+	case 3:
 		if (subopcode == 0)
-			handle_3dprimitive(p);
+			return handle_3dprimitive;
 		else
-			illegal_opcode();
+			return NULL;
+	default:
+		return NULL;
 	}
-
 }
 
 void
-start_batch_buffer(uint32_t *p)
+start_batch_buffer(uint64_t address)
 {
 	bool done = false;
+	uint64_t range;
+	uint32_t *base, *p;
+	command_handler_t handler;
 
 	gt.curbe_dynamic_state_base = true;
+	base = map_gtt_offset(address, &range);
 
+	p = base;
 	while (!done) {
 		uint32_t h = p[0];
 		uint32_t type = field(h, 29, 31);
 		uint32_t length;
 
+		ksim_assert(p + 4 < base + range);
+
 		switch (type) {
 		case 0: /* MI */ {
 			uint32_t opcode = field(h, 23, 28);
-			if (mi_commands[opcode])
-				mi_commands[opcode](p);
-			else
-				unhandled_command(p);
+			handler = mi_commands[opcode];
 			if (opcode == 10) /* bb end */
 				done = true;
 			if (opcode < 16)
@@ -883,11 +1122,11 @@ start_batch_buffer(uint32_t *p)
 			uint32_t subtype = field(h, 27, 28);
 			switch (subtype) {
 			case 0:
-				handle_state_command(p);
+				handler = get_common_command(p);
 				length = field(h, 0, 7) + 2;
 				break;
 			case 1:
-				handle_dword_command(p);
+				handler = get_dword_command(p);
 				length = 1;
 				break;
 			case 2:
@@ -895,7 +1134,7 @@ start_batch_buffer(uint32_t *p)
 				length = 2;
 				break;
 			case 3:
-				handle_3dstate_command(p);
+				handler = get_3dstate_command(p);
 				length = field(h, 0, 7) + 2;
 				break;
 			}
@@ -903,6 +1142,11 @@ start_batch_buffer(uint32_t *p)
 		}
 		}
 
+		ksim_assert(p + length < base + range);
+		if (handler)
+			handler(p);
+		else
+			unhandled_command(p);
 		p += length;
 	}
 }

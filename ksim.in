@@ -11,9 +11,14 @@ Usage: ksim [OPTION]... [--] COMMAND ARGUMENTS
 
 Run COMMAND with ARGUMENTS and under the ksim simulator.
 
-  -v                 Enable verbose output
-
-      --help         Display this help message and exit
+  -o, --output=FILE    Output ksim messages to FILE.
+  -v                   Enable verbose output.  Same as --trace=debug.
+      --spam           Enable spammy, useless messages.  Same as --trace=spam.
+      --trace[=TAGS]   Enable tracing for the given message tags. Valid tags
+                         are 'debug', 'spam', 'warn', 'gem', 'cs', 'vf'.
+                         Default value is warn.  With no argument, turn on
+                         all tags.
+      --help           Display this help message and exit.
 
 EOF
 
@@ -25,9 +30,41 @@ device=0
 
 while true; do
       case "$1" in
+	  -q)
+	      args="${args}quiet;"
+	      shift
+	      ;;
+	  -o)
+	      args="${args}file=$2;"
+	      shift 2
+	      ;;
+	  -o*)
+	      args="${args}file=${1##-o};"
+	      shift
+	      ;;
+	  --output=*)
+	      args="${args}file=${1##--output=};"
+	      shift
+	      ;;
 	  -v)
-	      args="verbose;"
+	      args="${args}trace=debug;"
 	      shift 1
+	      ;;
+	  --spam)
+	      args="${args}trace=spam;"
+	      shift 1
+	      ;;
+	  -t)
+	      args="${args}trace=$2;"
+	      shift 2
+	      ;;
+	  -t*)
+	      args="${args}trace=${1##-t};"
+	      shift
+	      ;;
+	  --trace=*)
+	      args="${args}trace=${1##--trace=};"
+	      shift
 	      ;;
 	  --help)
 	      show_help
