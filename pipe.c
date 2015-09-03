@@ -215,16 +215,18 @@ dispatch_vs(struct value **vue, uint32_t mask)
 
 	/* VUE handles. FIXME: VUE handles are supposed to be 16 bits. */
 	for_each_bit(c, mask)
-		t.grf[g++].f[c] = (char *) vue[c] - gt.urb;
+		t.grf[g].f[c] = (char *) vue[c] - gt.urb;
+	g++;
 
 	g = load_constants(&t, &gt.vs.curbe, gt.vs.urb_start_grf);
 
 	/* SIMD8 VS payload */
-	for (uint32_t i = 0; i < gt.vs.vue_read_length; i++) {
+	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2; i++) {
 		for_each_bit(c, mask) {
 			for (uint32_t j = 0; j < 4; j++)
-				t.grf[g++].f[c] = vue[c][gt.vs.vue_read_offset + i].v[j];
+				t.grf[g + j].ud[c] = vue[c][gt.vs.vue_read_offset * 2 + i].v[j];
 		}
+		g += 4;
 	}
 
 	if (gt.vs.statistics)
