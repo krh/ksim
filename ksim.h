@@ -27,6 +27,8 @@
 #include <stdarg.h>
 #include <signal.h>
 
+#include "libdisasm/gen_disasm.h"
+
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 
 static inline void
@@ -266,18 +268,6 @@ void *map_gtt_offset(uint64_t offset, uint64_t *range);
    for (uint32_t __dword = (dword);                     \
         (b) = __builtin_ffs(__dword) - 1, __dword;      \
         __dword &= ~(1 << (b)))
-
-struct reg {
-	union {
-		float f[8];
-		uint32_t u[8];
-		int32_t d[8];
-	};
-};
-
-struct thread {
-	struct reg grf[128];
-};
 
 void run_thread(struct thread *t, uint64_t ksp);
 

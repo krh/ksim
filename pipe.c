@@ -201,7 +201,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	
 	/* Fixed function header */
 	t.grf[g++] = (struct reg) {
-		.u = {
+		.ud = {
 			0, /* MBZ */
 			0, /* MBZ */
 			0, /* MBZ */

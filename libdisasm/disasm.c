@@ -84,6 +84,44 @@ gen_disasm_disassemble(struct gen_disasm *disasm,
    }
 }
 
+int
+brw_execute_inst(const struct brw_device_info *devinfo,
+		 brw_inst *inst, bool is_compacted,
+                 struct thread *t, FILE *out);
+
+void
+execute_thread(struct gen_disasm *disasm, struct thread *t, void *assembly, FILE *out)
+{
+   struct brw_device_info *devinfo = &disasm->devinfo;
+   int offset = 0;
+
+   while (1) {
+      brw_inst *insn = assembly + offset;
+      brw_inst uncompacted;
+      bool compacted = brw_inst_cmpt_control(devinfo, insn);
+
+      if (compacted) {
+         brw_compact_inst *compacted = (void *)insn;
+	 brw_uncompact_instruction(devinfo, &uncompacted, compacted);
+	 insn = &uncompacted;
+	 offset += 8;
+      } else {
+	 offset += 16;
+      }
+
+      brw_execute_inst(devinfo, insn, compacted, t, out);
+
+      /* Simplistic, but efficient way to terminate disasm */
+      if (brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SEND ||
+	  brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SENDC)
+	      if (brw_inst_eot(devinfo, insn))
+		      break;
+      if (brw_inst_opcode(devinfo, insn) == 0)
+	      break;
+   }
+}
+
+
 struct gen_disasm *
 gen_disasm_create(int gen)
 {
