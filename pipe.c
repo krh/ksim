@@ -238,7 +238,7 @@ validate_vf_state(void)
 	uint32_t vb, vb_used;
 	
 	/* Make sure vue is big enough to hold all vertex elements */
-	ksim_assert(gt.vf.ve_count * 16 < gt.vs.urb.size);
+	ksim_assert(gt.vf.ve_count * 16 <= gt.vs.urb.size);
 
 	vb_used = 0;
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
