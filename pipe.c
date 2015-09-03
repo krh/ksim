@@ -248,6 +248,10 @@ validate_vf_state(void)
 
 	/* Check all VEs reference valid VBs. */
 	ksim_assert(vb_used & gt.vf.vb_valid == vb_used);
+
+	/* Check that SGVs are written within bounds */
+	ksim_assert(gt.vf.iid_element * 16 < gt.vs.urb.size);
+	ksim_assert(gt.vf.vid_element * 16 < gt.vs.urb.size);
 }
 
 static void
