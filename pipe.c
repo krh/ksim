@@ -150,7 +150,11 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 	if (trace_mask & TRACE_VF) {
 		ksim_trace(TRACE_VF, "Loaded vue for vid=%d, iid=%d:\n",
 			   vertex_id, instance_id);
-		const uint32_t count = gt.vs.urb.size / 16;
+		uint32_t count = gt.vf.ve_count;
+		if (gt.vf.iid_element + 1 > count)
+			count = gt.vf.iid_element + 1;
+		if (gt.vf.vid_element + 1 > count)
+			count = gt.vf.vid_element + 1;
 		for (uint32_t i = 0; i < count; i++)
 			ksim_trace(TRACE_VF, "    %8.2f  %8.2f  %8.2f  %8.2f\n",
 				   vue[i].f[0], vue[i].f[1], vue[i].f[2], vue[i].f[3]);
