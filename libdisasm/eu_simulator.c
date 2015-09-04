@@ -473,22 +473,41 @@ brw_execute_inst(const struct brw_device_info *devinfo,
 
    struct reg dst, src[3];
 
+   int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
 
    switch ((unsigned) opcode) {
    case BRW_OPCODE_MOV:
       load_src0(devinfo, t, &src[0], inst);
       store_dst(devinfo, t, &src[0], inst);
-      printf("mov --\n");
       break;
    case BRW_OPCODE_SEL:
       break;
    case BRW_OPCODE_NOT:
+      load_src0(devinfo, t, &src[0], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.ud[i] = ~src[0].ud[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_AND:
+      load_src0(devinfo, t, &src[0], inst);
+      load_src1(devinfo, t, &src[1], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.ud[i] = src[0].ud[i] & src[1].ud[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_OR:
+      load_src0(devinfo, t, &src[0], inst);
+      load_src1(devinfo, t, &src[1], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.ud[i] = src[0].ud[i] | src[1].ud[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_XOR:
+      load_src0(devinfo, t, &src[0], inst);
+      load_src1(devinfo, t, &src[1], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.ud[i] = src[0].ud[i] & src[1].ud[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_SHR:
       break;
@@ -551,8 +570,18 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_MATH:
       break;
    case BRW_OPCODE_ADD:
+      load_src0(devinfo, t, &src[0], inst);
+      load_src1(devinfo, t, &src[1], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.f[i] = src[0].f[i] * src[1].f[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_MUL:
+      load_src0(devinfo, t, &src[0], inst);
+      load_src1(devinfo, t, &src[1], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.f[i] = src[0].f[i] * src[1].f[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_AVG:
       break;
