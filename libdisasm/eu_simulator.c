@@ -431,6 +431,16 @@ static int
 store_dst(const struct brw_device_info *devinfo,
           struct thread *t, struct reg *r, brw_inst *inst)
 {
+   if (brw_inst_saturate(devinfo, inst) &&
+       brw_inst_dst_reg_type(devinfo, inst) == BRW_HW_REG_TYPE_F) {
+      for (int i = 0; i < 8; i++) {
+         if (r->f[i] > 1.0f)
+            r->f[i] = 1.0f;
+         else if (r->f[i] < 0.0f)
+            r->f[i] = 0.0f;
+      }
+   }
+
    if (brw_inst_access_mode(devinfo, inst) == BRW_ALIGN_1) {
       if (brw_inst_dst_address_mode(devinfo, inst) == BRW_ADDRESS_DIRECT) {
 
