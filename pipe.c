@@ -212,24 +212,33 @@ dispatch_vs(struct value **vue, uint32_t mask)
 		return;
 
 	assert(gt.vs.simd8);
-	
+
+	/* Not sure what we should make this. */
+	uint32_t fftid = 0;
+
 	/* Fixed function header */
-	t.grf[g++] = (struct reg) {
+	t.grf[0] = (struct reg) {
 		.ud = {
-			0, /* MBZ */
-			0, /* MBZ */
-			0, /* MBZ */
-			0, /* per-thread scratch space, sampler ptr */
-			0, /* binding table pointer */
-			0, /* fftid, scratch offset */
-			0, /* thread id */
-			0, /* snapshot flag */
+			/* R0.0 - R0.2: MBZ */
+			0,
+			0,
+			0,
+			/* R0.3: per-thread scratch space, sampler ptr */
+			gt.vs.sampler_state_address |
+			gt.vs.scratch_size,
+			/* R0.4: binding table pointer */
+			gt.vs.binding_table_address,
+			/* R0.5: fftid, scratch offset */
+			gt.vs.scratch_pointer | fftid,
+			/* R0.6: thread id */
+			gt.vs.tid++ & 0xffffff,
+			/* R0.7: Reserved */
+			0,
 		}
 	};
 
 	for_each_bit(c, mask)
-		t.grf[g].ud[c] = urb_entry_to_handle(vue[c]);
-	g++;
+		t.grf[1].ud[c] = urb_entry_to_handle(vue[c]);
 
 	g = load_constants(&t, &gt.vs.curbe, gt.vs.urb_start_grf);
 

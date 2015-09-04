@@ -162,6 +162,7 @@ struct gt {
 	} vf;
 
 	struct {
+		uint32_t tid;
 		bool single_dispatch;
 		bool vector_mask;
 		uint32_t binding_table_entry_count;
