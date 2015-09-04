@@ -156,7 +156,7 @@ static int
 load_reg(const struct brw_device_info *devinfo, struct thread *t,
          struct reg *r, brw_inst *inst,
          unsigned type, unsigned _reg_file, unsigned _reg_nr,
-         unsigned sub_reg_num, unsigned _vert_stride, unsigned _width, unsigned _horiz_stride)
+         unsigned sub_reg_num, unsigned vstride, unsigned width, unsigned hstride)
 {
    /* Clear the Compr4 instruction compression bit. */
    if (_reg_file == BRW_MESSAGE_REGISTER_FILE)
@@ -196,22 +196,18 @@ load_reg(const struct brw_device_info *devinfo, struct thread *t,
    case BRW_GENERAL_REGISTER_FILE: {
       int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
       int size = type_size(type);
-      int height = exec_size / (1 << _width);
-      int row = _reg_nr * 32 + sub_reg_num * size;
-      int address[16];
+      int height = exec_size / width;
+      int row = _reg_nr * 32 + sub_reg_num;
       int channel = 0;
       int offset;
       for (int i = 0; i < height; i++) {
          offset = row;
-         row += ((1 << _vert_stride) >> 1) * size;
-         for (int j = 0; j < (1 << _width); j++) {
-            address[channel++] = offset;
-            offset += ((1 << _horiz_stride) >> 1) * size;
+         row += vstride * size;
+         for (int j = 0; j < width; j++) {
+            load_type(t, r, channel++, type, offset);
+            offset += hstride * size;
          }
       }
-         
-      for (int i = 0; i < exec_size; i++)
-         load_type(t, r, i, type, address[i]);
       break;
    }
    case BRW_MESSAGE_REGISTER_FILE:
@@ -269,8 +265,12 @@ load_src_da1(const struct brw_device_info *devinfo,
              unsigned reg_num, unsigned sub_reg_num, unsigned __abs,
              unsigned _negate)
 {
+   uint32_t vstride = (1 << _vert_stride) >> 1;
+   uint32_t width = 1 << _width;
+   uint32_t hstride = (1 << _horiz_stride) >> 1;
+
    load_reg(devinfo, t, r, inst, type,
-            _reg_file, reg_num, sub_reg_num, _vert_stride, _width, _horiz_stride);
+            _reg_file, reg_num, sub_reg_num, vstride, width, hstride);
 
    apply_mods(devinfo, r, type, brw_inst_opcode(devinfo, inst), _negate, __abs);
 
@@ -363,6 +363,160 @@ load_src0(const struct brw_device_info *devinfo, struct thread *t, struct reg *r
          return 1;
       }
    }
+}
+
+static int
+load_src1(const struct brw_device_info *devinfo, struct thread *t, struct reg *reg, brw_inst *inst)
+{
+   if (brw_inst_src1_reg_file(devinfo, inst) == BRW_IMMEDIATE_VALUE) {
+      return load_imm(devinfo, reg, brw_inst_src1_reg_type(devinfo, inst), inst);
+   } else if (brw_inst_access_mode(devinfo, inst) == BRW_ALIGN_1) {
+      if (brw_inst_src1_address_mode(devinfo, inst) == BRW_ADDRESS_DIRECT) {
+         return load_src_da1(devinfo, t, reg, inst,
+                             brw_inst_src1_reg_type(devinfo, inst),
+                             brw_inst_src1_reg_file(devinfo, inst),
+                             brw_inst_src1_vstride(devinfo, inst),
+                             brw_inst_src1_width(devinfo, inst),
+                             brw_inst_src1_hstride(devinfo, inst),
+                             brw_inst_src1_da_reg_nr(devinfo, inst),
+                             brw_inst_src1_da1_subreg_nr(devinfo, inst),
+                             brw_inst_src1_abs(devinfo, inst),
+                             brw_inst_src1_negate(devinfo, inst));
+      } else {
+         return load_src_ia1(devinfo, reg,
+                             brw_inst_opcode(devinfo, inst),
+                             brw_inst_src1_reg_type(devinfo, inst),
+                             brw_inst_src1_reg_file(devinfo, inst),
+                             brw_inst_src1_ia1_addr_imm(devinfo, inst),
+                             brw_inst_src1_ia_subreg_nr(devinfo, inst),
+                             brw_inst_src1_negate(devinfo, inst),
+                             brw_inst_src1_abs(devinfo, inst),
+                             brw_inst_src1_address_mode(devinfo, inst),
+                             brw_inst_src1_hstride(devinfo, inst),
+                             brw_inst_src1_width(devinfo, inst),
+                             brw_inst_src1_vstride(devinfo, inst));
+      }
+   } else {
+      if (brw_inst_src1_address_mode(devinfo, inst) == BRW_ADDRESS_DIRECT) {
+         return load_src_da16(devinfo, reg,
+                              brw_inst_opcode(devinfo, inst),
+                              brw_inst_src1_reg_type(devinfo, inst),
+                              brw_inst_src1_reg_file(devinfo, inst),
+                              brw_inst_src1_vstride(devinfo, inst),
+                              brw_inst_src1_da_reg_nr(devinfo, inst),
+                              brw_inst_src1_da16_subreg_nr(devinfo, inst),
+                              brw_inst_src1_abs(devinfo, inst),
+                              brw_inst_src1_negate(devinfo, inst),
+                              brw_inst_src1_da16_swiz_x(devinfo, inst),
+                              brw_inst_src1_da16_swiz_y(devinfo, inst),
+                              brw_inst_src1_da16_swiz_z(devinfo, inst),
+                              brw_inst_src1_da16_swiz_w(devinfo, inst));
+      } else {
+         return 1;
+      }
+   }
+}
+
+static uint32_t
+_3src_type_to_type(uint32_t _3src_type)
+{
+   switch (_3src_type) {
+   case BRW_3SRC_TYPE_F: return BRW_HW_REG_TYPE_F;
+   case BRW_3SRC_TYPE_D: return BRW_HW_REG_TYPE_D;
+   case BRW_3SRC_TYPE_UD: return BRW_HW_REG_TYPE_UD;
+   case BRW_3SRC_TYPE_DF: return GEN7_HW_REG_NON_IMM_TYPE_DF;
+   default: assert(0);
+   }
+}
+
+static void
+load_src0_3src(const struct brw_device_info *devinfo,
+               struct thread *t, struct reg *r, brw_inst *inst)
+{
+   uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
+   uint32_t vstride, width, hstride;
+
+   if (brw_inst_3src_src0_rep_ctrl(devinfo, inst)) {
+      vstride = 0;
+      width = 1;
+      hstride = 0;
+   } else {
+      vstride = 4;
+      width = 4;
+      hstride = 1;
+   }
+
+   load_reg(devinfo, t, r, inst, type,
+            BRW_GENERAL_REGISTER_FILE,
+            brw_inst_3src_src0_reg_nr(devinfo, inst),
+            brw_inst_3src_src0_subreg_nr(devinfo, inst) * 4,
+            vstride, width, hstride);
+
+   apply_mods(devinfo, r, type, brw_inst_opcode(devinfo, inst),
+              brw_inst_3src_src0_negate(devinfo, inst),
+              brw_inst_3src_src0_abs(devinfo, inst));
+
+   /* brw_inst_3src_src0_swizzle(devinfo, inst)); */
+}
+
+static void
+load_src1_3src(const struct brw_device_info *devinfo,
+               struct thread *t, struct reg *r, brw_inst *inst)
+{
+   uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
+   uint32_t vstride, width, hstride;
+
+   if (brw_inst_3src_src1_rep_ctrl(devinfo, inst)) {
+      vstride = 0;
+      width = 1;
+      hstride = 0;
+   } else {
+      vstride = 4;
+      width = 4;
+      hstride = 1;
+   }
+
+   load_reg(devinfo, t, r, inst, type,
+            BRW_GENERAL_REGISTER_FILE,
+            brw_inst_3src_src1_reg_nr(devinfo, inst),
+            brw_inst_3src_src1_subreg_nr(devinfo, inst) * 4,
+            vstride, width, hstride);
+
+   apply_mods(devinfo, r, type, brw_inst_opcode(devinfo, inst),
+              brw_inst_3src_src1_negate(devinfo, inst),
+              brw_inst_3src_src1_abs(devinfo, inst));
+
+   /* brw_inst_3src_src1_swizzle(devinfo, inst)); */
+}
+
+static void
+load_src2_3src(const struct brw_device_info *devinfo,
+               struct thread *t, struct reg *r, brw_inst *inst)
+{
+   uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
+   uint32_t vstride, width, hstride;
+
+   if (brw_inst_3src_src2_rep_ctrl(devinfo, inst)) {
+      vstride = 0;
+      width = 1;
+      hstride = 0;
+   } else {
+      vstride = 4;
+      width = 4;
+      hstride = 1;
+   }
+
+   load_reg(devinfo, t, r, inst, type,
+            BRW_GENERAL_REGISTER_FILE,
+            brw_inst_3src_src2_reg_nr(devinfo, inst),
+            brw_inst_3src_src2_subreg_nr(devinfo, inst) * 4,
+            vstride, width, hstride);
+
+   apply_mods(devinfo, r, type, brw_inst_opcode(devinfo, inst),
+              brw_inst_3src_src2_negate(devinfo, inst),
+              brw_inst_3src_src2_abs(devinfo, inst));
+
+   /* brw_inst_3src_src2_swizzle(devinfo, inst)); */
 }
 
 static int
@@ -628,6 +782,12 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_PLN:
       break;
    case BRW_OPCODE_MAD:
+      load_src0_3src(devinfo, t, &src[0], inst);
+      load_src1_3src(devinfo, t, &src[1], inst);
+      load_src2_3src(devinfo, t, &src[2], inst);
+      for (int i = 0; i < exec_size; i++)
+         dst.f[i] = src[0].f[i] + src[1].f[i] * src[2].f[i];
+      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_LRP:
       break;
