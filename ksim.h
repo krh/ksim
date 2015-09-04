@@ -49,7 +49,7 @@ enum {
 	TRACE_GEM = 1 << 3,		/* gem layer trace messages */
 	TRACE_CS = 1 << 4,		/* command streamer trace */
 	TRACE_VF = 1 << 5,		/* vertex fetch trace */
-	TRACE_KERNELS = 1 << 6,		/* disassemble kernels */
+	TRACE_VS = 1 << 6,		/* trace vs execution */
 };
 
 extern uint32_t trace_mask;
@@ -270,7 +270,7 @@ void *map_gtt_offset(uint64_t offset, uint64_t *range);
         (b) = __builtin_ffs(__dword) - 1, __dword;      \
         __dword &= ~(1 << (b)))
 
-void run_thread(struct thread *t, uint64_t ksp);
+void run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag);
 
 struct value {
 	union {

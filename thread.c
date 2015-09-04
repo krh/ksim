@@ -24,7 +24,7 @@
 #include "ksim.h"
 
 void
-run_thread(struct thread *t, uint64_t ksp)
+run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag)
 {
 	static struct gen_disasm *disasm;
 	const int gen = 8;
@@ -37,7 +37,7 @@ run_thread(struct thread *t, uint64_t ksp)
 
 	kernel = map_gtt_offset(ksp + gt.instruction_base_address, &range);
 
-	if (trace_mask & TRACE_KERNELS)
+	if (trace_mask & trace_flag)
 		out = trace_file;
 
 	execute_thread(disasm, t, kernel, out);

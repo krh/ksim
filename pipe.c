@@ -254,7 +254,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
 
-	run_thread(&t, gt.vs.ksp);
+	run_thread(&t, gt.vs.ksp, TRACE_VS);
 
 	for_each_bit(c, mask)
 		free_urb_entry(&gt.vs.urb, vue[c]);

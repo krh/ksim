@@ -467,14 +467,12 @@ store_dst(const struct brw_device_info *devinfo,
 int
 brw_execute_inst(const struct brw_device_info *devinfo,
 		 brw_inst *inst, bool is_compacted,
-                 struct thread *t, FILE *out)
+                 struct thread *t)
 {
    const enum opcode opcode = brw_inst_opcode(devinfo, inst);
 
    struct reg dst, src[3];
 
-   if (out)
-      brw_disassemble_inst(out, devinfo, inst, is_compacted);
 
    switch ((unsigned) opcode) {
    case BRW_OPCODE_MOV:
