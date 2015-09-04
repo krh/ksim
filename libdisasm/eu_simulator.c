@@ -236,6 +236,16 @@ static void
 apply_mods(const struct brw_device_info *devinfo,
            struct reg *r, unsigned type, unsigned opcode, unsigned _negate, unsigned __abs)
 {
+   if (__abs) {
+      if (type == BRW_HW_REG_TYPE_F) {
+         for (int i = 0; i < 8; i++)
+            r->f[i] = fabsf(r->f[i]);
+      } else {
+         for (int i = 0; i < 8; i++)
+            r->d[i] = abs(r->d[i]);
+      }
+   }
+
    if (_negate) {
       if (devinfo->gen >= 8 && is_logic_instruction(opcode)) {
          for (int i = 0; i < 8; i++)
@@ -246,16 +256,6 @@ apply_mods(const struct brw_device_info *devinfo,
       } else {
          for (int i = 0; i < 8; i++)
             r->d[i] = -r->d[i];
-      }
-   }
-
-   if (__abs) {
-      if (type == BRW_HW_REG_TYPE_F) {
-         for (int i = 0; i < 8; i++)
-            r->f[i] = fabsf(r->f[i]);
-      } else {
-         for (int i = 0; i < 8; i++)
-            r->d[i] = abs(r->d[i]);
       }
    }
 }
