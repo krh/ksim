@@ -585,6 +585,8 @@ static int
 store_dst(const struct brw_device_info *devinfo,
           struct thread *t, struct reg *r, brw_inst *inst)
 {
+   /* FIXME: write masks */
+
    if (brw_inst_saturate(devinfo, inst) &&
        brw_inst_dst_reg_type(devinfo, inst) == BRW_HW_REG_TYPE_F) {
       for (int i = 0; i < 8; i++) {
@@ -618,6 +620,76 @@ store_dst(const struct brw_device_info *devinfo,
    return 0;
 }
 
+static const struct {
+   int num_srcs;
+   bool store_dst;
+} opcode_info[] = {
+   [BRW_OPCODE_MOV]             = { .num_srcs = 1, .store_dst = true },
+   [BRW_OPCODE_SEL]             = { },
+   [BRW_OPCODE_NOT]             = { .num_srcs = 1, .store_dst = true },
+   [BRW_OPCODE_AND]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_OR]              = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_XOR]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_SHR]             = { },
+   [BRW_OPCODE_SHL]             = { },
+   [BRW_OPCODE_ASR]             = { },
+   [BRW_OPCODE_CMP]             = { },
+   [BRW_OPCODE_CMPN]            = { },
+   [BRW_OPCODE_CSEL]            = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_F32TO16]         = { },
+   [BRW_OPCODE_F16TO32]         = { },
+   [BRW_OPCODE_BFREV]           = { },
+   [BRW_OPCODE_BFE]             = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_BFI1]            = { },
+   [BRW_OPCODE_BFI2]            = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_JMPI]            = { .num_srcs = 0, .store_dst = false },
+   [BRW_OPCODE_IF]              = { },
+   [BRW_OPCODE_IFF]             = { },
+   [BRW_OPCODE_ELSE]            = { },
+   [BRW_OPCODE_ENDIF]           = { },
+   [BRW_OPCODE_DO]              = { .num_srcs = 0, .store_dst = false },
+   [BRW_OPCODE_WHILE]           = { },
+   [BRW_OPCODE_BREAK]           = { },
+   [BRW_OPCODE_CONTINUE]        = { },
+   [BRW_OPCODE_HALT]            = { },
+   [BRW_OPCODE_MSAVE]           = { },
+   [BRW_OPCODE_MRESTORE]        = { },
+   [BRW_OPCODE_GOTO]            = { },
+   [BRW_OPCODE_POP]             = { },
+   [BRW_OPCODE_WAIT]            = { },
+   [BRW_OPCODE_SEND]            = { },
+   [BRW_OPCODE_SENDC]           = { },
+   [BRW_OPCODE_MATH]            = { },
+   [BRW_OPCODE_ADD]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_MUL]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_AVG]             = { },
+   [BRW_OPCODE_FRC]             = { },
+   [BRW_OPCODE_RNDU]            = { },
+   [BRW_OPCODE_RNDD]            = { },
+   [BRW_OPCODE_RNDE]            = { },
+   [BRW_OPCODE_RNDZ]            = { },
+   [BRW_OPCODE_MAC]             = { },
+   [BRW_OPCODE_MACH]            = { },
+   [BRW_OPCODE_LZD]             = { },
+   [BRW_OPCODE_FBH]             = { },
+   [BRW_OPCODE_FBL]             = { },
+   [BRW_OPCODE_CBIT]            = { },
+   [BRW_OPCODE_ADDC]            = { },
+   [BRW_OPCODE_SUBB]            = { },
+   [BRW_OPCODE_SAD2]            = { },
+   [BRW_OPCODE_SADA2]           = { },
+   [BRW_OPCODE_DP4]             = { },
+   [BRW_OPCODE_DPH]             = { },
+   [BRW_OPCODE_DP3]             = { },
+   [BRW_OPCODE_DP2]             = { },
+   [BRW_OPCODE_LINE]            = { },
+   [BRW_OPCODE_PLN]             = { },
+   [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_LRP]             = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_NENOP]           = { .num_srcs = 0, .store_dst = false },
+   [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
+};
+
 int
 brw_execute_inst(const struct brw_device_info *devinfo,
 		 brw_inst *inst, bool is_compacted,
@@ -629,39 +701,42 @@ brw_execute_inst(const struct brw_device_info *devinfo,
 
    int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
 
+   switch (opcode_info[opcode].num_srcs) {
+   case 3:
+      load_src0_3src(devinfo, t, &src[0], inst);
+      load_src1_3src(devinfo, t, &src[1], inst);
+      load_src2_3src(devinfo, t, &src[2], inst);
+      break;
+   case 2:
+      load_src1(devinfo, t, &src[1], inst);
+   case 1:
+      load_src0(devinfo, t, &src[0], inst);
+      break;
+   case 0:
+      break;
+   }
+
    switch ((unsigned) opcode) {
    case BRW_OPCODE_MOV:
-      load_src0(devinfo, t, &src[0], inst);
-      store_dst(devinfo, t, &src[0], inst);
+      dst = src[0];
       break;
    case BRW_OPCODE_SEL:
       break;
    case BRW_OPCODE_NOT:
-      load_src0(devinfo, t, &src[0], inst);
       for (int i = 0; i < exec_size; i++)
          dst.ud[i] = ~src[0].ud[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_AND:
-      load_src0(devinfo, t, &src[0], inst);
-      load_src1(devinfo, t, &src[1], inst);
       for (int i = 0; i < exec_size; i++)
          dst.ud[i] = src[0].ud[i] & src[1].ud[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_OR:
-      load_src0(devinfo, t, &src[0], inst);
-      load_src1(devinfo, t, &src[1], inst);
       for (int i = 0; i < exec_size; i++)
          dst.ud[i] = src[0].ud[i] | src[1].ud[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_XOR:
-      load_src0(devinfo, t, &src[0], inst);
-      load_src1(devinfo, t, &src[1], inst);
       for (int i = 0; i < exec_size; i++)
          dst.ud[i] = src[0].ud[i] & src[1].ud[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_SHR:
       break;
@@ -724,18 +799,12 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_MATH:
       break;
    case BRW_OPCODE_ADD:
-      load_src0(devinfo, t, &src[0], inst);
-      load_src1(devinfo, t, &src[1], inst);
       for (int i = 0; i < exec_size; i++)
          dst.f[i] = src[0].f[i] * src[1].f[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_MUL:
-      load_src0(devinfo, t, &src[0], inst);
-      load_src1(devinfo, t, &src[1], inst);
       for (int i = 0; i < exec_size; i++)
          dst.f[i] = src[0].f[i] * src[1].f[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_AVG:
       break;
@@ -782,12 +851,8 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_PLN:
       break;
    case BRW_OPCODE_MAD:
-      load_src0_3src(devinfo, t, &src[0], inst);
-      load_src1_3src(devinfo, t, &src[1], inst);
-      load_src2_3src(devinfo, t, &src[2], inst);
       for (int i = 0; i < exec_size; i++)
          dst.f[i] = src[0].f[i] + src[1].f[i] * src[2].f[i];
-      store_dst(devinfo, t, &dst, inst);
       break;
    case BRW_OPCODE_LRP:
       break;
@@ -796,6 +861,9 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_NOP:
       break;
    }
+
+   if (opcode_info[opcode].store_dst)
+      store_dst(devinfo, t, &dst, inst);
 
    return 0;
 }
