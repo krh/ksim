@@ -1,5 +1,5 @@
 AM_CFLAGS = \
-	-Wall -std=c99
+	-Wall -std=c99 -march=native -mrtm
 	$(NULL)
 
 AM_CPPFLAGS = -I$(top_srcdir)/intel

@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <math.h>
+#include <immintrin.h>
 
 #include "brw_context.h"
 #include "brw_defines.h"
@@ -36,6 +37,12 @@
 #include "brw_eu.h"
 
 #include "gen_disasm.h"
+
+union alu_reg {
+   __m256i d;
+   __m256 f;
+   uint32_t u32[8];
+};
 
 static int
 type_size(int type)
@@ -62,84 +69,55 @@ type_size(int type)
 }
 
 static void
-store_type(struct thread *t, struct reg *r, int channel, int type, int offset)
+store_type(struct thread *t, uint32_t v, int type, int offset)
 {
    void *address = ((void *) t->grf + offset);
    switch (type) {
    case BRW_HW_REG_TYPE_UD:
    case BRW_HW_REG_TYPE_D:
    case BRW_HW_REG_TYPE_F:
-      *(uint32_t *) address = r->ud[channel];
+      *(uint32_t *) address = v;
       break;
    case BRW_HW_REG_TYPE_UW:
    case BRW_HW_REG_TYPE_W:
    case GEN8_HW_REG_NON_IMM_TYPE_HF:
-   *(uint16_t *) address = r->ud[channel];
+      *(uint16_t *) address = v;
       break;
    case BRW_HW_REG_NON_IMM_TYPE_UB:
    case BRW_HW_REG_NON_IMM_TYPE_B:
-       *(uint8_t *) address = r->ud[channel];
+      *(uint8_t *) address = v;
       break;
    case GEN7_HW_REG_NON_IMM_TYPE_DF:
    case GEN8_HW_REG_TYPE_UQ:
    case GEN8_HW_REG_TYPE_Q:
-      *(uint64_t *) address = r->ud[channel];
-      break;
-   }
-}
-
-static void
-load_type(struct thread *t, struct reg *r, int channel, int type, int offset)
-{
-   void *address = ((void *) t->grf + offset);
-   switch (type) {
-   case BRW_HW_REG_TYPE_UD:
-   case BRW_HW_REG_TYPE_D:
-   case BRW_HW_REG_TYPE_F:
-      r->ud[channel] = *(uint32_t *) address;
-      break;
-   case BRW_HW_REG_TYPE_UW:
-   case BRW_HW_REG_TYPE_W:
-   case GEN8_HW_REG_NON_IMM_TYPE_HF:
-      r->uw[channel] = *(uint16_t *) address;
-      break;
-   case BRW_HW_REG_NON_IMM_TYPE_UB:
-   case BRW_HW_REG_NON_IMM_TYPE_B:
-      r->ub[channel] = *(uint8_t *) address;
-      break;
-   case GEN7_HW_REG_NON_IMM_TYPE_DF:
-   case GEN8_HW_REG_TYPE_UQ:
-   case GEN8_HW_REG_TYPE_Q:
-      r->uq[channel] = *(uint64_t *) address;
+      *(uint64_t *) address = v;
       break;
    }
 }
 
 static int
-load_imm(const struct brw_device_info *devinfo, struct reg *reg, unsigned type, brw_inst *inst)
+load_imm(const struct brw_device_info *devinfo,
+         union alu_reg *reg, unsigned type, brw_inst *inst)
 {
-   int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
-
    switch (type) {
    case BRW_HW_REG_TYPE_UD:
    case BRW_HW_REG_TYPE_D:
    case BRW_HW_REG_IMM_TYPE_UV:
    case BRW_HW_REG_TYPE_F:
-      for (int i = 0; i < exec_size; i++)
-         reg->ud[i] = brw_inst_imm_ud(devinfo, inst);
-      break;
    case BRW_HW_REG_TYPE_UW:
    case BRW_HW_REG_TYPE_W:
-      for (int i = 0; i < exec_size; i++)
-         reg->uw[0] = brw_inst_imm_ud(devinfo, inst);
+      reg->d = _mm256_set1_epi32(brw_inst_imm_ud(devinfo, inst));
       break;
    case BRW_HW_REG_IMM_TYPE_VF:
-      for (int i = 0; i < exec_size; i += 4) {
-         reg->f[i + 0] = brw_vf_to_float(brw_inst_imm_ud(devinfo, inst));
-         reg->f[i + 1] = brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 8);
-         reg->f[i + 2] = brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 16);
-         reg->f[i + 3] = brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 24);
-      }
+      reg->f = _mm256_set_ps(
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst)),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 8),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 16),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 24),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst)),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 8),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 16),
+         brw_vf_to_float(brw_inst_imm_ud(devinfo, inst) >> 24));
       break;
    case BRW_HW_REG_IMM_TYPE_V:
       /* FIXME: What is this? */
@@ -154,7 +132,7 @@ load_imm(const struct brw_device_info *devinfo, struct reg *reg, unsigned type, 
 
 static int
 load_reg(const struct brw_device_info *devinfo, struct thread *t,
-         struct reg *r, brw_inst *inst,
+         union alu_reg *r, brw_inst *inst,
          unsigned type, unsigned _reg_file, unsigned _reg_nr,
          unsigned sub_reg_num, unsigned vstride, unsigned width, unsigned hstride)
 {
@@ -194,20 +172,22 @@ load_reg(const struct brw_device_info *devinfo, struct thread *t,
       }
       break;
    case BRW_GENERAL_REGISTER_FILE: {
-      int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
-      int size = type_size(type);
-      int height = exec_size / width;
-      int row = _reg_nr * 32 + sub_reg_num;
-      int channel = 0;
-      int offset;
-      for (int i = 0; i < height; i++) {
-         offset = row;
-         row += vstride * size;
-         for (int j = 0; j < width; j++) {
-            load_type(t, r, channel++, type, offset);
-            offset += hstride * size;
-         }
-      }
+      assert(is_power_of_two(width));
+
+      uint32_t shift = __builtin_ffs(width) - 1;
+      __m256i base = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+      __m256i hoffsets = _mm256_and_si256(base, _mm256_set1_epi32(width - 1));
+      __m256i voffsets = _mm256_srlv_epi32(base, _mm256_set1_epi32(shift));
+      __m256i offsets = _mm256_add_epi32(
+         _mm256_mullo_epi32(hoffsets, _mm256_set1_epi32(hstride)),
+         _mm256_mullo_epi32(voffsets, _mm256_set1_epi32(vstride)));
+
+      offsets = _mm256_mullo_epi32(offsets, _mm256_set1_epi32(type_size(type)));
+      void *grf_base = (void *) t->grf + _reg_nr * 32 + sub_reg_num;
+      r->d = _mm256_i32gather_epi32(grf_base, offsets, 1);
+
+      /* FIXME: Mask out bits above type size? Shouldn't matter... */
+
       break;
    }
    case BRW_MESSAGE_REGISTER_FILE:
@@ -230,28 +210,23 @@ is_logic_instruction(unsigned opcode)
 
 static void
 apply_mods(const struct brw_device_info *devinfo,
-           struct reg *r, unsigned type, unsigned opcode, unsigned _negate, unsigned __abs)
+           union alu_reg *r, unsigned type, unsigned opcode, unsigned _negate, unsigned __abs)
 {
    if (__abs) {
       if (type == BRW_HW_REG_TYPE_F) {
-         for (int i = 0; i < 8; i++)
-            r->f[i] = fabsf(r->f[i]);
+         r->d = _mm256_and_si256(r->d, _mm256_set1_epi32(0x7fffffff));
       } else {
-         for (int i = 0; i < 8; i++)
-            r->d[i] = abs(r->d[i]);
+         r->d = _mm256_abs_epi32(r->d);
       }
    }
 
    if (_negate) {
       if (devinfo->gen >= 8 && is_logic_instruction(opcode)) {
-         for (int i = 0; i < 8; i++)
-            r->ud[i] = ~r->ud[i];
+         r->d = _mm256_xor_si256(_mm256_setzero_si256(), r->d);
       } else if (type == BRW_HW_REG_TYPE_F) {
-         for (int i = 0; i < 8; i++)
-            r->f[i] = -r->f[i];
+         r->f = _mm256_sub_ps(_mm256_setzero_ps(), r->f);
       } else {
-         for (int i = 0; i < 8; i++)
-            r->d[i] = -r->d[i];
+         r->d = _mm256_sub_epi32(_mm256_setzero_si256(), r->d);
       }
    }
 }
@@ -259,7 +234,7 @@ apply_mods(const struct brw_device_info *devinfo,
 static int
 load_src_da1(const struct brw_device_info *devinfo,
              struct thread *t,
-             struct reg *r, brw_inst *inst,
+             union alu_reg *r, brw_inst *inst,
              unsigned type, unsigned _reg_file,
              unsigned _vert_stride, unsigned _width, unsigned _horiz_stride,
              unsigned reg_num, unsigned sub_reg_num, unsigned __abs,
@@ -279,7 +254,7 @@ load_src_da1(const struct brw_device_info *devinfo,
 
 static int
 load_src_ia1(const struct brw_device_info *devinfo,
-             struct reg *r,
+             union alu_reg *r,
              unsigned opcode,
              unsigned type,
              unsigned _reg_file,
@@ -299,7 +274,7 @@ load_src_ia1(const struct brw_device_info *devinfo,
 
 static int
 load_src_da16(const struct brw_device_info *devinfo,
-              struct reg *r,
+              union alu_reg *r,
               unsigned opcode,
               unsigned _reg_type,
               unsigned _reg_file,
@@ -314,7 +289,8 @@ load_src_da16(const struct brw_device_info *devinfo,
 }
 
 static int
-load_src0(const struct brw_device_info *devinfo, struct thread *t, struct reg *reg, brw_inst *inst)
+load_src0(const struct brw_device_info *devinfo,
+          struct thread *t, union alu_reg *reg, brw_inst *inst)
 {
    if (brw_inst_src0_reg_file(devinfo, inst) == BRW_IMMEDIATE_VALUE) {
       return load_imm(devinfo, reg, brw_inst_src0_reg_type(devinfo, inst), inst);
@@ -366,7 +342,8 @@ load_src0(const struct brw_device_info *devinfo, struct thread *t, struct reg *r
 }
 
 static int
-load_src1(const struct brw_device_info *devinfo, struct thread *t, struct reg *reg, brw_inst *inst)
+load_src1(const struct brw_device_info *devinfo,
+          struct thread *t, union alu_reg *reg, brw_inst *inst)
 {
    if (brw_inst_src1_reg_file(devinfo, inst) == BRW_IMMEDIATE_VALUE) {
       return load_imm(devinfo, reg, brw_inst_src1_reg_type(devinfo, inst), inst);
@@ -431,7 +408,7 @@ _3src_type_to_type(uint32_t _3src_type)
 
 static void
 load_src0_3src(const struct brw_device_info *devinfo,
-               struct thread *t, struct reg *r, brw_inst *inst)
+               struct thread *t, union alu_reg *r, brw_inst *inst)
 {
    uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
    uint32_t vstride, width, hstride;
@@ -461,7 +438,7 @@ load_src0_3src(const struct brw_device_info *devinfo,
 
 static void
 load_src1_3src(const struct brw_device_info *devinfo,
-               struct thread *t, struct reg *r, brw_inst *inst)
+               struct thread *t, union alu_reg *r, brw_inst *inst)
 {
    uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
    uint32_t vstride, width, hstride;
@@ -491,7 +468,7 @@ load_src1_3src(const struct brw_device_info *devinfo,
 
 static void
 load_src2_3src(const struct brw_device_info *devinfo,
-               struct thread *t, struct reg *r, brw_inst *inst)
+               struct thread *t, union alu_reg *r, brw_inst *inst)
 {
    uint32_t type = _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst));
    uint32_t vstride, width, hstride;
@@ -521,7 +498,7 @@ load_src2_3src(const struct brw_device_info *devinfo,
 
 static int
 store_reg(const struct brw_device_info *devinfo, struct thread *t,
-          struct reg *r, brw_inst *inst,
+          union alu_reg *r, brw_inst *inst,
           unsigned type, unsigned _reg_file, unsigned _reg_nr,
           unsigned sub_reg_num, unsigned _horiz_stride)
 {
@@ -565,9 +542,17 @@ store_reg(const struct brw_device_info *devinfo, struct thread *t,
       int size = type_size(type);
       int offset = _reg_nr * 32 + sub_reg_num * size;
 
-      for (int i = 0; i < exec_size; i++) {
-         store_type(t, r, i, type, offset);
-         offset += ((1 << _horiz_stride) >> 1) * size;
+      uint32_t out[8];
+      _mm256_storeu_si256((void *) out, r->d);
+
+      if (size == 4 && _horiz_stride == 1) {
+         memcpy((void *) t->grf + offset, out, 4 * exec_size);
+      } else {
+
+         for (int i = 0; i < exec_size; i++) {
+            store_type(t, out[i], type, offset);
+            offset += ((1 << _horiz_stride) >> 1) * size;
+         }
       }
       break;
    }
@@ -583,18 +568,14 @@ store_reg(const struct brw_device_info *devinfo, struct thread *t,
 
 static int
 store_dst(const struct brw_device_info *devinfo,
-          struct thread *t, struct reg *r, brw_inst *inst)
+          struct thread *t, union alu_reg *r, brw_inst *inst)
 {
    /* FIXME: write masks */
 
    if (brw_inst_saturate(devinfo, inst) &&
        brw_inst_dst_reg_type(devinfo, inst) == BRW_HW_REG_TYPE_F) {
-      for (int i = 0; i < 8; i++) {
-         if (r->f[i] > 1.0f)
-            r->f[i] = 1.0f;
-         else if (r->f[i] < 0.0f)
-            r->f[i] = 0.0f;
-      }
+      r->f = _mm256_max_ps(r->f, _mm256_set1_ps(1.0f));
+      r->f = _mm256_max_ps(r->f, _mm256_set1_ps(0.0f));
    }
 
    if (brw_inst_access_mode(devinfo, inst) == BRW_ALIGN_1) {
@@ -697,20 +678,18 @@ brw_execute_inst(const struct brw_device_info *devinfo,
 {
    const enum opcode opcode = brw_inst_opcode(devinfo, inst);
 
-   struct reg dst, src[3];
-
-   int exec_size = 1 << brw_inst_exec_size(devinfo, inst);
+   union alu_reg dst, src0, src1, src2;
 
    switch (opcode_info[opcode].num_srcs) {
    case 3:
-      load_src0_3src(devinfo, t, &src[0], inst);
-      load_src1_3src(devinfo, t, &src[1], inst);
-      load_src2_3src(devinfo, t, &src[2], inst);
+      load_src0_3src(devinfo, t, &src0, inst);
+      load_src1_3src(devinfo, t, &src1, inst);
+      load_src2_3src(devinfo, t, &src2, inst);
       break;
    case 2:
-      load_src1(devinfo, t, &src[1], inst);
+      load_src1(devinfo, t, &src1, inst);
    case 1:
-      load_src0(devinfo, t, &src[0], inst);
+      load_src0(devinfo, t, &src0, inst);
       break;
    case 0:
       break;
@@ -718,31 +697,30 @@ brw_execute_inst(const struct brw_device_info *devinfo,
 
    switch ((unsigned) opcode) {
    case BRW_OPCODE_MOV:
-      dst = src[0];
+      dst = src0;
       break;
    case BRW_OPCODE_SEL:
       break;
    case BRW_OPCODE_NOT:
-      for (int i = 0; i < exec_size; i++)
-         dst.ud[i] = ~src[0].ud[i];
+      dst.d = _mm256_xor_si256(_mm256_setzero_si256(), src0.d);
       break;
    case BRW_OPCODE_AND:
-      for (int i = 0; i < exec_size; i++)
-         dst.ud[i] = src[0].ud[i] & src[1].ud[i];
+      dst.d = _mm256_and_si256(src0.d, src1.d);
       break;
    case BRW_OPCODE_OR:
-      for (int i = 0; i < exec_size; i++)
-         dst.ud[i] = src[0].ud[i] | src[1].ud[i];
+      dst.d = _mm256_or_si256(src0.d, src1.d);
       break;
    case BRW_OPCODE_XOR:
-      for (int i = 0; i < exec_size; i++)
-         dst.ud[i] = src[0].ud[i] & src[1].ud[i];
+      dst.d = _mm256_xor_si256(src0.d, src1.d);
       break;
    case BRW_OPCODE_SHR:
+      dst.d = _mm256_srlv_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_SHL:
+      dst.d = _mm256_sllv_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_ASR:
+      dst.d = _mm256_srav_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_CMP:
       break;
@@ -799,12 +777,10 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_MATH:
       break;
    case BRW_OPCODE_ADD:
-      for (int i = 0; i < exec_size; i++)
-         dst.f[i] = src[0].f[i] * src[1].f[i];
+      dst.d = _mm256_add_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_MUL:
-      for (int i = 0; i < exec_size; i++)
-         dst.f[i] = src[0].f[i] * src[1].f[i];
+      dst.d = _mm256_mullo_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_AVG:
       break;
@@ -846,13 +822,36 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       break;
    case BRW_OPCODE_DP2:
       break;
-   case BRW_OPCODE_LINE:
+   case BRW_OPCODE_LINE: {
+      __m256 p = _mm256_set1_ps(src0.f[0]);
+      __m256 q = _mm256_set1_ps(src0.f[3]);
+
+      dst.f = _mm256_add_ps(_mm256_mul_ps(src1.f, p), q);
       break;
-   case BRW_OPCODE_PLN:
+   }
+   case BRW_OPCODE_PLN: {
+      __m256 p = _mm256_set1_ps(src0.f[0]);
+      __m256 q = _mm256_set1_ps(src0.f[1]);
+      __m256 r = _mm256_set1_ps(src0.f[3]);
+
+      load_src_da1(devinfo, t, &src2, inst,
+                   brw_inst_src1_reg_type(devinfo, inst),
+                   brw_inst_src1_reg_file(devinfo, inst),
+                   brw_inst_src1_vstride(devinfo, inst),
+                   brw_inst_src1_width(devinfo, inst),
+                   brw_inst_src1_hstride(devinfo, inst),
+                   brw_inst_src1_da_reg_nr(devinfo, inst) + 1,
+                   brw_inst_src1_da1_subreg_nr(devinfo, inst),
+                   brw_inst_src1_abs(devinfo, inst),
+                   brw_inst_src1_negate(devinfo, inst));
+
+      dst.f = _mm256_add_ps(_mm256_add_ps(_mm256_mul_ps(src1.f, p),
+                                          _mm256_mul_ps(src2.f, q)), r);
       break;
+   }
    case BRW_OPCODE_MAD:
-      for (int i = 0; i < exec_size; i++)
-         dst.f[i] = src[0].f[i] + src[1].f[i] * src[2].f[i];
+      dst.d = _mm256_mullo_epi32(src0.d, src1.d);
+      dst.d = _mm256_add_epi32(dst.d, src2.d);
       break;
    case BRW_OPCODE_LRP:
       break;
