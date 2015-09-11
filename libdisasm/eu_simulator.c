@@ -971,8 +971,7 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       break;
    }
    case BRW_OPCODE_MAD:
-      dst.d = _mm256_mullo_epi32(src0.d, src1.d);
-      dst.d = _mm256_add_epi32(dst.d, src2.d);
+      dst.f = _mm256_add_ps(_mm256_mul_ps(src0.f, src1.f), src2.f);
       break;
    case BRW_OPCODE_LRP:
       break;
