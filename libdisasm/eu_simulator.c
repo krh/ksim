@@ -613,6 +613,31 @@ store_dst_3src(const struct brw_device_info *devinfo,
              1);
 }
 
+void
+sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlem);
+
+static void
+sfid_urb(const struct brw_device_info *devinfo,
+         brw_inst *inst, struct thread *t)
+{
+   switch (brw_inst_urb_opcode(devinfo, inst)) {
+   case 0: /* write HWord */
+   case 1: /* write OWord */
+   case 2: /* read HWord */
+   case 3: /* read OWord */
+   case 4: /* atomic mov */
+   case 5: /* atomic inc */
+   case 6: /* atomic add */
+      break;
+   case 7: /* SIMD8 write */
+      sfid_urb_simd8_write(t,
+                           brw_inst_src0_da_reg_nr(devinfo, inst),
+                           brw_inst_urb_global_offset(devinfo, inst),
+                           brw_inst_mlen(devinfo, inst));
+      break;
+   }
+}
+
 static const struct {
    int num_srcs;
    bool store_dst;
@@ -812,8 +837,26 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_WAIT:
       break;
    case BRW_OPCODE_SEND:
-      break;
    case BRW_OPCODE_SENDC:
+      switch (brw_inst_sfid(devinfo, inst)) {
+      case BRW_SFID_NULL:
+      case BRW_SFID_MATH:
+      case BRW_SFID_SAMPLER:
+      case BRW_SFID_MESSAGE_GATEWAY:
+         break;
+      case BRW_SFID_URB:
+         sfid_urb(devinfo, inst, t);
+         break;
+      case BRW_SFID_THREAD_SPAWNER:
+      case GEN6_SFID_DATAPORT_SAMPLER_CACHE:
+      case GEN6_SFID_DATAPORT_RENDER_CACHE:
+      case GEN6_SFID_DATAPORT_CONSTANT_CACHE:
+      case GEN7_SFID_DATAPORT_DATA_CACHE:
+      case GEN7_SFID_PIXEL_INTERPOLATOR:
+      case HSW_SFID_DATAPORT_DATA_CACHE_1:
+      case HSW_SFID_CRE:
+         break;
+      }
       break;
    case BRW_OPCODE_MATH:
       switch (brw_inst_math_function(devinfo, inst)) {

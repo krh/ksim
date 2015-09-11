@@ -43,3 +43,27 @@ run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag)
 	execute_thread(disasm, t, kernel, out);
 }
 
+void
+sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
+{
+	for (int c = 0; c < 8; c++) {
+		struct value *vue = urb_handle_to_entry(t->grf[reg].ud[c]);
+		for (int i = 0; i < mlen - 1; i++)
+			vue[offset + i / 4].v[i % 4] = t->grf[reg + 1 + i].ud[c];
+	}
+
+	printf("urb simd8 write, src g%d, global offset %d, mlen %lu\n",
+	       reg, offset, mlen);
+
+	printf("  grf%d:", reg);
+	for (int c = 0; c < 8; c++)
+		printf("  %6d", t->grf[reg].d[c]);
+	printf("\n");
+
+	for (int i = 1; i < mlen; i++) {
+		printf("  grf%d:", reg + i);
+		for (int c = 0; c < 8; c++)
+			printf("  %6.1f", t->grf[reg + i].f[c]);
+		printf("\n");
+	}
+}
