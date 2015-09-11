@@ -50,6 +50,8 @@ enum {
 	TRACE_CS = 1 << 4,		/* command streamer trace */
 	TRACE_VF = 1 << 5,		/* vertex fetch trace */
 	TRACE_VS = 1 << 6,		/* trace vs execution */
+	TRACE_PS = 1 << 7,		/* trace ps execution */
+	TRACE_EU = 1 << 8,		/* trace eu details */
 };
 
 extern uint32_t trace_mask;

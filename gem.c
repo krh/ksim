@@ -567,6 +567,8 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "cs", TRACE_CS },
 	{ "vf", TRACE_VF },
 	{ "vs", TRACE_VS },
+	{ "ps", TRACE_VS },
+	{ "eu", TRACE_EU },
 };
 
 uint32_t trace_mask = TRACE_WARN;
