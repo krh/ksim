@@ -42,6 +42,14 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
 
+static inline void
+__stub(const char *file, int line, const char *msg)
+{
+	printf("%s:%d: unimplemented: %s\n", file, line, msg);
+}
+
+#define stub(msg) __stub(__FILE__, __LINE__, msg)
+
 enum {
 	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
 	TRACE_SPAM = 1 << 1,		/* Intermittent junk messages */
@@ -75,6 +83,9 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 
 #define ksim_warn(format, ...) \
 	ksim_trace(TRACE_WARN, format, ##__VA_ARGS__)
+
+#define spam(format, ...) \
+	ksim_trace(TRACE_SPAM, format, ##__VA_ARGS__)
 
 static inline bool
 is_power_of_two(uint64_t v)
@@ -158,10 +169,19 @@ struct gt {
 		bool vid_enable;
 		uint32_t vid_element;
 		uint32_t vid_component;
-		uint32_t topology;
 		bool statistics;
 		uint32_t cut_index;
 	} vf;
+
+	struct {
+		uint32_t topology;
+		struct {
+			struct value *vue[16];
+			uint32_t head, tail;
+		} queue;
+		int tristrip_parity;
+		struct value *trifan_first_vertex;
+	} ia;
 
 	struct {
 		uint32_t tid;
@@ -214,6 +234,22 @@ struct gt {
 	} sf;
 
 	struct {
+		uint32_t tid;
+		bool single_dispatch;
+		bool vector_mask;
+		uint32_t binding_table_entry_count;
+		bool priority;
+		bool alternate_fp;
+		bool opcode_exception;
+		bool access_uav;
+		bool sw_exception;
+		uint64_t scratch_pointer;
+		uint32_t scratch_size;
+		bool enable;
+		bool simd8;
+		bool statistics;
+		uint64_t ksp;
+		uint32_t urb_start_grf;
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
@@ -261,6 +297,7 @@ struct gt {
 	uint32_t vs_invocation_count;
 	uint32_t ia_vertices_count;
 	uint32_t ia_primitives_count;
+	uint32_t ps_invocation_count;
 };
 
 extern struct gt gt;
@@ -301,6 +338,11 @@ void dispatch_primitive(void);
 bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 struct value fetch_format(uint64_t offset, uint32_t format);
+
+struct primitive {
+	struct { float x, y, z, w; } v[3];
+	struct value *vue[3];
+};
 
 /* URB handles are indexes to 64 byte blocks in the URB. */
 

@@ -167,7 +167,7 @@ static void
 dispatch_vs(struct value **vue, uint32_t mask)
 {
 	struct thread t;
-	uint32_t g = 0, c;
+	uint32_t g, c;
 
 	if (!gt.vs.enable)
 		return;
@@ -216,9 +216,6 @@ dispatch_vs(struct value **vue, uint32_t mask)
 		gt.vs_invocation_count++;
 
 	run_thread(&t, gt.vs.ksp, TRACE_VS);
-
-	for_each_bit(c, mask)
-		free_urb_entry(&gt.vs.urb, vue[c]);
 }
 
 static void
@@ -289,6 +286,129 @@ dump_sf_clip_viewport(void)
 		spam("  %20.4f\n", p[i]);
 }
 
+static void
+setup_prim(struct primitive *prim)
+{
+	uint64_t range;
+	float *vp = map_gtt_offset(gt.sf.viewport_pointer, &range);
+	ksim_assert(range >= 14 * sizeof(vp[0]));
+
+	float m00 = vp[0];
+	float m11 = vp[1];
+	float m22 = vp[2];
+	float m30 = vp[3];
+	float m31 = vp[4];
+	float m32 = vp[5];
+
+	for (int i = 0; i < 3; i++) {
+		prim->v[i].x = m00 * prim->vue[i][1].vec4.x + m30;
+		prim->v[i].y = m11 * prim->vue[i][1].vec4.x + m31;
+		prim->v[i].z = m22 * prim->vue[i][1].vec4.x + m32;
+	}
+}
+
+static void
+set_prim_vues(struct primitive *prim, int i, int j, int k)
+{
+	prim->vue[0] = gt.ia.queue.vue[(gt.ia.queue.tail + i) & 15];
+	prim->vue[1] = gt.ia.queue.vue[(gt.ia.queue.tail + j) & 15];
+	prim->vue[2] = gt.ia.queue.vue[(gt.ia.queue.tail + k) & 15];
+	setup_prim(prim);
+}
+
+static void
+assemble_primitives(struct value **vue, int count)
+{
+	struct primitive prim;
+	uint32_t tail = gt.ia.queue.tail;
+
+	for (int i = 0; i < count; i++)
+		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = vue[i];
+
+	switch (gt.ia.topology) {
+	case _3DPRIM_TRILIST:
+		while (gt.ia.queue.head - tail >= 3) {
+			set_prim_vues(&prim, 0, 1, 2);
+			tail += 3;
+		}
+		break;
+
+	case _3DPRIM_TRISTRIP:
+		while (gt.ia.queue.head - tail >= 3) {
+			set_prim_vues(&prim, 0,
+				      1 + gt.ia.tristrip_parity,
+				      2 - gt.ia.tristrip_parity);
+			tail += 1;
+			gt.ia.tristrip_parity = 1 - gt.ia.tristrip_parity;
+			gt.ia_primitives_count++;
+		}
+		break;
+
+	case _3DPRIM_TRIFAN:
+		if (gt.ia.trifan_first_vertex == NULL) {
+			/* We always have at least one vertex
+			 * when we get, so this is safe. */
+			assert(gt.ia.queue.head - tail >= 1);
+			gt.ia.trifan_first_vertex = gt.ia.queue.vue[tail & 15];
+			tail++;
+			gt.ia_primitives_count++;
+		}
+
+		while (gt.ia.queue.head - tail >= 2) {
+			prim.vue[0] = gt.ia.trifan_first_vertex;
+			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			setup_prim(&prim);
+			tail += 1;
+			gt.ia_primitives_count++;
+		}
+		break;
+	case _3DPRIM_QUADLIST:
+		while (gt.ia.queue.head - tail >= 4) {
+			set_prim_vues(&prim, 0, 1, 2);
+			set_prim_vues(&prim, 2, 3, 0);
+			tail += 4;
+			gt.ia_primitives_count++;
+		}
+		break;
+	case _3DPRIM_QUADSTRIP:
+		while (gt.ia.queue.head - tail >= 4) {
+			set_prim_vues(&prim, 0, 1, 2);
+			set_prim_vues(&prim, 2, 1, 3);
+			tail += 2;
+			gt.ia_primitives_count++;
+		}
+		break;
+	default:
+		stub("topology");
+		tail = gt.ia.queue.head;
+		break;
+	}
+
+	while (tail - gt.ia.queue.tail > 0) {
+		struct value *vue =
+			gt.ia.queue.vue[gt.ia.queue.tail++ & 15];
+		free_urb_entry(&gt.vs.urb, vue);
+	}
+}
+
+void
+reset_ia_state(void)
+{
+	if (gt.ia.queue.head - gt.ia.queue.tail > 0)
+		ksim_trace(TRACE_WARN, "trailing vertexes\n");
+	while (gt.ia.queue.head - gt.ia.queue.tail > 0) {
+		struct value *vue =
+			gt.ia.queue.vue[gt.ia.queue.tail++ & 15];
+		free_urb_entry(&gt.vs.urb, vue);
+	}
+
+	gt.ia.queue.head = 0;
+	gt.ia.queue.tail = 0;
+	gt.ia.tristrip_parity = 1;
+	gt.ia.trifan_first_vertex = NULL;
+}
+
 void
 dispatch_primitive(void)
 {
@@ -312,17 +432,16 @@ dispatch_primitive(void)
 			i++;
 			if (i == 8) {
 				dispatch_vs(vue, mask);
+				assemble_primitives(vue, i);
 				i = mask = 0;
 			}
-
-			/* assemble primitive, 
-			if (gt.vf.statistics)
-				gt.ia_primitives_count++;
-			*/
-
 		}
+		if (mask) {
+			dispatch_vs(vue, mask);
+			assemble_primitives(vue, i);
+		}
+
+		reset_ia_state();
 	}
 
-	if (mask)
-		dispatch_vs(vue, mask);
 }

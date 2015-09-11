@@ -772,7 +772,7 @@ handle_3dstate_vf_topology(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_TOPOLOGY\n");
 
-	gt.vf.topology = field(p[1], 0, 5);
+	gt.ia.topology = field(p[1], 0, 5);
 }
 
 static void
