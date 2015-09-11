@@ -188,20 +188,6 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 	return grf;
 }
 
-/* URB handles have to fit in 16 bits, so lets make them indexes to 64
- * byte blocks in the URB. */
-
-uint32_t urb_entry_to_handle(void *entry)
-{
-	return (entry - (void *) gt.urb) / 64;
-}
-
-void *
-urb_handle_to_entry(uint32_t handle)
-{
-	return (void *) gt.urb + handle * 64;
-}
-
 static void
 dispatch_vs(struct value **vue, uint32_t mask)
 {

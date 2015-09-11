@@ -301,6 +301,19 @@ bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 struct value fetch_format(uint64_t offset, uint32_t format);
 
+/* URB handles are indexes to 64 byte blocks in the URB. */
+
+static inline uint32_t
+urb_entry_to_handle(void *entry)
+{
+	return (entry - (void *) gt.urb) / 64;
+}
+
+static inline void *
+urb_handle_to_entry(uint32_t handle)
+{
+	return (void *) gt.urb + handle * 64;
+}
 
 #define __gen_address_type uint32_t
 #define __gen_combine_address(data, dst, address, delta) delta
