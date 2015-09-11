@@ -264,7 +264,7 @@ static void
 validate_vf_state(void)
 {
 	uint32_t vb, vb_used;
-	
+
 	/* Make sure vue is big enough to hold all vertex elements */
 	ksim_assert(gt.vf.ve_count * 16 <= gt.vs.urb.size);
 
@@ -335,7 +335,7 @@ dispatch_primitive(void)
 	uint32_t i = 0, mask = 0;
 	struct value *vue[8];
 	uint32_t iid, vid, vb;
-	
+
 	validate_vf_state();
 
 	validate_urb_state();

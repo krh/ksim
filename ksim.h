@@ -37,7 +37,7 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 	if (!cond) {
 		printf("%s:%d: assert failed: %s\n", file, line, msg);
 		raise(SIGTRAP);
-	}			
+	}
 }
 
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
@@ -244,7 +244,7 @@ struct gt {
 		bool predicate;
 		bool end_offset;
 		uint32_t access_type;
-		
+
 		uint32_t vertex_count;
 		uint32_t start_vertex;
 		uint32_t instance_count;
@@ -268,9 +268,9 @@ extern struct gt gt;
 void *map_gtt_offset(uint64_t offset, uint64_t *range);
 
 #define for_each_bit(b, dword)                          \
-   for (uint32_t __dword = (dword);                     \
-        (b) = __builtin_ffs(__dword) - 1, __dword;      \
-        __dword &= ~(1 << (b)))
+	for (uint32_t __dword = (dword);		\
+	     (b) = __builtin_ffs(__dword) - 1, __dword;	\
+	     __dword &= ~(1 << (b)))
 
 void run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag);
 
