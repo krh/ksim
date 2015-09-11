@@ -272,6 +272,7 @@ void *map_gtt_offset(uint64_t offset, uint64_t *range);
 	     (b) = __builtin_ffs(__dword) - 1, __dword;	\
 	     __dword &= ~(1 << (b)))
 
+uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag);
 
 struct value {

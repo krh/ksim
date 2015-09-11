@@ -23,6 +23,31 @@
 
 #include "ksim.h"
 
+uint32_t
+load_constants(struct thread *t, struct curbe *c, uint32_t start)
+{
+	uint32_t grf = start;
+	struct reg *regs;
+	uint64_t base, range;
+
+	for (uint32_t b = 0; b < 4; b++) {
+		if (b == 0 && gt.curbe_dynamic_state_base)
+			base = gt.dynamic_state_base_address;
+		else
+			base = 0;
+
+		if (c->buffer[b].length > 0) {
+			regs = map_gtt_offset(c->buffer[b].address + base, &range);
+			ksim_assert(c->buffer[b].length * sizeof(regs[0]) <= range);
+		}
+
+		for (uint32_t i = 0; i < c->buffer[b].length; i++)
+			t->grf[grf++] = regs[i];
+	}
+
+	return grf;
+}
+
 void
 run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag)
 {
