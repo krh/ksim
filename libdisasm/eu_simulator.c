@@ -652,7 +652,7 @@ static const struct {
    [BRW_OPCODE_WAIT]            = { },
    [BRW_OPCODE_SEND]            = { },
    [BRW_OPCODE_SENDC]           = { },
-   [BRW_OPCODE_MATH]            = { },
+   [BRW_OPCODE_MATH]            = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_ADD]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_MUL]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_AVG]             = { },
@@ -816,6 +816,43 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_SENDC:
       break;
    case BRW_OPCODE_MATH:
+      switch (brw_inst_math_function(devinfo, inst)) {
+
+      case BRW_MATH_FUNCTION_INV:
+         break;
+      case BRW_MATH_FUNCTION_LOG:
+         break;
+      case BRW_MATH_FUNCTION_EXP:
+         break;
+      case BRW_MATH_FUNCTION_SQRT:
+         break;
+      case BRW_MATH_FUNCTION_RSQ:
+         dst.f = _mm256_rsqrt_ps(src0.f);
+         break;
+      case BRW_MATH_FUNCTION_SIN:
+         break;
+      case BRW_MATH_FUNCTION_COS:
+         break;
+      case BRW_MATH_FUNCTION_SINCOS:
+         break;
+      case BRW_MATH_FUNCTION_FDIV:
+         break;
+      case BRW_MATH_FUNCTION_POW:
+         break;
+      case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
+         break;
+      case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT:
+         break;
+      case BRW_MATH_FUNCTION_INT_DIV_REMAINDER:
+         break;
+      case GEN8_MATH_FUNCTION_INVM:
+         break;
+      case GEN8_MATH_FUNCTION_RSQRTM:
+         break;
+      default:
+         printf("some math function\n");
+         break;
+      }
       break;
    case BRW_OPCODE_ADD:
       dst.d = _mm256_add_epi32(src0.d, src1.d);
