@@ -79,7 +79,7 @@ type_size(int type)
    switch (type) {
    case BRW_HW_REG_TYPE_UD:
    case BRW_HW_REG_TYPE_D:
-   case BRW_HW_REG_TYPE_F: return 4;
+   case BRW_HW_REG_TYPE_F:
       return 4;
    case BRW_HW_REG_TYPE_UW:
    case BRW_HW_REG_TYPE_W:
@@ -621,7 +621,7 @@ store_dst(const struct brw_device_info *devinfo,
       }
    } else {
       if (brw_inst_dst_address_mode(devinfo, inst) == BRW_ADDRESS_DIRECT) {
-         /* FIXME: align16 */
+         printf("stub align 16 store\n");
       } else {
          /* Indirect align16 address mode not supported */
       }
@@ -804,7 +804,6 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       load_src1(devinfo, t, &src1, inst);
    case 1:
       load_src0(devinfo, t, &src0, inst);
-      break;
    case 0:
       break;
    }
