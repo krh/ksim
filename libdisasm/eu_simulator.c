@@ -79,7 +79,7 @@ type_size(int type)
    switch (type) {
    case BRW_HW_REG_TYPE_UD:
    case BRW_HW_REG_TYPE_D:
-   case BRW_HW_REG_TYPE_F:
+   case BRW_HW_REG_TYPE_F: return 4;
       return 4;
    case BRW_HW_REG_TYPE_UW:
    case BRW_HW_REG_TYPE_W:
@@ -1015,6 +1015,13 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_NOP:
       break;
    }
+
+   if (is_integer(brw_inst_src0_reg_type(devinfo, inst)) &&
+       is_float(brw_inst_dst_reg_type(devinfo, inst)))
+      dst.f = _mm256_cvtepi32_ps(dst.d);
+   else if (is_float(brw_inst_src0_reg_type(devinfo, inst)) &&
+            is_integer(brw_inst_dst_reg_type(devinfo, inst)))
+      dst.d = _mm256_cvtps_epi32(dst.f);
 
    dump_reg("dst", dst, brw_inst_dst_reg_type(devinfo, inst));
 
