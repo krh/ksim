@@ -642,6 +642,32 @@ store_dst_3src(const struct brw_device_info *devinfo,
              1);
 }
 
+static inline __m256
+do_cmp(uint32_t cmod, union alu_reg src0, union alu_reg src1)
+{
+   switch (cmod) {
+   case BRW_CONDITIONAL_NONE:
+      /* assert: must have both pred */
+      break;
+   case BRW_CONDITIONAL_Z:
+   case BRW_CONDITIONAL_NZ:
+   case BRW_CONDITIONAL_G:
+      return _mm256_cmp_ps(src0.f, src1.f, 14);
+   case BRW_CONDITIONAL_GE:
+      return _mm256_cmp_ps(src0.f, src1.f, 13);
+   case BRW_CONDITIONAL_L:
+   case BRW_CONDITIONAL_LE:
+   case BRW_CONDITIONAL_R:
+   case BRW_CONDITIONAL_O:
+   case BRW_CONDITIONAL_U:
+      return _mm256_set1_ps(0.0f);
+   default:
+      return _mm256_set1_ps(0.0f);
+   }
+
+   return _mm256_set1_ps(0.0f);
+}
+
 void
 sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlem);
 
@@ -672,7 +698,7 @@ static const struct {
    bool store_dst;
 } opcode_info[] = {
    [BRW_OPCODE_MOV]             = { .num_srcs = 1, .store_dst = true },
-   [BRW_OPCODE_SEL]             = { },
+   [BRW_OPCODE_SEL]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_NOT]             = { .num_srcs = 1, .store_dst = true },
    [BRW_OPCODE_AND]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_OR]              = { .num_srcs = 2,. store_dst = true },
@@ -794,8 +820,18 @@ brw_execute_inst(const struct brw_device_info *devinfo,
    case BRW_OPCODE_MOV:
       dst = src0;
       break;
-   case BRW_OPCODE_SEL:
+   case BRW_OPCODE_SEL: {
+      union alu_reg mask;
+
+      /* assert: must have either pred orcmod */
+
+      mask.f = do_cmp(brw_inst_cond_modifier(devinfo, inst), src0, src1);
+
+      /* AVX2 blendv is opposite of the EU sel order, so we swap src0 and src1
+       * operands. */
+      dst.d = _mm256_blendv_epi8(src1.d, src0.d, mask.d);
       break;
+   }
    case BRW_OPCODE_NOT:
       dst.d = _mm256_xor_si256(_mm256_setzero_si256(), src0.d);
       break;
@@ -818,6 +854,7 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       dst.d = _mm256_srav_epi32(src0.d, src1.d);
       break;
    case BRW_OPCODE_CMP:
+      dst.f = do_cmp(brw_inst_cond_modifier(devinfo, inst), src0, src1);
       break;
    case BRW_OPCODE_CMPN:
       break;
