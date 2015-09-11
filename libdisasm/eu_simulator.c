@@ -671,9 +671,23 @@ static const struct {
    [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
 };
 
+static void
+dump_reg(const char *name, union alu_reg reg, int type)
+{
+   printf("%s: ", name);
+   if (is_float(type)) {
+      for (int c = 0; c < 8; c++)
+         printf("  %6.2f", reg.f[c]);
+   } else {
+      for (int c = 0; c < 8; c++)
+         printf("  %6d", reg.u32[c]);
+   }
+   printf("\n");
+}
+
 int
 brw_execute_inst(const struct brw_device_info *devinfo,
-		 brw_inst *inst, bool is_compacted,
+                 brw_inst *inst, bool is_compacted,
                  struct thread *t)
 {
    const enum opcode opcode = brw_inst_opcode(devinfo, inst);
@@ -685,6 +699,14 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       load_src0_3src(devinfo, t, &src0, inst);
       load_src1_3src(devinfo, t, &src1, inst);
       load_src2_3src(devinfo, t, &src2, inst);
+
+      dump_reg("src0", src0,
+               _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst)));
+      dump_reg("src1", src1,
+               _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst)));
+      dump_reg("src2", src2,
+               _3src_type_to_type(brw_inst_3src_src_type(devinfo, inst)));;
+
       break;
    case 2:
       load_src1(devinfo, t, &src1, inst);
@@ -693,6 +715,13 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       break;
    case 0:
       break;
+   }
+
+   if (opcode_info[opcode].num_srcs == 2) {
+      dump_reg("src0", src0, brw_inst_src0_reg_type(devinfo, inst));
+      dump_reg("src1", src1, brw_inst_src1_reg_type(devinfo, inst));
+   } else {
+      dump_reg("src0", src0, brw_inst_src0_reg_type(devinfo, inst));
    }
 
    switch ((unsigned) opcode) {
@@ -863,6 +892,8 @@ brw_execute_inst(const struct brw_device_info *devinfo,
 
    if (opcode_info[opcode].store_dst)
       store_dst(devinfo, t, &dst, inst);
+   dump_reg("dst", dst, brw_inst_dst_reg_type(devinfo, inst));
+
 
    return 0;
 }
