@@ -601,6 +601,18 @@ store_dst(const struct brw_device_info *devinfo,
    return 0;
 }
 
+static void
+store_dst_3src(const struct brw_device_info *devinfo,
+               struct thread *t, union alu_reg *r, brw_inst *inst)
+{
+   store_reg(devinfo, t, r, inst,
+             brw_inst_3src_dst_type(devinfo, inst),
+             BRW_GENERAL_REGISTER_FILE,
+             brw_inst_3src_dst_reg_nr(devinfo, inst),
+             brw_inst_3src_dst_subreg_nr(devinfo, inst),
+             1);
+}
+
 static const struct {
    int num_srcs;
    bool store_dst;
@@ -890,10 +902,14 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       break;
    }
 
-   if (opcode_info[opcode].store_dst)
-      store_dst(devinfo, t, &dst, inst);
    dump_reg("dst", dst, brw_inst_dst_reg_type(devinfo, inst));
 
+   if (opcode_info[opcode].store_dst) {
+      if (opcode_info[opcode].num_srcs == 3)
+         store_dst_3src(devinfo, t, &dst, inst);
+      else
+         store_dst(devinfo, t, &dst, inst);
+   }
 
    return 0;
 }
