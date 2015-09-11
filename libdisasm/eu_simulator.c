@@ -44,13 +44,42 @@ union alu_reg {
    uint32_t u32[8];
 };
 
+static inline bool
+is_integer(int type)
+{
+   switch (type) {
+   case BRW_HW_REG_TYPE_UD:
+   case BRW_HW_REG_TYPE_D:
+   case BRW_HW_REG_TYPE_UW:
+   case BRW_HW_REG_TYPE_W:
+   case BRW_HW_REG_NON_IMM_TYPE_UB:
+   case BRW_HW_REG_NON_IMM_TYPE_B:
+   case GEN8_HW_REG_TYPE_UQ:
+   case GEN8_HW_REG_TYPE_Q:
+      return true;
+   case BRW_HW_REG_TYPE_F:
+   case GEN8_HW_REG_NON_IMM_TYPE_HF:
+   case GEN7_HW_REG_NON_IMM_TYPE_DF:
+      return false;
+   }
+
+   printf("unknown type\n");
+   return false;
+}
+
+static inline bool
+is_float(int type)
+{
+   return !is_integer(type);
+};
+
 static int
 type_size(int type)
 {
    switch (type) {
    case BRW_HW_REG_TYPE_UD:
    case BRW_HW_REG_TYPE_D:
-   case BRW_HW_REG_TYPE_F: return 4;
+   case BRW_HW_REG_TYPE_F:
       return 4;
    case BRW_HW_REG_TYPE_UW:
    case BRW_HW_REG_TYPE_W:
@@ -898,10 +927,16 @@ brw_execute_inst(const struct brw_device_info *devinfo,
       }
       break;
    case BRW_OPCODE_ADD:
-      dst.d = _mm256_add_epi32(src0.d, src1.d);
+      if (is_integer(brw_inst_dst_reg_type(devinfo, inst)))
+         dst.d = _mm256_add_epi32(src0.d, src1.d);
+      else
+         dst.f = _mm256_add_ps(src0.f, src1.f);
       break;
    case BRW_OPCODE_MUL:
-      dst.d = _mm256_mullo_epi32(src0.d, src1.d);
+      if (is_integer(brw_inst_dst_reg_type(devinfo, inst)))
+         dst.d = _mm256_mullo_epi32(src0.d, src1.d);
+      else
+         dst.f = _mm256_mul_ps(src0.f, src1.f);
       break;
    case BRW_OPCODE_AVG:
       break;
