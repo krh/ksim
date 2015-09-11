@@ -305,6 +305,8 @@ setup_prim(struct primitive *prim)
 		prim->v[i].y = m11 * prim->vue[i][1].vec4.x + m31;
 		prim->v[i].z = m22 * prim->vue[i][1].vec4.x + m32;
 	}
+
+	rasterize_primitive(prim);
 }
 
 static void

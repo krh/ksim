@@ -344,6 +344,8 @@ struct primitive {
 	struct value *vue[3];
 };
 
+void rasterize_primitive(struct primitive *prim);
+
 /* URB handles are indexes to 64 byte blocks in the URB. */
 
 static inline uint32_t
