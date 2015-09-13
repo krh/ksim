@@ -92,3 +92,38 @@ sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
 		printf("\n");
 	}
 }
+
+static inline uint32_t
+field(uint32_t value, int start, int end)
+{
+	uint32_t mask;
+
+	mask = ~0U >> (31 - end + start);
+
+	return (value >> start) & mask;
+}
+
+void
+sfid_urb(struct thread *t,
+	 uint32_t dst, uint32_t src,
+	 uint32_t function_control,
+         bool header_present, int mlen, int rlen)
+{
+	uint32_t opcode = field(function_control, 0, 3);
+	uint32_t global_offset = field(function_control, 4, 14);
+	bool per_slot_offset = field(function_control, 17, 17);
+
+	switch (opcode) {
+	case 0: /* write HWord */
+	case 1: /* write OWord */
+	case 2: /* read HWord */
+	case 3: /* read OWord */
+	case 4: /* atomic mov */
+	case 5: /* atomic inc */
+	case 6: /* atomic add */
+		break;
+	case 7: /* SIMD8 write */
+		sfid_urb_simd8_write(t, src, global_offset, mlen);
+		break;
+	}
+}

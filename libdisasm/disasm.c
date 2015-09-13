@@ -84,43 +84,34 @@ gen_disasm_disassemble(struct gen_disasm *disasm,
    }
 }
 
-int
-brw_execute_inst(const struct brw_device_info *devinfo,
-		 brw_inst *inst, bool is_compacted,
-                 struct thread *t);
+bool
+brw_execute_inst(void *inst, struct thread *t);
 
 void
 execute_thread(struct gen_disasm *disasm, struct thread *t, void *assembly, FILE *out)
 {
    struct brw_device_info *devinfo = &disasm->devinfo;
    int offset = 0;
+   bool eot = false;
 
-   while (1) {
+   while (!eot) {
       brw_inst *insn = assembly + offset;
       brw_inst uncompacted;
       bool compacted = brw_inst_cmpt_control(devinfo, insn);
 
       if (compacted) {
          brw_compact_inst *compacted = (void *)insn;
-	 brw_uncompact_instruction(devinfo, &uncompacted, compacted);
-	 insn = &uncompacted;
-	 offset += 8;
+         brw_uncompact_instruction(devinfo, &uncompacted, compacted);
+         insn = &uncompacted;
+         offset += 8;
       } else {
-	 offset += 16;
+         offset += 16;
       }
 
       if (out)
          brw_disassemble_inst(out, devinfo, insn, compacted);
 
-      brw_execute_inst(devinfo, insn, compacted, t);
-
-      /* Simplistic, but efficient way to terminate disasm */
-      if (brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SEND ||
-	  brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SENDC)
-	      if (brw_inst_eot(devinfo, insn))
-		      break;
-      if (brw_inst_opcode(devinfo, insn) == 0)
-	      break;
+      eot = brw_execute_inst(insn, t);
    }
 }
 
