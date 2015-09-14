@@ -974,15 +974,17 @@ static const struct {
 static void
 dump_reg(const char *name, union alu_reg reg, int type)
 {
-   printf("%s: ", name);
-   if (is_float(type)) {
-      for (int c = 0; c < 8; c++)
-         printf("  %6.2f", reg.f[c]);
-   } else {
-      for (int c = 0; c < 8; c++)
-         printf("  %6d", reg.u32[c]);
+   if (TRACE_EU & trace_mask) {
+      printf("%s: ", name);
+      if (is_float(type)) {
+         for (int c = 0; c < 8; c++)
+            printf("  %6.2f", reg.f[c]);
+      } else {
+         for (int c = 0; c < 8; c++)
+            printf("  %6d", reg.u32[c]);
+      }
+      printf("\n");
    }
-   printf("\n");
 }
 
 bool
