@@ -80,6 +80,9 @@ store_component(uint32_t cc, int32_t src)
 		return 1;
 	case VFCOMP_STORE_PID:
 		return 0; /* what's pid again? */
+	default:
+		ksim_warn("illegal component control: %d\n", cc);
+		return 0;
 	}
 }
 
