@@ -320,13 +320,10 @@ setup_prim(struct primitive *prim)
 	rasterize_primitive(prim);
 }
 
-static void
-set_prim_vues(struct primitive *prim, int i, int j, int k)
+static inline struct value *
+get_vue(int i)
 {
-	prim->vue[0] = gt.ia.queue.vue[(gt.ia.queue.tail + i) & 15];
-	prim->vue[1] = gt.ia.queue.vue[(gt.ia.queue.tail + j) & 15];
-	prim->vue[2] = gt.ia.queue.vue[(gt.ia.queue.tail + k) & 15];
-	setup_prim(prim);
+	return gt.ia.queue.vue[(gt.ia.queue.tail + i) & 15];
 }
 
 static void
@@ -338,19 +335,25 @@ assemble_primitives(struct value **vue, int count)
 	for (int i = 0; i < count; i++)
 		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = vue[i];
 
+	ksim_assert(gt.ia.queue.head - gt.ia.queue.tail < 16);
+
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			set_prim_vues(&prim, 0, 1, 2);
+			prim.vue[0] = get_vue(1);
+			prim.vue[1] = get_vue(0);
+			prim.vue[2] = get_vue(2);
+			setup_prim(&prim);
 			tail += 3;
 		}
 		break;
 
 	case _3DPRIM_TRISTRIP:
 		while (gt.ia.queue.head - tail >= 3) {
-			set_prim_vues(&prim, 0,
-				      1 + gt.ia.tristrip_parity,
-				      2 - gt.ia.tristrip_parity);
+			prim.vue[0] = get_vue(0);
+			prim.vue[1] = get_vue(1 + gt.ia.tristrip_parity);
+			prim.vue[2] = get_vue(2 - gt.ia.tristrip_parity);
+			setup_prim(&prim);
 			tail += 1;
 			gt.ia.tristrip_parity = 1 - gt.ia.tristrip_parity;
 			gt.ia_primitives_count++;
@@ -369,8 +372,8 @@ assemble_primitives(struct value **vue, int count)
 
 		while (gt.ia.queue.head - tail >= 2) {
 			prim.vue[0] = gt.ia.trifan_first_vertex;
-			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[1] = get_vue(0);
+			prim.vue[2] = get_vue(1);
 			setup_prim(&prim);
 			tail += 1;
 			gt.ia_primitives_count++;
@@ -378,20 +381,38 @@ assemble_primitives(struct value **vue, int count)
 		break;
 	case _3DPRIM_QUADLIST:
 		while (gt.ia.queue.head - tail >= 4) {
-			set_prim_vues(&prim, 0, 1, 2);
-			set_prim_vues(&prim, 2, 3, 0);
+			prim.vue[0] = get_vue(0);
+			prim.vue[1] = get_vue(1);
+			prim.vue[2] = get_vue(2);
+			setup_prim(&prim);
+			prim.vue[0] = get_vue(2);
+			prim.vue[1] = get_vue(3);
+			prim.vue[2] = get_vue(0);
+			setup_prim(&prim);
 			tail += 4;
 			gt.ia_primitives_count++;
 		}
 		break;
 	case _3DPRIM_QUADSTRIP:
 		while (gt.ia.queue.head - tail >= 4) {
-			set_prim_vues(&prim, 0, 1, 2);
-			set_prim_vues(&prim, 2, 1, 3);
+			prim.vue[0] = get_vue(0);
+			prim.vue[1] = get_vue(1);
+			prim.vue[2] = get_vue(3);
+			setup_prim(&prim);
+			prim.vue[0] = get_vue(3);
+			prim.vue[1] = get_vue(2);
+			prim.vue[2] = get_vue(0);
+			setup_prim(&prim);
 			tail += 2;
 			gt.ia_primitives_count++;
 		}
 		break;
+
+	case _3DPRIM_RECTLIST:
+		stub("_3DPRIM_RECTLIST");
+		tail = gt.ia.queue.head;
+		break;
+
 	default:
 		stub("topology");
 		tail = gt.ia.queue.head;
