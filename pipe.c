@@ -410,6 +410,12 @@ reset_ia_state(void)
 {
 	if (gt.ia.queue.head - gt.ia.queue.tail > 0)
 		ksim_trace(TRACE_WARN, "trailing vertexes\n");
+
+	if (gt.ia.trifan_first_vertex) {
+		free_urb_entry(&gt.vs.urb, gt.ia.trifan_first_vertex);
+		gt.ia.trifan_first_vertex = NULL;
+	}
+
 	while (gt.ia.queue.head - gt.ia.queue.tail > 0) {
 		struct value *vue =
 			gt.ia.queue.vue[gt.ia.queue.tail++ & 15];
