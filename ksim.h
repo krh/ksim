@@ -367,13 +367,22 @@ void rasterize_primitive(struct primitive *prim);
 static inline uint32_t
 urb_entry_to_handle(void *entry)
 {
-	return (entry - (void *) gt.urb) / 64;
+	uint32_t handle = (entry - (void *) gt.urb) / 64;
+
+	ksim_assert((void *) gt.urb <= entry &&
+		    entry < (void *) gt.urb + sizeof(gt.urb));
+
+	return handle;
 }
 
 static inline void *
 urb_handle_to_entry(uint32_t handle)
 {
-	return (void *) gt.urb + handle * 64;
+	void *entry = (void *) gt.urb + handle * 64;
+
+	ksim_assert(handle < sizeof(gt.urb) / 64);
+
+	return entry;
 }
 
 #define __gen_address_type uint32_t
