@@ -87,6 +87,22 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 #define spam(format, ...) \
 	ksim_trace(TRACE_SPAM, format, ##__VA_ARGS__)
 
+static inline uint32_t
+field(uint32_t value, int start, int end)
+{
+	uint32_t mask;
+
+	mask = ~0U >> (31 - end + start);
+
+	return (value >> start) & mask;
+}
+
+static inline uint64_t
+get_u64(const uint32_t *p)
+{
+	return p[0] | ((uint64_t) p[1] << 32);
+}
+
 static inline bool
 is_power_of_two(uint64_t v)
 {

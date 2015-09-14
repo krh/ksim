@@ -91,16 +91,7 @@ sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
 			printf("  %6.1f", t->grf[reg + i].f[c]);
 		printf("\n");
 	}
-}
 
-static inline uint32_t
-field(uint32_t value, int start, int end)
-{
-	uint32_t mask;
-
-	mask = ~0U >> (31 - end + start);
-
-	return (value >> start) & mask;
 }
 
 void
