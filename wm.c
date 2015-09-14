@@ -152,15 +152,53 @@ rasterize_tile(struct payload *p, int x0, int y0,
 	}
 }
 
+struct rt {
+	const uint32_t *state;
+	void *pixels;
+	int width;
+	int height;
+	int stride;
+	int cpp;
+};
+
+static uint32_t *
+get_render_target(int i, struct rt *rt)
+{
+	uint64_t offset, range;
+	const uint32_t *binding_table;
+
+	binding_table = map_gtt_offset(gt.ps.binding_table_address +
+				       gt.surface_state_base_address, &range);
+	if (range < 4)
+		return false;
+
+	rt->state = map_gtt_offset(binding_table[i] +
+				   gt.surface_state_base_address, &range);
+	if (range < 16 * 4)
+		return false;
+
+	rt->width = field(rt->state[2], 0, 13) + 1;
+	rt->height = field(rt->state[2], 16, 29) + 1;
+	rt->stride = field(rt->state[3], 0, 17) + 1;
+	rt->cpp = format_size(field(rt->state[0], 18, 26));
+
+	offset = get_u64(&rt->state[8]);
+	rt->pixels = map_gtt_offset(offset, &range);
+	if (range < rt->height * rt->stride)
+		return false;
+
+	return true;
+}
+
 void
 rasterize_primitive(struct primitive *prim)
 {
-	const int width = 512;
-	const int height = 512;
-	const int stride = width * 4;
-	const int size = height * stride;
-	void *pixels = malloc(size);
-	memset(pixels, 0x33, size);
+	struct rt rt;
+
+	if (!get_render_target(0, &rt)) {
+		spam("assuming binding_table[0], but nothing valid there\n");
+		return;
+	}
 
 	const int x0 = prim->v[0].x;
 	const int y0 = prim->v[0].y;
@@ -251,25 +289,25 @@ rasterize_primitive(struct primitive *prim)
 		int sy = (i & 2) >> 1;
 		p.w2_offsets[i] = p.a01 * sx + p.b01 * sy;
 		p.w0_offsets[i] = p.a12 * sx + p.b12 * sy;
-		p.offsets[i] = sy * stride + sx * cpp;
+		p.offsets[i] = sy * rt.stride + sx * rt.cpp;
 	}
 
 	int row_w2 = p.c01;
 	int row_w0 = p.c12;
 	int row_w1 = p.c20;
-	for (int y = 0; y < height; y += tile_height) {
+	for (int y = 0; y < rt.height; y += tile_height) {
 		int w2 = row_w2;
 		int w0 = row_w0;
 		int w1 = row_w1;
 
-		for (int x = 0; x < width; x += tile_width) {
+		for (int x = 0; x < rt.width; x += tile_width) {
 			int max_w2 = w2 + p.max_w2_delta;
 			int max_w0 = w0 + p.max_w0_delta;
 			int max_w1 = w1 + p.max_w1_delta;
 
 			if ((max_w2 | max_w0 | max_w1) >= 0) {
-				void *tile = pixels + y * stride + x * 4;
-				rasterize_tile(&p, x, y, w2, w0, w1,tile, stride);
+				void *tile = rt.pixels + y * rt.stride + x * 4;
+				rasterize_tile(&p, x, y, w2, w0, w1, tile, rt.stride);
 			}
 
 			w2 += tile_width * p.a01;
