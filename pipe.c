@@ -271,6 +271,11 @@ validate_urb_state(void)
 			ksim_assert(vend <= ustart || uend <= vstart);
 		}
 	}
+
+	/* If we're doing SIMD8 vs dispatch, we need at least 8 VUEs,
+	 * but the BDW hw limit is even higher: 64. */
+	ksim_assert(64 <= gt.vs.urb.total && gt.vs.urb.total <= 2560);
+
 }
 
 static void
