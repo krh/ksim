@@ -577,8 +577,6 @@ FILE *trace_file;
 static void
 parse_trace_flags(const char *value)
 {
-	const char *p;
-
 	for (uint32_t i = 0, start = 0; ; i++) {
 		if (value[i] != ',' && value[i] != '\0')
 			continue;

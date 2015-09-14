@@ -221,7 +221,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 static void
 validate_vf_state(void)
 {
-	uint32_t vb, vb_used;
+	uint32_t vb_used;
 
 	/* Make sure vue is big enough to hold all vertex elements */
 	ksim_assert(gt.vf.ve_count * 16 <= gt.vs.urb.size);
@@ -414,10 +414,9 @@ reset_ia_state(void)
 void
 dispatch_primitive(void)
 {
-	struct value *v;
-	uint32_t i = 0, mask = 0;
+	uint32_t i = 0;
 	struct value *vue[8];
-	uint32_t iid, vid, vb;
+	uint32_t iid, vid;
 
 	validate_vf_state();
 

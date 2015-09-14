@@ -1082,7 +1082,6 @@ get_3dstate_command(uint32_t *p)
 	uint32_t h = p[0];
 	uint32_t opcode = field(h, 24, 26);
 	uint32_t subopcode = field(h, 16, 23);
-	command_handler_t handler;
 
 	switch (opcode) {
 	case 0:
