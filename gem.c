@@ -577,6 +577,7 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "ps",		TRACE_VS },
 	{ "eu",		TRACE_EU },
 	{ "stub",	TRACE_STUB },
+	{ "all",	~0 },
 };
 
 uint32_t trace_mask = TRACE_WARN | TRACE_STUB;

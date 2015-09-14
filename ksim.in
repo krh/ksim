@@ -66,6 +66,10 @@ while true; do
 	      args="${args}trace=${1##--trace=};"
 	      shift
 	      ;;
+	  --trace)
+	      args="${args}trace=all;"
+	      shift
+	      ;;
 	  --help)
 	      show_help
 	      ;;
