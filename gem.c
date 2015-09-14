@@ -567,18 +567,19 @@ is_prefix(const char *arg, const char *prefix, const char **value)
 }
 
 static const struct { const char *name; uint32_t flag; } debug_tags[] = {
-	{ "debug", TRACE_DEBUG },
-	{ "spam", TRACE_SPAM },
-	{ "warn", TRACE_WARN },
-	{ "gem", TRACE_GEM },
-	{ "cs", TRACE_CS },
-	{ "vf", TRACE_VF },
-	{ "vs", TRACE_VS },
-	{ "ps", TRACE_VS },
-	{ "eu", TRACE_EU },
+	{ "debug",	TRACE_DEBUG },
+	{ "spam",	TRACE_SPAM },
+	{ "warn",	TRACE_WARN },
+	{ "gem",	TRACE_GEM },
+	{ "cs",		TRACE_CS },
+	{ "vf",		TRACE_VF },
+	{ "vs",		TRACE_VS },
+	{ "ps",		TRACE_VS },
+	{ "eu",		TRACE_EU },
+	{ "stub",	TRACE_STUB },
 };
 
-uint32_t trace_mask = TRACE_WARN;
+uint32_t trace_mask = TRACE_WARN | TRACE_STUB;
 FILE *trace_file;
 
 static void

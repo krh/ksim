@@ -42,14 +42,6 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
 
-static inline void
-__stub(const char *file, int line, const char *msg)
-{
-	printf("%s:%d: unimplemented: %s\n", file, line, msg);
-}
-
-#define stub(msg) __stub(__FILE__, __LINE__, msg)
-
 enum {
 	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
 	TRACE_SPAM = 1 << 1,		/* Intermittent junk messages */
@@ -60,6 +52,7 @@ enum {
 	TRACE_VS = 1 << 6,		/* trace vs execution */
 	TRACE_PS = 1 << 7,		/* trace ps execution */
 	TRACE_EU = 1 << 8,		/* trace eu details */
+	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
 };
 
 extern uint32_t trace_mask;
@@ -84,8 +77,15 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 #define ksim_warn(format, ...) \
 	ksim_trace(TRACE_WARN, format, ##__VA_ARGS__)
 
-#define spam(format, ...) \
-	ksim_trace(TRACE_SPAM, format, ##__VA_ARGS__)
+static inline void
+__stub(const char *file, int line, const char *msg)
+{
+	ksim_trace(TRACE_STUB, "%s:%d: unimplemented: %s\n", file, line, msg);
+}
+
+#define stub(msg) __stub(__FILE__, __LINE__, msg)
+
+
 
 static inline uint32_t
 field(uint32_t value, int start, int end)
