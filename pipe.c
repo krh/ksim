@@ -366,6 +366,9 @@ assemble_primitives(struct value **vue, int count)
 			 * when we get, so this is safe. */
 			assert(gt.ia.queue.head - tail >= 1);
 			gt.ia.trifan_first_vertex = gt.ia.queue.vue[tail & 15];
+			/* Bump the queue tail now so we don't free
+			 * the vue below */
+			gt.ia.queue.tail++;
 			tail++;
 			gt.ia_primitives_count++;
 		}
