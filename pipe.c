@@ -310,9 +310,11 @@ setup_prim(struct primitive *prim)
 	float m32 = vp[5];
 
 	for (int i = 0; i < 3; i++) {
-		prim->v[i].x = m00 * prim->vue[i][1].vec4.x + m30;
-		prim->v[i].y = m11 * prim->vue[i][1].vec4.x + m31;
-		prim->v[i].z = m22 * prim->vue[i][1].vec4.x + m32;
+		float inv_w = 1.0f / prim->vue[i][1].vec4.w;
+		prim->v[i].x = m00 * prim->vue[i][1].vec4.x * inv_w + m30;
+		prim->v[i].y = m11 * prim->vue[i][1].vec4.y * inv_w + m31;
+		prim->v[i].z = m22 * prim->vue[i][1].vec4.z * inv_w + m32;
+		prim->v[i].w = inv_w;
 	}
 
 	rasterize_primitive(prim);
