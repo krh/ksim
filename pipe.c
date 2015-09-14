@@ -440,20 +440,19 @@ dispatch_primitive(void)
 
 	for (iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (vid = 0; vid < gt.prim.vertex_count; vid++) {
-			vue[i] = fetch_vertex(iid, vid);
+			vue[i++] = fetch_vertex(iid, vid);
 			if (gt.vf.statistics)
 				gt.ia_vertices_count++;
-			mask |= 1 << i;
-			i++;
 			if (i == 8) {
-				dispatch_vs(vue, mask);
+				dispatch_vs(vue, 255);
 				assemble_primitives(vue, i);
-				i = mask = 0;
+				i = 0;
 			}
 		}
-		if (mask) {
-			dispatch_vs(vue, mask);
+		if (i > 0) {
+			dispatch_vs(vue, (1 << i) - 1);
 			assemble_primitives(vue, i);
+			i = 0;
 		}
 
 		reset_ia_state();
