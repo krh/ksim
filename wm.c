@@ -138,8 +138,6 @@ rasterize_tile(struct payload *p, int x0, int y0,
 				uint32_t *px = base + p->offsets[i];
 				if ((p->w1[i] | p->w0[i] | p->w2[i]) >= 0)
 					*px = p->pixels[i];
-				else
-					*px = 0x00111111;
 			}
 
 		next:
