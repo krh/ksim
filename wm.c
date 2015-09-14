@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "ksim.h"
+#include "write-png.h"
 
 struct payload {
 	struct { float a, b, c; } w, red, green, blue;
@@ -319,6 +320,14 @@ rasterize_primitive(struct primitive *prim)
 		row_w0 += tile_height * p.b12;
 		row_w1 += tile_height * p.b20;
 	}
+}
 
-	free(pixels);
+void
+wm_flush(void)
+{
+	struct rt rt;
+
+	if (framebuffer_filename && get_render_target(0, &rt))
+		write_png(framebuffer_filename,
+			  rt.width, rt.height, rt.stride, rt.pixels);
 }

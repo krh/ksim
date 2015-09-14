@@ -11,13 +11,13 @@ Usage: ksim [OPTION]... [--] COMMAND ARGUMENTS
 
 Run COMMAND with ARGUMENTS and under the ksim simulator.
 
-  -o, --output=FILE    Output ksim messages to FILE.
-  -v                   Enable verbose output.  Same as --trace=debug.
-      --spam           Enable spammy, useless messages.  Same as --trace=spam.
-      --trace[=TAGS]   Enable tracing for the given message tags. Valid tags
-                         are 'debug', 'spam', 'warn', 'gem', 'cs', 'vf'.
-                         Default value is warn.  With no argument, turn on
-                         all tags.
+  -o, --output=FILE           Output ksim messages to FILE.
+  -f, --framebuffer[=FILE]    Output render target 0 to FILE as png.
+      --trace[=TAGS]          Enable tracing for the given message tags.
+                                Valid tags are 'debug', 'spam', 'warn', 'gem',
+                                'cs', 'vf', 'vs', 'ps', 'eu', 'stub', 'all'.
+                                Default value is 'stub,warn'.  With no argument,
+                                turn on all tags.
       --help           Display this help message and exit.
 
 EOF
@@ -46,13 +46,29 @@ while true; do
 	      args="${args}file=${1##--output=};"
 	      shift
 	      ;;
-	  -v)
-	      args="${args}trace=debug;"
-	      shift 1
+	  -f)
+	      case "$2" in
+		  -*)
+		      args="${args}framebuffer;"
+		      shift 1
+		      ;;
+		  *)
+		      args="${args}framebuffer=$2;"
+		      shift 2
+		      ;;
+	      esac
 	      ;;
-	  --spam)
-	      args="${args}trace=spam;"
-	      shift 1
+	  -f*)
+	      args="${args}framebuffer=${1##-f};"
+	      shift
+	      ;;
+	  --framebuffer=*)
+	      args="${args}framebuffer=${1##--framebuffer=};"
+	      shift
+	      ;;
+	  --framebuffer)
+	      args="${args}framebuffer;"
+	      shift
 	      ;;
 	  -t)
 	      args="${args}trace=$2;"

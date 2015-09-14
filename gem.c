@@ -582,6 +582,7 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 
 uint32_t trace_mask = TRACE_WARN | TRACE_STUB;
 FILE *trace_file;
+char *framebuffer_filename;
 
 static void
 parse_trace_flags(const char *value)
@@ -622,6 +623,11 @@ init(void)
 
 			if (is_prefix(buffer, "quiet", &value)) {
 				trace_mask = 0;
+			} else if (is_prefix(buffer, "framebuffer", &value))  {
+				if (value)
+					framebuffer_filename = strdup(value);
+				else
+					framebuffer_filename = strdup("fb.png");
 			} else if (is_prefix(buffer, "file", &value))  {
 				trace_file = fopen(value, "w");
 				if (trace_file == NULL)

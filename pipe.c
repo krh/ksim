@@ -482,4 +482,5 @@ dispatch_primitive(void)
 		reset_ia_state();
 	}
 
+	wm_flush();
 }
