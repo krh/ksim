@@ -330,8 +330,8 @@ void run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag);
 
 struct value {
 	union {
-		struct { float x, y, w, z; } vec4;
-		struct { int32_t x, y, w, z; } ivec4;
+		struct { float x, y, z, w; } vec4;
+		struct { int32_t x, y, z, w; } ivec4;
 		int32_t v[4];
 		float f[4];
 	};
