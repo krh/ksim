@@ -98,7 +98,7 @@ void
 sfid_urb(struct thread *t,
 	 uint32_t dst, uint32_t src,
 	 uint32_t function_control,
-         bool header_present, int mlen, int rlen)
+	 bool header_present, int mlen, int rlen)
 {
 	uint32_t opcode = field(function_control, 0, 3);
 	uint32_t global_offset = field(function_control, 4, 14);

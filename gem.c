@@ -309,7 +309,7 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_I915_GEM_BUSY:
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_BUSY\n");
 		return 0;
-			
+
 	case DRM_IOCTL_I915_GEM_SET_CACHING:
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_CACHING\n");
 		return 0;
