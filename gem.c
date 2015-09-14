@@ -157,8 +157,6 @@ create_kernel_bo(int fd, struct ugem_bo *bo)
 
 	free(bo->data);
 	bo->data = (void *) mmap.addr_ptr;
-
-	memset(bo->data, 55, bo->size);
 }
 
 void *
