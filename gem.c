@@ -132,12 +132,21 @@ create_kernel_bo(int fd, struct ugem_bo *bo)
 	libc_ioctl(fd, DRM_IOCTL_I915_GEM_CREATE, &create);
 	bo->kernel_handle = create.handle;
 
+#ifdef REAL_DEAL
 	struct drm_i915_gem_set_tiling set_tiling = {
 		.handle = bo->kernel_handle,
 		.tiling_mode = bo->tiling_mode,
 		.stride = bo->stride,
 	};
 	libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
+#else
+	struct drm_i915_gem_set_tiling set_tiling = {
+		.handle = bo->kernel_handle,
+		.tiling_mode = I915_TILING_NONE,
+		.stride = bo->stride,
+	};
+	libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
+#endif
 
 	struct drm_i915_gem_mmap mmap = {
 		.handle = bo->kernel_handle,
