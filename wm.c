@@ -54,6 +54,7 @@ dispatch_ps(struct payload *p)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
+	t.mask = 0xff;
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
 		.ud = {

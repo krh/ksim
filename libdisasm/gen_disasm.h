@@ -47,7 +47,8 @@ struct reg {
 };
 
 struct thread {
-	struct reg grf[128];
+        uint32_t mask;
+        struct reg grf[128];
 };
 
 void execute_thread(struct gen_disasm *disasm, struct thread *t, void *insns, FILE *out);

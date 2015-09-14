@@ -177,6 +177,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
+	t.mask = mask;
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
 		.ud = {
