@@ -251,6 +251,14 @@ struct gt {
 	} sf;
 
 	struct {
+		uint32_t barycentric_mode;
+	} wm;
+
+	struct {
+		uint32_t num_attributes;
+	} sbe;
+
+	struct {
 		uint32_t tid;
 		bool single_dispatch;
 		bool vector_mask;
@@ -262,18 +270,24 @@ struct gt {
 		bool sw_exception;
 		uint64_t scratch_pointer;
 		uint32_t scratch_size;
-		bool enable;
-		bool simd8;
+		bool enable_simd8;
 		bool statistics;
-		uint64_t ksp;
-		uint32_t urb_start_grf;
+		bool push_constant_enable;
+		uint64_t ksp0;
+		uint32_t grf_start0;
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+		uint32_t position_offset_xy;
+		bool uses_source_depth;
+		bool uses_source_w;
+		bool uses_input_coverage_mask;
+		bool attribute_enable;
 	} ps;
 
 	struct {
 		uint64_t viewport_pointer;
+		uint32_t state;
 	} cc;
 
 	char urb[URB_SIZE];
@@ -393,3 +407,10 @@ void wm_flush(void);
 #define __gen_user_data void
 
 #include "gen8_pack.h"
+
+#define BIM_PERSPECTIVE_PIXEL		 1
+#define BIM_PERSPECTIVE_CENTROID	 2
+#define BIM_PERSPECTIVE_SAMPLE		 4
+#define BIM_LINEAR_PIXEL		 8
+#define BIM_LINEAR_CENTROID		16
+#define BIM_LINEAR_SAMPLE		32

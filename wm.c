@@ -52,7 +52,7 @@ dispatch_ps(struct payload *p)
 	struct thread t;
 	uint32_t g;
 
-	assert(gt.ps.simd8);
+	assert(gt.ps.enable_simd8);
 
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;

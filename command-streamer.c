@@ -355,6 +355,9 @@ static void
 handle_3dstate_cc_state_pointers(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CC_STATE_POINTERS\n");
+
+	if (p[1] & 1)
+		gt.cc.state = p[1] & ~1;
 }
 
 static void
@@ -413,6 +416,8 @@ static void
 handle_3dstate_wm(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM\n");
+
+	gt.wm.barycentric_mode = field(p[1], 11, 16);
 }
 
 static void
@@ -503,12 +508,20 @@ static void
 handle_3dstate_sbe(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SBE\n");
+
+	gt.sbe.num_attributes = field(p[1], 22, 27);
 }
 
 static void
 handle_3dstate_ps(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS\n");
+
+	gt.ps.ksp0 = get_u64(&p[1]);
+	gt.ps.enable_simd8 = field(p[6], 0, 0);
+	gt.ps.position_offset_xy = field(p[6], 3, 4);
+	gt.ps.push_constant_enable = field(p[6], 11, 11);
+	gt.ps.grf_start0 = field(p[7], 16, 22);
 }
 
 static void
@@ -781,6 +794,11 @@ static void
 handle_3dstate_ps_extra(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS_EXTRA\n");
+
+	gt.ps.uses_input_coverage_mask = field(p[1], 1, 1);
+	gt.ps.attribute_enable = field(p[1], 8, 8);
+	gt.ps.uses_source_w = field(p[1], 23, 23);
+	gt.ps.uses_source_depth = field(p[1], 24, 24);
 }
 
 static void
