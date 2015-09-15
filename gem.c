@@ -574,7 +574,7 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "cs",		TRACE_CS },
 	{ "vf",		TRACE_VF },
 	{ "vs",		TRACE_VS },
-	{ "ps",		TRACE_VS },
+	{ "ps",		TRACE_PS },
 	{ "eu",		TRACE_EU },
 	{ "stub",	TRACE_STUB },
 	{ "all",	~0 },
