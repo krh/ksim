@@ -1263,12 +1263,11 @@ brw_execute_inst(void *inst, struct thread *t)
    }
 
    if (opcode_info[opcode].num_srcs == 3) {
-      struct inst_dst _dst = unpack_inst_3src_dst(inst);
-      struct inst_src _src = unpack_inst_3src_src0(inst);
-
-      dump_reg("dst", dst, _dst.type);
-
       if (opcode_info[opcode].store_dst) {
+         struct inst_dst _dst = unpack_inst_3src_dst(inst);
+         struct inst_src _src = unpack_inst_3src_src0(inst);
+
+         dump_reg("dst", dst, _dst.type);
          if (is_integer(_src.type) && is_float(_dst.type))
             dst.f = _mm256_cvtepi32_ps(dst.d);
          else if (is_float(_src.type) && is_integer(_dst.type))
@@ -1277,12 +1276,11 @@ brw_execute_inst(void *inst, struct thread *t)
          store_dst(t, &dst, inst, &_dst);
       }
    } else {
-      struct inst_dst _dst = unpack_inst_2src_dst(inst);
-      struct inst_src _src = unpack_inst_2src_src0(inst);
-
-      dump_reg("dst", dst, _dst.type);
-
       if (opcode_info[opcode].store_dst) {
+         struct inst_dst _dst = unpack_inst_2src_dst(inst);
+         struct inst_src _src = unpack_inst_2src_src0(inst);
+
+         dump_reg("dst", dst, _dst.type);
          if (is_integer(_src.type) && is_float(_dst.type))
             dst.f = _mm256_cvtepi32_ps(dst.d);
          else if (is_float(_src.type) && is_integer(_dst.type))
