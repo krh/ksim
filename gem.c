@@ -73,8 +73,22 @@ static uint64_t next_offset = 4096ul;
 static struct ugem_bo bos[1024], *bo_free_list;
 static int next_handle = 1;
 
+static void *
+gem_mmap(int fd, int handle, uint64_t size)
+{
+	struct drm_i915_gem_mmap mmap = {
+		.handle = handle,
+		.offset = 0,
+		.size = size,
+	};
+
+	libc_ioctl(fd, DRM_IOCTL_I915_GEM_MMAP, &mmap);
+
+	return (void *) (intptr_t) mmap.addr_ptr;
+}
+
 static uint32_t
-add_bo(uint64_t size)
+add_bo(int fd, uint64_t size, int kernel_handle)
 {
 	uint32_t handle;
 	struct ugem_bo *bo;
@@ -91,7 +105,14 @@ add_bo(uint64_t size)
 	bo->write_domain = 0;
 	bo->read_domains = 0;
 	bo->size = size;
-	bo->data = malloc(size);
+
+	bo->kernel_handle = kernel_handle;
+	if (kernel_handle) {
+		bo->data = gem_mmap(fd, bo->kernel_handle, size);
+		memset(bo->data, 0, size);
+	} else {
+		bo->data = malloc(size);
+	}
 
 	return handle;
 }
@@ -148,15 +169,9 @@ create_kernel_bo(int fd, struct ugem_bo *bo)
 	libc_ioctl(fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
 #endif
 
-	struct drm_i915_gem_mmap mmap = {
-		.handle = bo->kernel_handle,
-		.offset = 0,
-		.size = bo->size,
-	};
-	libc_ioctl(fd, DRM_IOCTL_I915_GEM_MMAP, &mmap);
-
 	free(bo->data);
-	bo->data = (void *) mmap.addr_ptr;
+
+	bo->data = gem_mmap(fd, bo->kernel_handle, bo->size);
 }
 
 void *
@@ -177,7 +192,7 @@ map_gtt_offset(uint64_t offset, uint64_t *range)
 	return bo->data + (offset - bo->offset);
 }
 
-static void
+static int
 dispatch_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 {
 	struct drm_i915_gem_exec_object2 *buffers = (void *) execbuffer2->buffers_ptr;
@@ -185,7 +200,7 @@ dispatch_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 	struct ugem_bo *bo;
 
 	ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER2:\n");
-	
+
 	ksim_assert((execbuffer2->batch_len & 7) == 0);
 	ksim_assert(execbuffer2->num_cliprects == 0);
 	ksim_assert(execbuffer2->DR1 == 0);
@@ -243,16 +258,18 @@ dispatch_execbuffer2(struct drm_i915_gem_execbuffer2 *execbuffer2)
 			} else {
 				handle = relocs[j].target_handle;
 			}
-			
+
 			target = get_bo(handle);
 			ksim_assert(relocs[j].offset + sizeof(*dst) < bo->size);
 			dst = bo->data + relocs[j].offset;
 			if (relocs[j].presumed_offset != target->offset)
 				*dst = target->offset + relocs[j].delta;
 		}
-	}	
+	}
 
 	start_batch_buffer(bo->offset + execbuffer2->batch_start_offset);
+
+	return 0;
 }
 
 __attribute__ ((visibility ("default"))) int
@@ -264,12 +281,18 @@ close(int fd)
 	return libc_close(fd);
 }
 
+static int
+dispatch_getparam(int fd, unsigned long request,
+		  struct drm_i915_getparam *getparam)
+{
+	return libc_ioctl(fd, request, getparam);
+}
+
 __attribute__ ((visibility ("default"))) int
 ioctl(int fd, unsigned long request, ...)
 {
 	va_list args;
 	void *argp;
-	int ret;
 	struct stat buf;
 
 	va_start(args, request);
@@ -287,13 +310,8 @@ ioctl(int fd, unsigned long request, ...)
 		return libc_ioctl(fd, request, argp);
 
 	switch (request) {
-	case DRM_IOCTL_I915_GETPARAM: {
-		struct drm_i915_getparam *getparam = argp;
-
-		ret = libc_ioctl(fd, request, argp);
-
-		return ret;
-	}
+	case DRM_IOCTL_I915_GETPARAM:
+		return dispatch_getparam(fd, request, argp);
 
 	case DRM_IOCTL_I915_SETPARAM: {
 		struct drm_i915_setparam *setparam = argp;
@@ -310,8 +328,7 @@ ioctl(int fd, unsigned long request, ...)
 	}
 
 	case DRM_IOCTL_I915_GEM_EXECBUFFER2:
-		dispatch_execbuffer2(argp);
-		return 0;
+		return dispatch_execbuffer2(argp);
 
 	case DRM_IOCTL_I915_GEM_BUSY:
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_BUSY\n");
@@ -332,7 +349,7 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_I915_GEM_CREATE: {
 		struct drm_i915_gem_create *create = argp;
 
-		create->handle = add_bo(create->size);
+		create->handle = add_bo(fd, create->size, 0);
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CREATE: handle %d, size %ld\n",
 			   create->handle, create->size);
 
@@ -363,7 +380,7 @@ ioctl(int fd, unsigned long request, ...)
 		struct ugem_bo *bo = get_bo(mmap->handle);
 
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP\n");
-			
+
 		ksim_assert(mmap->flags == 0);
 		ksim_assert(mmap->offset + mmap->size > mmap->offset &&
 			    mmap->offset + mmap->size <= bo->size);
@@ -396,7 +413,7 @@ ioctl(int fd, unsigned long request, ...)
 
 		bo->read_domains |= set_domain->read_domains;
 		bo->write_domain |= set_domain->write_domain;
-			
+
 		return 0;
 	}
 
@@ -415,12 +432,12 @@ ioctl(int fd, unsigned long request, ...)
 
 		return 0;
 	}
-			
+
 	case DRM_IOCTL_I915_GEM_GET_TILING: {
 		struct drm_i915_gem_get_tiling *get_tiling = argp;
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING: "
+			   "handle %d\n", get_tiling->handle);
 		struct ugem_bo *bo = get_bo(get_tiling->handle);
-
-		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING\n");
 
 		get_tiling->tiling_mode = bo->tiling_mode;
 
@@ -440,7 +457,7 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_I915_GEM_WAIT:
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_WAIT\n");
 		return 0;
-		
+
 	case DRM_IOCTL_I915_GEM_CONTEXT_CREATE:
 		ksim_trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CONTEXT_CREATE\n");
 		return libc_ioctl(fd, request, argp);
@@ -473,30 +490,45 @@ ioctl(int fd, unsigned long request, ...)
 		return 0;
 	}
 
-	case DRM_IOCTL_GEM_OPEN: {
-		struct drm_gem_open *open = argp;
+	case DRM_IOCTL_GEM_FLINK: {
+		struct drm_gem_flink *flink = argp;
+		struct ugem_bo *bo = get_bo(flink->handle);
+		int ret;
 
-		ksim_trace(TRACE_GEM, "DRM_IOCTL_GEM_OPEN\n");
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_PRIME_HANDLE_TO_FD\n");
 
-		return -1;
-	}
+		if (!bo->kernel_handle)
+			create_kernel_bo(fd, bo);
 
-	case DRM_IOCTL_PRIME_FD_TO_HANDLE: {
-		struct drm_prime_handle *prime = argp;
+		struct drm_gem_flink r = {
+			.handle = bo->kernel_handle
+		};
 
-		ksim_trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE\n");
+		ret = libc_ioctl(fd, request, &r);
 
-		ret = libc_ioctl(fd, request, argp);
-		if (ret == 0) {
-			off_t size;
-
-			size = lseek(prime->fd, 0, SEEK_END);
-			if (size == -1)
-				error(-1, errno, "failed to get prime bo size\n");
-		}
+		flink->name = r.name;
 
 		return ret;
 	}
+
+	case DRM_IOCTL_GEM_OPEN: {
+		struct drm_gem_open *open = argp;
+		int ret = libc_ioctl(fd, request, argp);
+		if (ret == -1)
+			return ret;
+
+		open->handle = add_bo(fd, open->size, open->handle);
+
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_GEM_OPEN: "
+			   "name %d -> handle %d\n", open->name, open->handle);
+
+		return 0;
+	}
+
+	case DRM_IOCTL_PRIME_FD_TO_HANDLE:
+		ksim_trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE\n");
+		errno = EINVAL;
+		return -1;
 
 	case DRM_IOCTL_PRIME_HANDLE_TO_FD: {
 		struct drm_prime_handle *prime_handle = argp;
@@ -507,7 +539,7 @@ ioctl(int fd, unsigned long request, ...)
 
 		if (!bo->kernel_handle)
 			create_kernel_bo(fd, bo);
-		
+
 		struct drm_prime_handle r = {
 			.handle = bo->kernel_handle,
 			.flags = prime_handle->flags
@@ -520,8 +552,12 @@ ioctl(int fd, unsigned long request, ...)
 		return ret;
 	}
 
+	case DRM_IOCTL_GET_MAGIC:
+		return libc_ioctl(fd, request, argp);
+
 	default:
-		ksim_trace(TRACE_GEM, "unhandled ioctl 0x%x\n", _IOC_NR(request));
+		ksim_trace(TRACE_WARN,
+			   "gem: unhandled ioctl 0x%x\n", _IOC_NR(request));
 
 		return 0;
 	}
