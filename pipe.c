@@ -320,12 +320,6 @@ setup_prim(struct primitive *prim)
 	rasterize_primitive(prim);
 }
 
-static inline struct value *
-get_vue(int i)
-{
-	return gt.ia.queue.vue[(gt.ia.queue.tail + i) & 15];
-}
-
 static void
 assemble_primitives(struct value **vue, int count)
 {
@@ -340,9 +334,9 @@ assemble_primitives(struct value **vue, int count)
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = get_vue(1);
-			prim.vue[1] = get_vue(0);
-			prim.vue[2] = get_vue(2);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
 			setup_prim(&prim);
 			tail += 3;
 		}
@@ -350,9 +344,9 @@ assemble_primitives(struct value **vue, int count)
 
 	case _3DPRIM_TRISTRIP:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = get_vue(0);
-			prim.vue[1] = get_vue(1 + gt.ia.tristrip_parity);
-			prim.vue[2] = get_vue(2 - gt.ia.tristrip_parity);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 1 + gt.ia.tristrip_parity) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 2 - gt.ia.tristrip_parity) & 15];
 			setup_prim(&prim);
 			tail += 1;
 			gt.ia.tristrip_parity = 1 - gt.ia.tristrip_parity;
@@ -375,8 +369,8 @@ assemble_primitives(struct value **vue, int count)
 
 		while (gt.ia.queue.head - tail >= 2) {
 			prim.vue[0] = gt.ia.trifan_first_vertex;
-			prim.vue[1] = get_vue(0);
-			prim.vue[2] = get_vue(1);
+			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
 			setup_prim(&prim);
 			tail += 1;
 			gt.ia_primitives_count++;
@@ -384,13 +378,13 @@ assemble_primitives(struct value **vue, int count)
 		break;
 	case _3DPRIM_QUADLIST:
 		while (gt.ia.queue.head - tail >= 4) {
-			prim.vue[0] = get_vue(0);
-			prim.vue[1] = get_vue(1);
-			prim.vue[2] = get_vue(2);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
 			setup_prim(&prim);
-			prim.vue[0] = get_vue(2);
-			prim.vue[1] = get_vue(3);
-			prim.vue[2] = get_vue(0);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 2) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 3) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 0) & 15];
 			setup_prim(&prim);
 			tail += 4;
 			gt.ia_primitives_count++;
@@ -398,13 +392,13 @@ assemble_primitives(struct value **vue, int count)
 		break;
 	case _3DPRIM_QUADSTRIP:
 		while (gt.ia.queue.head - tail >= 4) {
-			prim.vue[0] = get_vue(0);
-			prim.vue[1] = get_vue(1);
-			prim.vue[2] = get_vue(3);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
 			setup_prim(&prim);
-			prim.vue[0] = get_vue(3);
-			prim.vue[1] = get_vue(2);
-			prim.vue[2] = get_vue(0);
+			prim.vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 0) & 15];
 			setup_prim(&prim);
 			tail += 2;
 			gt.ia_primitives_count++;
