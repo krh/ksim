@@ -61,9 +61,12 @@ dispatch_ps(struct payload *p)
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
 		.ud = {
-			/* R0.0 - R0.2: MBZ */
-			0,
-			0,
+			/* R0.0 */
+			gt.ia.topology |
+			0 /*  FIXME: More here */,
+			/* R0.1 */
+			gt.cc.state,
+			/* R0.2: MBZ */
 			0,
 			/* R0.3: per-thread scratch space, sampler ptr */
 			gt.ps.sampler_state_address |
@@ -79,14 +82,96 @@ dispatch_ps(struct payload *p)
 		}
 	};
 
-	g = load_constants(&t, &gt.ps.curbe, gt.ps.urb_start_grf);
+	t.grf[1] = (struct reg) {
+		.ud = {
+			/* R1.0-1: MBZ */
+			0,
+			0,
+			/* R1.2: x, y for subspan 0  */
+			0 | 0,
+			/* R1.3: x, y for subspan 1  */
+			0 | 0,
+			/* R1.4: x, y for subspan 2  */
+			0 | 0,
+			/* R1.5: x, y for subspan 3  */
+			0 | 0,
+			/* R1.6: MBZ */
+			0 | 0,
+			/* R1.7: Pixel sample mask and copy */
+			0 | 0,
 
-	/* SIMD8 PS payload */
+		}
+	};
+
+	g = 2;
+	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.wm.barycentric_mode & BIM_LINEAR_CENTROID) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.wm.barycentric_mode & BIM_LINEAR_SAMPLE) {
+		g++; /* barycentric[1], slots 0-7 */
+		g++; /* barycentric[2], slots 0-7 */
+		/* if (simd16) ... */
+	}
+
+	if (gt.ps.uses_source_depth) {
+		g++; /* interpolated depth, slots 0-7 */
+	}
+
+	if (gt.ps.uses_source_w) {
+		g++; /* interpolated w, slots 0-7 */
+	}
+
+	if (gt.ps.position_offset_xy == POSOFFSET_CENTROID) {
+		g++;
+	} else if (gt.ps.position_offset_xy == POSOFFSET_SAMPLE) {
+		g++;
+	}
+
+	if (gt.ps.uses_input_coverage_mask) {
+		g++;
+	}
+
+	if (gt.ps.push_constant_enable)
+		g = load_constants(&t, &gt.ps.curbe, gt.ps.grf_start0);
+	else
+		g = gt.ps.grf_start0;
+
+	if (gt.ps.attribute_enable) {
+		memcpy(&t.grf[g], p->attribute_deltas,
+		       gt.sbe.num_attributes * 2 * sizeof(t.grf[0]));
+	}
 
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	run_thread(&t, gt.ps.ksp, TRACE_PS);
+	run_thread(&t, gt.ps.ksp0, TRACE_PS);
 }
 
 static void
@@ -133,7 +218,15 @@ rasterize_tile(struct payload *p, int x0, int y0,
 				p->w1[i] = p->area - p->w2[i] - p->w0[i];
 			}
 
-			fragment_shader(p);
+			uint32_t mask = 0;
+			for (int i = 0; i < 8; i++)
+				if ((p->w1[i] | p->w0[i] | p->w2[i]) >= 0)
+					mask |= (1 << i);
+
+			if (mask) {
+				fragment_shader(p);
+				dispatch_ps(p);
+			}
 
 			void *base = tile + (y * stride) + x * cpp;
 			for (int i = 0; i < 8; i++) {
