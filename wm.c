@@ -42,6 +42,8 @@ struct payload {
 	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
 
 	int offsets[8];
+
+	struct reg attribute_deltas[64];
 };
 
 static void
@@ -253,6 +255,37 @@ rasterize_primitive(struct primitive *prim)
 	p.blue.a = blue0 - blue1;
 	p.blue.b = blue2 - blue1;
 	p.blue.c = blue1;
+
+	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
+		const struct value a0 = prim->vue[0][i + 2];
+		const struct value a1 = prim->vue[1][i + 2];
+		const struct value a2 = prim->vue[2][i + 2];
+
+		p.attribute_deltas[i * 2] = (struct reg) {
+			.f = {
+				a1.vec4.x - a0.vec4.x,
+				a2.vec4.x - a0.vec4.x,
+				0,
+				a0.vec4.x,
+				a1.vec4.y - a0.vec4.y,
+				a2.vec4.y - a0.vec4.y,
+				0,
+				a0.vec4.y,
+			}
+		};
+		p.attribute_deltas[i * 2 + 1] = (struct reg) {
+			.f = {
+				a1.vec4.z - a0.vec4.z,
+				a2.vec4.z - a0.vec4.z,
+				0,
+				a0.vec4.z,
+				a1.vec4.w - a0.vec4.w,
+				a2.vec4.w - a0.vec4.w,
+				0,
+				a0.vec4.w,
+			}
+		};
+	}
 
 	const int max_x = 128 / 4 - 1;
 	const int max_y = 31;
