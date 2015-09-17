@@ -94,6 +94,8 @@ execute_thread(struct gen_disasm *disasm, struct thread *t, void *assembly, FILE
    int offset = 0;
    bool eot = false;
 
+   /* FIXME: uncompact entire program up front and save and reuse result,
+    * invalidate on inst cache flush. */
    while (!eot) {
       brw_inst *insn = assembly + offset;
       brw_inst uncompacted;

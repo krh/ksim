@@ -15,6 +15,5 @@ AC_PROG_LIBTOOL
 PKG_CHECK_MODULES(DRM, [libdrm_intel >= 2.4.55 libdrm])
 
 AC_CONFIG_FILES([Makefile libdisasm/Makefile])
-AC_CONFIG_FILES([ksim], [chmod +x ksim])
 
 AC_OUTPUT

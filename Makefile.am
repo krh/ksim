@@ -1,14 +1,17 @@
 SUBDIRS = libdisasm .
 
-module_LTLIBRARIES = ksim.la
+bin_PROGRAMS = ksim
+
+ksim_SOURCES = loader.c command-streamer.c \
+	pipe.c formats.c thread.c wm.c write-png.c write-png.h
+ksim_CFLAGS = -fvisibility=hidden -Wall
+ksim_LDADD = libdisasm/libdisasm.la -lpng
+
+module_LTLIBRARIES = ksim-stub.la
 moduledir = $(libdir)
 
-ksim_la_LDFLAGS = -module -avoid-version -no-undefined
-ksim_la_LIBADD = libdisasm/libdisasm.la -lpng
-ksim_la_SOURCES = ksim.h gem.c command-streamer.c \
-	pipe.c formats.c thread.c wm.c write-png.c write-png.h
-ksim_la_CPPFLAGS = $(DRM_CFLAGS)
-ksim_la_CFLAGS = -fvisibility=hidden -Wall
-
-bin_SCRIPTS = ksim
-CLEANFILES = $(bin_SCRIPTS)
+ksim_stub_la_LDFLAGS = -module -avoid-version -no-undefined
+ksim_stub_la_LIBADD = -ldl
+ksim_stub_la_SOURCES = stub.c
+ksim_stub_la_CPPFLAGS = $(DRM_CFLAGS)
+ksim_stub_la_CFLAGS = -fvisibility=hidden -Wall

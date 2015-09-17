@@ -31,6 +31,25 @@
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 
+#define MEMFD_INITIAL_SIZE 4096
+
+enum {
+	MSG_GEM_CREATE,
+	MSG_GEM_CLOSE,
+	MSG_GEM_BIND,
+	MSG_GEM_EXEC,
+	MSG_GEM_SET_DOMAIN,
+	MSG_GEM_REPLY
+};
+
+struct message {
+	uint32_t type;
+	int handle;
+	uint64_t offset;
+	uint64_t size;
+	int buffer_count;
+};
+
 static inline void
 __ksim_assert(int cond, const char *file, int line, const char *msg)
 {
