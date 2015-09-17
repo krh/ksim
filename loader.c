@@ -244,7 +244,7 @@ print_help(FILE *file)
 		"                                Default value is 'stub,warn'.  With no argument,\n"
 		"                                turn on all tags.\n"
 		"  -q, --quiet                 Disable all trace messages.\n"
-		"      --help           Display this help message and exit.\n"
+		"      --help                  Display this help message and exit.\n"
 		"\n");
 }
 
