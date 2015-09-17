@@ -329,6 +329,10 @@ main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--") == 0) {
 			i++;
 			break;
+		} else if (argv[i][0] == '-') {
+			printf("ksim: Unknown option: %s\n\n", argv[i]);
+			print_help(stdout);
+			exit(EXIT_SUCCESS);
 		} else {
 			break;
 		}
