@@ -321,7 +321,8 @@ main(int argc, char *argv[])
 				framebuffer_filename = strdup(value);
 			else
 				framebuffer_filename = strdup("fb.png");
-		} else if (strcmp(argv[i], "--quiet") == 0) {
+		} else if (strcmp(argv[i], "--quiet") == 0 ||
+			   strcmp(argv[i], "-q") == 0) {
 			trace_mask = 0;
 		} else if (strcmp(argv[i], "--help") == 0) {
 			print_help(stdout);
