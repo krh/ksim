@@ -901,6 +901,12 @@ sfid_urb(struct thread *t,
          uint32_t function_control,
          bool header_present, int mlen, int rlen);
 
+void
+sfid_render_cache(struct thread *t,
+                  uint32_t dst, uint32_t src,
+                  uint32_t function_control,
+                  bool header_present, int mlen, int rlen);
+
 static const struct {
    int num_srcs;
    bool store_dst;
@@ -1131,6 +1137,12 @@ brw_execute_inst(void *inst, struct thread *t)
       case BRW_SFID_THREAD_SPAWNER:
       case GEN6_SFID_DATAPORT_SAMPLER_CACHE:
       case GEN6_SFID_DATAPORT_RENDER_CACHE:
+         sfid_render_cache(t,
+                           unpack_inst_2src_dst(inst).num,
+                           unpack_inst_2src_src0(inst).num,
+                           send.function_control,
+                           send.header_present, send.mlen, send.rlen);
+         break;
       case GEN6_SFID_DATAPORT_CONSTANT_CACHE:
       case GEN7_SFID_DATAPORT_DATA_CACHE:
       case GEN7_SFID_PIXEL_INTERPOLATOR:

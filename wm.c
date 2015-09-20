@@ -32,8 +32,7 @@ struct payload {
 	int area;
 	float inv_area;
 	int w2[8], w0[8], w1[8];
-	int w2_offsets[8], w0_offsets[8];
-	uint32_t pixels[8];
+	int w2_offsets[8], w0_offsets[8], w1_offsets[8];
 	int a01, b01, c01;
 	int a12, b12, c12;
 	int a20, b20, c20;
@@ -41,13 +40,95 @@ struct payload {
 	int max_w0_delta, max_w1_delta, max_w2_delta;
 	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
 
-	int offsets[8];
-
 	struct reg attribute_deltas[64];
 };
 
+struct rt {
+	const uint32_t *state;
+	void *pixels;
+	int width;
+	int height;
+	int stride;
+	int cpp;
+};
+
+static bool
+get_render_target(uint32_t binding_table_offset, int i, struct rt *rt)
+{
+	uint64_t offset, range;
+	const uint32_t *binding_table;
+
+	binding_table = map_gtt_offset(binding_table_offset +
+				       gt.surface_state_base_address, &range);
+	if (range < 4)
+		return false;
+
+	rt->state = map_gtt_offset(binding_table[i] +
+				   gt.surface_state_base_address, &range);
+	if (range < 16 * 4)
+		return false;
+
+	rt->width = field(rt->state[2], 0, 13) + 1;
+	rt->height = field(rt->state[2], 16, 29) + 1;
+	rt->stride = field(rt->state[3], 0, 17) + 1;
+	rt->cpp = format_size(field(rt->state[0], 18, 26));
+
+	offset = get_u64(&rt->state[8]);
+	rt->pixels = map_gtt_offset(offset, &range);
+	if (range < rt->height * rt->stride)
+		return false;
+
+	return true;
+}
+
+void
+sfid_render_cache(struct thread *t,
+		  uint32_t dst, uint32_t src,
+		  uint32_t function_control,
+		  bool header_present, int mlen, int rlen)
+{
+	uint32_t opcode = field(function_control, 14, 17);
+	uint32_t type = field(function_control, 8, 10);
+	uint32_t surface = field(function_control, 0, 7);
+	uint32_t binding_table_offset;
+	struct rt rt;
+	bool rt_valid;
+	uint32_t *p;
+
+	binding_table_offset = t->grf[0].ud[4];
+	rt_valid = get_render_target(binding_table_offset, surface, &rt);
+	ksim_assert(rt_valid);
+
+	int x = t->grf[1].ud[2] & 0xffff;
+	int y = t->grf[1].ud[2] >> 16;
+
+	switch (opcode) {
+	case 12: /* rt write */
+		switch (type) {
+		case 4: /* simd8 */
+			for (int i = 0; i < 8; i++) {
+				p = rt.pixels + (y + i / 4) * rt.stride +
+					(x + (i & 3)) * rt.cpp;
+				*p =
+					((uint32_t) (t->grf[src + 0].f[i] * 255.0f) << 24) |
+					((uint32_t) (t->grf[src + 1].f[i] * 255.0f) << 16) |
+					((uint32_t) (t->grf[src + 2].f[i] * 255.0f) <<  8) |
+					((uint32_t) (t->grf[src + 3].f[i] * 255.0f) <<  0);
+			}
+			break;
+		default:
+			stub("rt write type");
+			break;
+		}
+		break;
+	default:
+		stub("render cache message type");
+		break;
+	}
+}
+
 static void
-dispatch_ps(struct payload *p)
+dispatch_ps(struct payload *p, uint32_t mask, int x, int y, int w1, int w2)
 {
 	struct thread t;
 	uint32_t g;
@@ -57,7 +138,7 @@ dispatch_ps(struct payload *p)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t.mask = 0xff;
+	t.mask = mask;
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
 		.ud = {
@@ -88,37 +169,46 @@ dispatch_ps(struct payload *p)
 			0,
 			0,
 			/* R1.2: x, y for subspan 0  */
-			0 | 0,
+			(y << 16) | x,
 			/* R1.3: x, y for subspan 1  */
+			(y << 16) | (x + 2),
+			/* R1.4: x, y for subspan 2 (SIMD16) */
 			0 | 0,
-			/* R1.4: x, y for subspan 2  */
-			0 | 0,
-			/* R1.5: x, y for subspan 3  */
+			/* R1.5: x, y for subspan 3 (SIMD16) */
 			0 | 0,
 			/* R1.6: MBZ */
 			0 | 0,
 			/* R1.7: Pixel sample mask and copy */
-			0 | 0,
+			mask | (mask << 16)
 
 		}
 	};
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
+		for (int i = 0; i < 8; i++) {
+			t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+		}
+		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
+		for (int i = 0; i < 8; i++) {
+			t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+		}
+		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
+		for (int i = 0; i < 8; i++) {
+			t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+		}
+		g += 2;
 		/* if (simd16) ... */
 	}
 
@@ -174,20 +264,6 @@ dispatch_ps(struct payload *p)
 	run_thread(&t, gt.ps.ksp0, TRACE_PS);
 }
 
-static void
-fragment_shader(struct payload *p)
-{
-	for (int i = 0; i < 8; i++) {
-		float w0 = (float) p->w0[i] * p->inv_area;
-		float w2 = (float) p->w2[i] * p->inv_area;
-		int red = p->red.b * w0 + p->red.a * w2 + p->red.c;
-		int green = p->green.b * w0 + p->green.a * w2 + p->green.c;
-		int blue = p->blue.b * w0 + p->blue.a * w2 + p->blue.c;
-
-		p->pixels[i] = (red << 16) | (green << 8) | (blue);
-	}
-}
-
 const int cpp = 4;
 const int tile_width = 128 / 4;
 const int tile_height = 32;
@@ -220,20 +296,11 @@ rasterize_tile(struct payload *p, int x0, int y0,
 
 			uint32_t mask = 0;
 			for (int i = 0; i < 8; i++)
-				if ((p->w1[i] | p->w0[i] | p->w2[i]) >= 0)
+				if ((p->w1[i] | p->w0[i] | p->w2[i]) > 0)
 					mask |= (1 << i);
 
-			if (mask) {
-				fragment_shader(p);
-				dispatch_ps(p);
-			}
-
-			void *base = tile + (y * stride) + x * cpp;
-			for (int i = 0; i < 8; i++) {
-				uint32_t *px = base + p->offsets[i];
-				if ((p->w1[i] | p->w0[i] | p->w2[i]) >= 0)
-					*px = p->pixels[i];
-			}
+			if (mask)
+				dispatch_ps(p, mask, x0 + x, y0 + y, w1, w2);
 
 		next:
 			w2 += p->a01 * 4;
@@ -246,50 +313,12 @@ rasterize_tile(struct payload *p, int x0, int y0,
 	}
 }
 
-struct rt {
-	const uint32_t *state;
-	void *pixels;
-	int width;
-	int height;
-	int stride;
-	int cpp;
-};
-
-static uint32_t *
-get_render_target(int i, struct rt *rt)
-{
-	uint64_t offset, range;
-	const uint32_t *binding_table;
-
-	binding_table = map_gtt_offset(gt.ps.binding_table_address +
-				       gt.surface_state_base_address, &range);
-	if (range < 4)
-		return false;
-
-	rt->state = map_gtt_offset(binding_table[i] +
-				   gt.surface_state_base_address, &range);
-	if (range < 16 * 4)
-		return false;
-
-	rt->width = field(rt->state[2], 0, 13) + 1;
-	rt->height = field(rt->state[2], 16, 29) + 1;
-	rt->stride = field(rt->state[3], 0, 17) + 1;
-	rt->cpp = format_size(field(rt->state[0], 18, 26));
-
-	offset = get_u64(&rt->state[8]);
-	rt->pixels = map_gtt_offset(offset, &range);
-	if (range < rt->height * rt->stride)
-		return false;
-
-	return true;
-}
-
 void
 rasterize_primitive(struct primitive *prim)
 {
 	struct rt rt;
 
-	if (!get_render_target(0, &rt)) {
+	if (!get_render_target(gt.ps.binding_table_address, 0, &rt)) {
 		spam("assuming binding_table[0], but nothing valid there\n");
 		return;
 	}
@@ -316,6 +345,9 @@ rasterize_primitive(struct primitive *prim)
 	p.c20 = (x2 * y0 - y2 * x0);
 
 	p.area = p.a01 * x2 + p.b01 * y2 + p.c01;
+
+	if (p.area <= 0)
+		return;
 	p.inv_area = 1.0f / p.area;
 
 	float w0 = 1.0f;
@@ -414,7 +446,7 @@ rasterize_primitive(struct primitive *prim)
 		int sy = (i & 2) >> 1;
 		p.w2_offsets[i] = p.a01 * sx + p.b01 * sy;
 		p.w0_offsets[i] = p.a12 * sx + p.b12 * sy;
-		p.offsets[i] = sy * rt.stride + sx * rt.cpp;
+		p.w1_offsets[i] = p.a20 * sx + p.b20 * sy;
 	}
 
 	int row_w2 = p.c01;
@@ -451,7 +483,8 @@ wm_flush(void)
 {
 	struct rt rt;
 
-	if (framebuffer_filename && get_render_target(0, &rt))
+	if (framebuffer_filename &&
+	    get_render_target(gt.ps.binding_table_address, 0, &rt))
 		write_png(framebuffer_filename,
 			  rt.width, rt.height, rt.stride, rt.pixels);
 }
