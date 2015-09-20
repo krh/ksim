@@ -69,10 +69,8 @@ run_thread(struct thread *t, void *kernel, uint32_t trace_flag)
 	bool eot = false;
 
 	for (insn = kernel; !eot; insn += 16) {
-#if 0
 		if (trace_mask & trace_flag)
-			brw_disassemble_inst(trace_file, devinfo, insn, compacted);
-#endif
+			gen_disasm_disassemble_insn(get_disasm(), insn, trace_file);
 
 		eot = execute_inst(insn, t);
 	}

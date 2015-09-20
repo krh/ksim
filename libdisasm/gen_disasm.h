@@ -26,6 +26,10 @@
 
 struct gen_disasm;
 
+void
+gen_disasm_disassemble_insn(struct gen_disasm *disasm,
+                            void *insn, FILE *out);
+
 struct gen_disasm *gen_disasm_create(int gen);
 void gen_disasm_disassemble(struct gen_disasm *disasm,
 			    void *assembly, int start, int end, FILE *out);

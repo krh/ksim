@@ -125,6 +125,18 @@ gen_disasm_disassemble(struct gen_disasm *disasm,
    }
 }
 
+
+void
+gen_disasm_disassemble_insn(struct gen_disasm *disasm,
+                            void *insn, FILE *out)
+{
+   /* We don't know at this point whether or not the instruction was
+    * compacted, so we'll just saay it wasn't. */
+   bool is_compacted = false;
+
+   brw_disassemble_inst(out, &disasm->devinfo, insn, is_compacted);
+}
+
 struct gen_disasm *
 gen_disasm_create(int gen)
 {
