@@ -33,8 +33,7 @@
 #include <assert.h>
 #include <immintrin.h>
 
-#include "gen_disasm.h"
-#include "../ksim.h"
+#include "ksim.h"
 
 #define BRW_HW_REG_TYPE_UD  0
 #define BRW_HW_REG_TYPE_D   1
@@ -994,10 +993,7 @@ dump_reg(const char *name, union alu_reg reg, int type)
 }
 
 bool
-brw_execute_inst(void *inst, struct thread *t);
-
-bool
-brw_execute_inst(void *inst, struct thread *t)
+execute_inst(void *inst, struct thread *t)
 {
    struct inst *packed = (struct inst *) inst;
    struct inst_src unpacked_src;

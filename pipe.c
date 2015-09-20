@@ -219,7 +219,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
 
-	run_thread(&t, gt.vs.ksp, TRACE_VS);
+	run_thread(&t, gt.vs.shader, TRACE_VS);
 }
 
 static void
@@ -455,6 +455,8 @@ dispatch_primitive(void)
 	validate_urb_state();
 
 	dump_sf_clip_viewport();
+
+	prepare_shaders();
 
 	for (iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (vid = 0; vid < gt.prim.vertex_count; vid++) {

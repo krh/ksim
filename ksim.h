@@ -27,8 +27,6 @@
 #include <stdarg.h>
 #include <signal.h>
 
-#include "libdisasm/gen_disasm.h"
-
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 
 #define MEMFD_INITIAL_SIZE 4096
@@ -242,6 +240,7 @@ struct gt {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+		void *shader;
 	} vs;
 
 	struct {
@@ -302,6 +301,7 @@ struct gt {
 		bool uses_source_w;
 		bool uses_input_coverage_mask;
 		bool attribute_enable;
+		void *shader;
 	} ps;
 
 	struct {
@@ -358,9 +358,6 @@ void *map_gtt_offset(uint64_t offset, uint64_t *range);
 	for (uint32_t __dword = (dword);		\
 	     (b) = __builtin_ffs(__dword) - 1, __dword;	\
 	     __dword &= ~(1 << (b)))
-
-uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
-void run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag);
 
 struct value {
 	union {
@@ -420,6 +417,30 @@ urb_handle_to_entry(uint32_t handle)
 }
 
 void wm_flush(void);
+
+struct reg {
+	union {
+		float f[8];
+		uint32_t ud[8];
+		int32_t d[8];
+		uint16_t uw[16];
+		int16_t w[16];
+		uint8_t ub[16];
+		int8_t b[16];
+		uint64_t uq[4];
+		int64_t q[4];
+	};
+};
+
+struct thread {
+        uint32_t mask;
+        struct reg grf[128];
+};
+
+void prepare_shaders(void);
+bool execute_inst(void *inst, struct thread *t);
+uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
+void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
 
 #define __gen_address_type uint32_t
 #define __gen_combine_address(data, dst, address, delta) delta

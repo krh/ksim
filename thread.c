@@ -22,6 +22,7 @@
  */
 
 #include "ksim.h"
+#include "libdisasm/gen_disasm.h"
 
 uint32_t
 load_constants(struct thread *t, struct curbe *c, uint32_t start)
@@ -48,24 +49,55 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 	return grf;
 }
 
-void
-run_thread(struct thread *t, uint64_t ksp, uint32_t trace_flag)
+
+static struct gen_disasm *
+get_disasm(void)
 {
-	static struct gen_disasm *disasm;
 	const int gen = 8;
-	uint64_t range;
-	void *kernel;;
-	FILE *out = NULL;
+	static struct gen_disasm *disasm;
 
 	if (disasm == NULL)
 		disasm = gen_disasm_create(gen);
 
-	kernel = map_gtt_offset(ksp + gt.instruction_base_address, &range);
+	return disasm;
+}
 
-	if (trace_mask & trace_flag)
-		out = trace_file;
+void
+run_thread(struct thread *t, void *kernel, uint32_t trace_flag)
+{
+	void *insn;
+	bool eot = false;
 
-	execute_thread(disasm, t, kernel, out);
+	for (insn = kernel; !eot; insn += 16) {
+#if 0
+		if (trace_mask & trace_flag)
+			brw_disassemble_inst(trace_file, devinfo, insn, compacted);
+#endif
+
+		eot = execute_inst(insn, t);
+	}
+}
+
+void
+prepare_shaders(void)
+{
+	int offset = 0;
+	uint64_t ksp, range;
+	static char cache[64 * 1024];
+	void *kernel;
+
+	gt.vs.shader = cache + offset;
+	ksp = gt.vs.ksp + gt.instruction_base_address;
+	kernel = map_gtt_offset(ksp, &range);
+	offset = gen_disasm_uncompact(get_disasm(), kernel,
+				      gt.vs.shader, sizeof(cache) - offset);
+
+	offset = align_u64(offset, 64);
+	gt.ps.shader = cache + offset;
+	ksp = gt.ps.ksp0 + gt.instruction_base_address;
+	kernel = map_gtt_offset(ksp, &range);
+	offset = gen_disasm_uncompact(get_disasm(), kernel,
+				      gt.ps.shader, sizeof(cache) - offset);
 }
 
 void

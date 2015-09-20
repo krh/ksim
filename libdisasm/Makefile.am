@@ -15,8 +15,7 @@ mesa_sources = \
 	brw_inst.h \
 	brw_structs.h \
 	brw_reg.h \
-	brw_packed_float.c \
-	eu_simulator.c
+	brw_packed_float.c
 
 libdisasm_la_SOURCES = \
 	$(mesa_sources) \

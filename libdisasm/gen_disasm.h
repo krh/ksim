@@ -32,25 +32,8 @@ void gen_disasm_disassemble(struct gen_disasm *disasm,
 
 void gen_disasm_destroy(struct gen_disasm *disasm);
 
-struct reg {
-	union {
-		float f[8];
-		uint32_t ud[8];
-		int32_t d[8];
-		uint16_t uw[16];
-		int16_t w[16];
-		uint8_t ub[16];
-		int8_t b[16];
-		uint64_t uq[4];
-		int64_t q[4];
-	};
-};
-
-struct thread {
-        uint32_t mask;
-        struct reg grf[128];
-};
-
-void execute_thread(struct gen_disasm *disasm, struct thread *t, void *insns, FILE *out);
+int
+gen_disasm_uncompact(struct gen_disasm *disasm,
+                     void *assembly, void *dest, int size);
 
 #endif /* GEN_DISASM_H */

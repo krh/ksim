@@ -261,7 +261,7 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y, int w1, int w2)
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	run_thread(&t, gt.ps.ksp0, TRACE_PS);
+	run_thread(&t, gt.ps.shader, TRACE_PS);
 }
 
 const int cpp = 4;

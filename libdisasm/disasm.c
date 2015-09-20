@@ -35,6 +35,47 @@ struct gen_disasm {
     struct brw_device_info devinfo;
 };
 
+int
+gen_disasm_uncompact(struct gen_disasm *disasm,
+                     void *assembly, void *dest, int size)
+{
+   struct brw_device_info *devinfo = &disasm->devinfo;
+   int offset = 0;
+   brw_inst *out = dest;
+
+   while (true) {
+      brw_inst *insn = assembly + offset;
+      brw_inst uncompacted;
+      bool compacted = brw_inst_cmpt_control(devinfo, insn);
+
+      if (compacted) {
+         brw_compact_inst *compacted = (void *)insn;
+
+	 brw_uncompact_instruction(devinfo, &uncompacted, compacted);
+	 insn = &uncompacted;
+	 offset += 8;
+      } else {
+	 offset += 16;
+      }
+
+      *out++ = *insn;
+
+      /* Simplistic, but efficient way to terminate disasm */
+      if (brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SEND ||
+	  brw_inst_opcode(devinfo, insn) == BRW_OPCODE_SENDC)
+         if (brw_inst_eot(devinfo, insn))
+            break;
+      if (brw_inst_opcode(devinfo, insn) == 0)
+         break;
+
+      if ((void *) out == dest + size)
+         return -1;
+   }
+
+   return (void *) out - dest;
+}
+
+
 void
 gen_disasm_disassemble(struct gen_disasm *disasm,
 		       void *assembly, int start, int end, FILE *out)
@@ -83,40 +124,6 @@ gen_disasm_disassemble(struct gen_disasm *disasm,
       
    }
 }
-
-bool
-brw_execute_inst(void *inst, struct thread *t);
-
-void
-execute_thread(struct gen_disasm *disasm, struct thread *t, void *assembly, FILE *out)
-{
-   struct brw_device_info *devinfo = &disasm->devinfo;
-   int offset = 0;
-   bool eot = false;
-
-   /* FIXME: uncompact entire program up front and save and reuse result,
-    * invalidate on inst cache flush. */
-   while (!eot) {
-      brw_inst *insn = assembly + offset;
-      brw_inst uncompacted;
-      bool compacted = brw_inst_cmpt_control(devinfo, insn);
-
-      if (compacted) {
-         brw_compact_inst *compacted = (void *)insn;
-         brw_uncompact_instruction(devinfo, &uncompacted, compacted);
-         insn = &uncompacted;
-         offset += 8;
-      } else {
-         offset += 16;
-      }
-
-      if (out)
-         brw_disassemble_inst(out, devinfo, insn, compacted);
-
-      eot = brw_execute_inst(insn, t);
-   }
-}
-
 
 struct gen_disasm *
 gen_disasm_create(int gen)
