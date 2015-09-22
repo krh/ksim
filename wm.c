@@ -99,23 +99,26 @@ sfid_render_cache(struct thread *t, const struct send_args *args)
 
 	int x = t->grf[1].ud[2] & 0xffff;
 	int y = t->grf[1].ud[2] >> 16;
+	int sx, sy;
 
 	switch (opcode) {
 	case 12: /* rt write */
 		switch (type) {
-		case 4: /* simd8 */
+		case 4: /* simd8 */ {
 			for (int i = 0; i < 8; i++) {
-				p = rt.pixels + (y + i / 4) * rt.stride +
-					(x + (i & 3)) * rt.cpp;
 				if ((t->mask & (1 << i)) == 0)
 					continue;
+				sx = x + (i & 1) + (i / 2 & 2);
+				sy = y + (i / 2 & 1);
+				p = rt.pixels + sy * rt.stride + sx * rt.cpp;
 				*p =
-					((uint32_t) (t->grf[src + 0].f[i] * 255.0f) << 24) |
-					((uint32_t) (t->grf[src + 1].f[i] * 255.0f) << 16) |
-					((uint32_t) (t->grf[src + 2].f[i] * 255.0f) <<  8) |
-					((uint32_t) (t->grf[src + 3].f[i] * 255.0f) <<  0);
+					((uint32_t) (t->grf[src + 0].f[i] * 255.0f) << 16) |
+					((uint32_t) (t->grf[src + 1].f[i] * 255.0f) <<  8) |
+					((uint32_t) (t->grf[src + 2].f[i] * 255.0f) <<  0) |
+					((uint32_t) (t->grf[src + 3].f[i] * 255.0f) << 24);
 			}
 			break;
+		}
 		default:
 			stub("rt write type");
 			break;
