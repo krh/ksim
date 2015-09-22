@@ -21,7 +21,6 @@
  * IN THE SOFTWARE.
  */
 
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -30,23 +29,13 @@
 #include <errno.h>
 #include <poll.h>
 #include <wait.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <linux/memfd.h>
 
 #include "ksim.h"
 
 #define KSIM_STUB_PATH ".libs/ksim-stub.so"
 
 static int socket_fd;
-
-static inline int
-memfd_create(const char *name, unsigned int flags)
-{
-   return syscall(SYS_memfd_create, name, flags);
-}
 
 static void
 load_client(int argc, char *argv[], int mfd, int s)

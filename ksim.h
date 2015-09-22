@@ -26,10 +26,21 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <linux/memfd.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 
 #define MEMFD_INITIAL_SIZE 4096
+
+static inline int
+memfd_create(const char *name, unsigned int flags)
+{
+   return syscall(SYS_memfd_create, name, flags);
+}
 
 enum {
 	MSG_GEM_CREATE,
