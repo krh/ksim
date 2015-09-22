@@ -107,6 +107,8 @@ sfid_render_cache(struct thread *t, const struct send_args *args)
 			for (int i = 0; i < 8; i++) {
 				p = rt.pixels + (y + i / 4) * rt.stride +
 					(x + (i & 3)) * rt.cpp;
+				if ((t->mask & (1 << i)) == 0)
+					continue;
 				*p =
 					((uint32_t) (t->grf[src + 0].f[i] * 255.0f) << 24) |
 					((uint32_t) (t->grf[src + 1].f[i] * 255.0f) << 16) |
