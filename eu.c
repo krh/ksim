@@ -956,8 +956,8 @@ static const struct {
    [BRW_OPCODE_DPH]             = { },
    [BRW_OPCODE_DP3]             = { },
    [BRW_OPCODE_DP2]             = { },
-   [BRW_OPCODE_LINE]            = { },
-   [BRW_OPCODE_PLN]             = { },
+   [BRW_OPCODE_LINE]            = { .num_srcs = 0, .store_dst = true },
+   [BRW_OPCODE_PLN]             = { .num_srcs = 0, .store_dst = true },
    [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = true },
    [BRW_OPCODE_LRP]             = { .num_srcs = 3, .store_dst = true },
    [BRW_OPCODE_NENOP]           = { .num_srcs = 0, .store_dst = false },
@@ -1227,25 +1227,39 @@ execute_inst(void *inst, struct thread *t)
    case BRW_OPCODE_DP2:
       break;
    case BRW_OPCODE_LINE: {
-      __m256 p = _mm256_set1_ps(src0.f[0]);
-      __m256 q = _mm256_set1_ps(src0.f[3]);
+	   int num = unpack_inst_2src_src0(inst).num;
+	   int subnum = unpack_inst_2src_src0(inst).da16_subnum / 4;
 
-      dst.f = _mm256_add_ps(_mm256_mul_ps(src1.f, p), q);
-      break;
+	   unpacked_src = unpack_inst_2src_src1(inst);
+	   load_src(&src1, t, packed, &unpacked_src);
+	   dump_reg("src1", src1, unpacked_src.type);
+
+	   __m256 p = _mm256_set1_ps(t->grf[num].f[subnum]);
+	   __m256 q = _mm256_set1_ps(t->grf[num].f[subnum + 3]);
+
+	   dst.f = _mm256_add_ps(_mm256_mul_ps(src1.f, p), q);
+	   break;
    }
    case BRW_OPCODE_PLN: {
-      __m256 p = _mm256_set1_ps(src0.f[0]);
-      __m256 q = _mm256_set1_ps(src0.f[1]);
-      __m256 r = _mm256_set1_ps(src0.f[3]);
+	   int num = unpack_inst_2src_src0(inst).num;
+	   int subnum = unpack_inst_2src_src0(inst).da16_subnum / 4;
 
-      unpacked_src = unpack_inst_2src_src1(inst);
-      unpacked_src.num++;
-      load_src(&src2, t, packed, &unpacked_src);
-      dump_reg("src2", src1, unpacked_src.type);
+	   unpacked_src = unpack_inst_2src_src1(inst);
+	   load_src(&src1, t, packed, &unpacked_src);
+	   dump_reg("src1", src1, unpacked_src.type);
 
-      dst.f = _mm256_add_ps(_mm256_add_ps(_mm256_mul_ps(src1.f, p),
+	   unpacked_src = unpack_inst_2src_src1(inst);
+	   unpacked_src.num++;
+	   load_src(&src2, t, packed, &unpacked_src);
+	   dump_reg("src2", src1, unpacked_src.type);
+
+	   __m256 p = _mm256_set1_ps(t->grf[num].f[subnum]);
+	   __m256 q = _mm256_set1_ps(t->grf[num].f[subnum + 1]);
+	   __m256 r = _mm256_set1_ps(t->grf[num].f[subnum + 3]);
+
+	   dst.f = _mm256_add_ps(_mm256_add_ps(_mm256_mul_ps(src1.f, p),
                                           _mm256_mul_ps(src2.f, q)), r);
-      break;
+	   break;
    }
    case BRW_OPCODE_MAD:
       dst.f = _mm256_add_ps(_mm256_mul_ps(src1.f, src2.f), src0.f);
