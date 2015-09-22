@@ -263,7 +263,12 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y, int w1, int w2)
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
+#if 1
+	void (*f)(struct thread *t) = (void *) gt.ps.avx_shader->code;
+	f(&t);
+#else
 	run_thread(&t, gt.ps.shader, TRACE_PS);
+#endif
 }
 
 const int cpp = 4;

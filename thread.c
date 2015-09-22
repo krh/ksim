@@ -82,7 +82,7 @@ prepare_shaders(void)
 	int offset = 0;
 	uint64_t ksp, range;
 	static char cache[64 * 1024];
-	void *kernel;
+	void *kernel, *end;
 
 	gt.vs.shader = cache + offset;
 	ksp = gt.vs.ksp + gt.instruction_base_address;
@@ -96,6 +96,24 @@ prepare_shaders(void)
 	kernel = map_gtt_offset(ksp, &range);
 	offset = gen_disasm_uncompact(get_disasm(), kernel,
 				      gt.ps.shader, sizeof(cache) - offset);
+
+	static void *pool;
+	const size_t size = 64 * 1024;
+	if (pool == NULL) {
+		int fd = memfd_create("jit", MFD_CLOEXEC);
+		ftruncate(fd, size);
+		pool = mmap(NULL, size, PROT_WRITE | PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
+		close(fd);
+	}
+
+	offset = 0;
+	gt.vs.avx_shader = pool + offset;
+	end = compile_shader(gt.vs.shader, gt.vs.avx_shader);
+
+	offset = end - (void *) gt.vs.avx_shader;
+	gt.ps.avx_shader = pool + align_u64(offset, 64);
+	end = compile_shader(gt.ps.shader, gt.ps.avx_shader);
+	ksim_assert(end - pool < size);
 }
 
 void

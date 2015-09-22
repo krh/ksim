@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <immintrin.h>
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 
@@ -252,6 +253,7 @@ struct gt {
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
 		void *shader;
+		struct shader *avx_shader;
 	} vs;
 
 	struct {
@@ -313,6 +315,7 @@ struct gt {
 		bool uses_input_coverage_mask;
 		bool attribute_enable;
 		void *shader;
+		struct shader *avx_shader;
 	} ps;
 
 	struct {
@@ -431,6 +434,7 @@ void wm_flush(void);
 
 struct reg {
 	union {
+		__m256 reg; /* for alignment */
 		float f[8];
 		uint32_t ud[8];
 		int32_t d[8];
@@ -444,8 +448,8 @@ struct reg {
 };
 
 struct thread {
-        uint32_t mask;
         struct reg grf[128];
+        uint32_t mask;
 };
 
 struct send_args {
@@ -458,6 +462,12 @@ struct send_args {
 };
 
 struct shader {
+	void (*sfid[16])(struct thread *t, const struct send_args *args);
+	struct send_args send_args[16];
+	struct reg constant_pool[16] __attribute__ ((aligned (64)));
+	uint8_t code[1024] __attribute__ ((aligned (64)));
+};
+
 void sfid_urb(struct thread *t, const struct send_args *args);
 void sfid_render_cache(struct thread *t, const struct send_args *args);
 
@@ -465,6 +475,7 @@ void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
+void *compile_shader(void *insn, struct shader *s);
 
 #define __gen_address_type uint32_t
 #define __gen_combine_address(data, dst, address, delta) delta

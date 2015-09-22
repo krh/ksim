@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 #include <getopt.h>
 #include <unistd.h>
@@ -1301,4 +1302,736 @@ execute_inst(void *inst, struct thread *t)
    }
 
    return eot;
+}
+
+struct builder {
+	struct shader *shader;
+	uint8_t *p;
+	int cp_index;
+	int scalar_reg;
+	int scalar_index;
+	int next_send_arg;
+};
+
+#define emit(bld, ...)							\
+	do {								\
+		uint8_t bytes[] = { __VA_ARGS__ };			\
+		const uint32_t length = ARRAY_LENGTH(bytes);		\
+		for (uint32_t i = 0; i < length; i++)			\
+		        bld->p[i] = bytes[i];				\
+		bld->p += length;					\
+	} while (0)
+
+#define emit_uint32(u)			\
+	((u) & 0xff),			\
+	(((u) >> 8) & 0xff),		\
+	(((u) >> 16) & 0xff),		\
+	(((u) >> 24) & 0xff)
+
+
+static void
+builder_emit_jmp_rip_relative(struct builder *bld, int32_t offset)
+{
+	emit(bld, 0xff, 0x25, emit_uint32(offset - 6));
+}
+
+static void
+builder_emit_call_rip_relative(struct builder *bld, int32_t offset)
+{
+	emit(bld, 0xff, 0x15, emit_uint32(offset - 6));
+}
+
+static void
+builder_emit_m256i_load(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc5, 0xfd, 0x6f, 0x87 + dst * 0x08, emit_uint32(offset));
+}
+
+static void
+builder_emit_m256i_load_rip_relative(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc5, 0xfd, 0x6f, 0x05 + dst * 0x08, emit_uint32(offset - 8));
+}
+
+static void
+builder_emit_vpaddd(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfd - src1 * 8, 0xfe, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpsubd(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfd - src1 * 8, 0xfa, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpmulld(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x40, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_m256i_store(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc5, 0xfd, 0x7f, 0x87 + dst * 0x08, emit_uint32(offset));
+}
+
+static void
+builder_emit_vaddps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x58, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vmulps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x59, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vsubps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5c, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpand(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfd - src1 * 8, 0xdb, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpxor(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfd - src1 * 8, 0xef, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpor(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfd - src1 * 8, 0xeb, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpsrlvd(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x45, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpsravd(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x46, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpsllvd(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x47, 0xc0 + src0 + dst * 8);
+}
+
+static void
+builder_emit_vpbroadcastd(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d, 0x58, 0x87 + dst * 8, emit_uint32(offset));
+}
+
+static void
+builder_emit_vpbroadcastd_rip_relative(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d, 0x58, 0x05 + dst * 8, emit_uint32(offset - 9));
+}
+
+/* For the vfmaddXYZps instructions, X and Y are multiplied, Z is
+ * added. 1, 2, 3 and refer to the three ymmX register sources, here
+ * dst, src0 and src1 (dst is a src too).
+ */
+
+static void
+builder_emit_vfmadd132ps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src0 * 8, 0x98, 0xc0 + dst * 8 + src1);
+}
+
+static void
+builder_emit_vfmadd231ps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d - src0 * 8, 0xb8, 0xc0 + dst * 8 + src1);
+}
+
+static void
+builder_emit_vpabsd(struct builder *bld, int dst, int src0)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d, 0x1e, 0xc0 + dst * 8 + src0);
+}
+
+static void
+builder_emit_vrsqrtps(struct builder *bld, int dst, int src0)
+{
+	emit(bld, 0xc5, 0xfc, 0x52, 0xc0 + dst * 8 + src0);
+}
+
+static void
+builder_emit_vcmpps(struct builder *bld, int op, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0xc2, 0xc0 + dst * 8 + src0, op);
+}
+
+
+static void
+builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x4c, 0xc0 + dst * 8 + src0, mask * 16);
+}
+
+static void
+builder_emit_load_rsi_rip_relative(struct builder *bld, int offset)
+{
+	emit(bld, 0x48, 0x8d, 0x35, emit_uint32(offset - 7));
+}
+
+static uint32_t
+builder_offset(struct builder *bld, void *p)
+{
+	return p - (void *) bld->p;
+}
+
+static uint32_t *
+builder_get_const_ud(struct builder *bld, uint32_t ud)
+{
+	uint32_t *p;
+
+	for (int i = 0; i < bld->cp_index; i++) {
+		for (int j = 0; j < 8; j++) {
+			if (i == bld->scalar_reg && j == bld->scalar_index)
+				break;
+			if (bld->shader->constant_pool[i].ud[j] == ud)
+				return &bld->shader->constant_pool[i].ud[j];
+		}
+	}
+
+	p = &bld->shader->constant_pool[bld->scalar_reg].ud[bld->scalar_index++];
+	if (bld->scalar_index == 8) {
+		bld->scalar_reg = bld->cp_index++;
+		bld->scalar_index = 0;
+	}
+
+	*p = ud;
+
+	return p;
+}
+
+static void
+builder_emit_da_src_load(struct builder *bld, int avx_reg,
+			 struct inst *inst, struct inst_src *src, int subnum_bytes)
+{
+	struct inst_common common = unpack_inst_common(inst);
+	int exec_size = 1 << common.exec_size;
+	int subnum = subnum_bytes / type_size(src->type);
+
+	if (exec_size != 8)
+		stub("non-8 exec size");
+
+	if (subnum == 0 &&
+	    src->hstride == 1 && src->width == src->vstride)
+		builder_emit_m256i_load(bld, avx_reg,
+				       offsetof(struct thread, grf[src->num]));
+	else if (src->hstride == 0 && src->vstride == 0 && src->width == 1)
+		builder_emit_vpbroadcastd(bld, avx_reg,
+					  offsetof(struct thread,
+						   grf[src->num].ud[subnum]));
+	else
+		spam("unimplemented src: g%d.%d<%d,%d,%d>.%d",
+		     src->num, subnum, src->vstride, src->width, src->hstride);
+}
+
+static void
+builder_emit_src_load(struct builder *bld, int avx_reg,
+		      struct inst *inst, struct inst_src *src)
+{
+	struct inst_common common = unpack_inst_common(inst);
+
+	if (src->file == BRW_IMMEDIATE_VALUE) {
+		uint32_t *ud = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
+		builder_emit_vpbroadcastd_rip_relative(bld, avx_reg, builder_offset(bld, ud));
+	} else if (common.access_mode == BRW_ALIGN_1) {
+		builder_emit_da_src_load(bld, avx_reg, inst, src, src->da1_subnum);
+	} else if (common.access_mode == BRW_ALIGN_16) {
+		builder_emit_da_src_load(bld, avx_reg, inst, src, src->da16_subnum);
+	}
+
+	/* FIXME: Build the load above into the source modifier when possible, eg:
+	 *
+	 *     vpabsd 0x456(%rdi), %ymm1
+	 */
+
+	if (src->abs) {
+		if (src->type == BRW_HW_REG_TYPE_F) {
+			uint32_t *ud = builder_get_const_ud(bld, 0x7fffffff);
+
+			builder_emit_vpbroadcastd_rip_relative(bld, 5,
+							       builder_offset(bld, ud));
+			builder_emit_vpand(bld, avx_reg, avx_reg, 5);
+		} else {
+			builder_emit_vpabsd(bld, avx_reg, avx_reg);
+		}
+	}
+
+	if (src->negate) {
+		uint32_t *ud = builder_get_const_ud(bld, 0);
+		builder_emit_vpbroadcastd_rip_relative(bld, 5,
+						       builder_offset(bld, ud));
+
+		if (is_logic_instruction(inst)) {
+			builder_emit_vpxor(bld, avx_reg, avx_reg, 5);
+		} else if (src->type == BRW_HW_REG_TYPE_F) {
+			builder_emit_vsubps(bld, avx_reg, 5, avx_reg);
+		} else {
+			builder_emit_vpsubd(bld, avx_reg, 5, avx_reg);
+		}
+	}
+}
+
+static void
+builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
+{
+	switch (modifier) {
+	case BRW_CONDITIONAL_NONE:
+		/* assert: must have both pred */
+		break;
+	case BRW_CONDITIONAL_Z:
+		builder_emit_vcmpps(bld, 0, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_NZ:
+		builder_emit_vcmpps(bld, 4, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_G:
+		builder_emit_vcmpps(bld, 14, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_GE:
+		builder_emit_vcmpps(bld, 13, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_L:
+		builder_emit_vcmpps(bld, 1, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_LE:
+		builder_emit_vcmpps(bld, 2, dst, src0, src1);
+		break;
+	case BRW_CONDITIONAL_R:
+		stub("BRW_CONDITIONAL_R");
+		break;
+	case BRW_CONDITIONAL_O:
+		stub("BRW_CONDITIONAL_O");
+		break;
+	case BRW_CONDITIONAL_U:
+		stub("BRW_CONDITIONAL_U");
+		break;
+	}
+}
+
+static void
+builder_emit_dst_store(struct builder *bld, int avx_reg, struct inst_dst *dst)
+{
+	builder_emit_m256i_store(bld, avx_reg, offsetof(struct thread, grf[dst->num]));
+}
+
+static inline int
+reg_offset(int num, int subnum)
+{
+	return offsetof(struct thread, grf[num].ud[subnum]);
+}
+
+bool
+compile_inst(struct builder *bld, struct inst *inst)
+{
+	struct shader *shader = bld->shader;
+	struct inst_src src0, src1, src2;
+	uint32_t opcode = unpack_inst_common(inst).opcode;
+	bool eot = false;
+
+	if (opcode_info[opcode].num_srcs == 3) {
+		src0 = unpack_inst_3src_src0(inst);
+		builder_emit_src_load(bld, 0, inst, &src0);
+		src1 = unpack_inst_3src_src1(inst);
+		builder_emit_src_load(bld, 1, inst, &src1);
+		src2 = unpack_inst_3src_src2(inst);
+		builder_emit_src_load(bld, 2, inst, &src2);
+	} else if (opcode_info[opcode].num_srcs >= 1) {
+		src0 = unpack_inst_2src_src0(inst);
+		builder_emit_src_load(bld, 0, inst, &src0);
+	}
+
+	if (opcode_info[opcode].num_srcs == 2) {
+		src1 = unpack_inst_2src_src1(inst);
+		builder_emit_src_load(bld, 1, inst, &src1);
+	}
+
+	switch (opcode) {
+	case BRW_OPCODE_MOV:
+		break;
+	case BRW_OPCODE_SEL: {
+		int modifier = unpack_inst_common(inst).cond_modifier;
+		builder_emit_cmp(bld, modifier, 2, 0, 1);
+		/* AVX2 blendv is opposite of the EU sel order, so we
+		 * swap src0 and src1 operands. */
+		builder_emit_vpblendvb(bld, 0, 2, 1, 0);
+		break;
+	}
+	case BRW_OPCODE_NOT: {
+		uint32_t *ud = builder_get_const_ud(bld, 0);
+		builder_emit_vpbroadcastd_rip_relative(bld, 1,
+						       builder_offset(bld, ud));
+		builder_emit_vpxor(bld, 0, 0, 1);
+		break;
+	}
+	case BRW_OPCODE_AND:
+		builder_emit_vpand(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_OR:
+		builder_emit_vpor(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_XOR:
+		builder_emit_vpxor(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_SHR:
+		builder_emit_vpsrlvd(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_SHL:
+		builder_emit_vpsllvd(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_ASR:
+		builder_emit_vpsravd(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_CMP: {
+		int modifier = unpack_inst_common(inst).cond_modifier;
+		builder_emit_cmp(bld, modifier, 2, 0, 1);
+		break;
+	}
+	case BRW_OPCODE_CMPN:
+		stub("BRW_OPCODE_CMPN");
+		break;
+	case BRW_OPCODE_CSEL:
+		stub("BRW_OPCODE_CSEL");
+		break;
+	case BRW_OPCODE_F32TO16:
+		stub("BRW_OPCODE_F32TO16");
+		break;
+	case BRW_OPCODE_F16TO32:
+		stub("BRW_OPCODE_F16TO32");
+		break;
+	case BRW_OPCODE_BFREV:
+		stub("BRW_OPCODE_BFREV");
+		break;
+	case BRW_OPCODE_BFE:
+		stub("BRW_OPCODE_BFE");
+		break;
+	case BRW_OPCODE_BFI1:
+		stub("BRW_OPCODE_BFI1");
+		break;
+	case BRW_OPCODE_BFI2:
+		stub("BRW_OPCODE_BFI2");
+		break;
+	case BRW_OPCODE_JMPI:
+		stub("BRW_OPCODE_JMPI");
+		break;
+	case BRW_OPCODE_IF:
+		stub("BRW_OPCODE_IF");
+		break;
+	case BRW_OPCODE_IFF:
+		stub("BRW_OPCODE_IFF");
+		break;
+	case BRW_OPCODE_ELSE:
+		stub("BRW_OPCODE_ELSE");
+		break;
+	case BRW_OPCODE_ENDIF:
+		stub("BRW_OPCODE_ENDIF");
+		break;
+	case BRW_OPCODE_DO:
+		stub("BRW_OPCODE_DO");
+		break;
+	case BRW_OPCODE_WHILE:
+		stub("BRW_OPCODE_WHILE");
+		break;
+	case BRW_OPCODE_BREAK:
+		stub("BRW_OPCODE_BREAK");
+		break;
+	case BRW_OPCODE_CONTINUE:
+		stub("BRW_OPCODE_CONTINUE");
+		break;
+	case BRW_OPCODE_HALT:
+		stub("BRW_OPCODE_HALT");
+		break;
+	case BRW_OPCODE_MSAVE:
+		stub("BRW_OPCODE_MSAVE");
+		break;
+	case BRW_OPCODE_MRESTORE:
+		stub("BRW_OPCODE_MRESTORE");
+		break;
+	case BRW_OPCODE_GOTO:
+		stub("BRW_OPCODE_GOTO");
+		break;
+	case BRW_OPCODE_POP:
+		stub("BRW_OPCODE_POP");
+		break;
+	case BRW_OPCODE_WAIT:
+		stub("BRW_OPCODE_WAIT");
+		break;
+	case BRW_OPCODE_SEND:
+	case BRW_OPCODE_SENDC: {
+		struct inst_send send = unpack_inst_send(inst);
+		eot = send.eot;
+
+		struct send_args *args = &shader->send_args[bld->next_send_arg++];
+		assert(bld->next_send_arg <= ARRAY_LENGTH(shader->send_args));
+		args->dst = unpack_inst_2src_dst(inst).num;
+		args->src = unpack_inst_2src_src0(inst).num;
+		args->function_control = send.function_control;
+		args->header_present = send.header_present;
+		args->mlen = send.mlen;
+		args->rlen = send.rlen;
+
+		builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+
+		/* In case of eot, we end the thread by jumping
+		 * (instead of calling) to the sfid implementation.
+		 * When the sfid implementation returns it will return
+		 * to our caller when it's done (tail-call
+		 * optimization).
+		 */
+		if (eot)
+			builder_emit_jmp_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
+						      (void *) bld->p);
+		else
+			builder_emit_call_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
+						       (void *) bld->p);
+		break;
+	}
+	case BRW_OPCODE_MATH:
+		switch (unpack_inst_common(inst).math_function) {
+		case BRW_MATH_FUNCTION_INV:
+			stub("BRW_MATH_FUNCTION_INV");
+			break;
+		case BRW_MATH_FUNCTION_LOG:
+			stub("BRW_MATH_FUNCTION_LOG");
+			break;
+		case BRW_MATH_FUNCTION_EXP:
+			stub("BRW_MATH_FUNCTION_EXP");
+			break;
+		case BRW_MATH_FUNCTION_SQRT:
+			stub("BRW_MATH_FUNCTION_SQRT");
+			break;
+		case BRW_MATH_FUNCTION_RSQ:
+			builder_emit_vrsqrtps(bld, 0, 0);
+			break;
+		case BRW_MATH_FUNCTION_SIN:
+			stub("BRW_MATH_FUNCTION_SIN");
+			break;
+		case BRW_MATH_FUNCTION_COS:
+			stub("BRW_MATH_FUNCTION_COS");
+			break;
+		case BRW_MATH_FUNCTION_SINCOS:
+			stub("BRW_MATH_FUNCTION_SINCOS");
+			break;
+		case BRW_MATH_FUNCTION_FDIV:
+			stub("BRW_MATH_FUNCTION_FDIV");
+			break;
+		case BRW_MATH_FUNCTION_POW:
+			stub("BRW_MATH_FUNCTION_POW");
+			break;
+		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
+			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER");
+			break;
+		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT:
+			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT");
+			break;
+		case BRW_MATH_FUNCTION_INT_DIV_REMAINDER:
+			stub("BRW_MATH_FUNCTION_INT_DIV_REMAINDER");
+			break;
+		case GEN8_MATH_FUNCTION_INVM:
+			stub("GEN8_MATH_FUNCTION_INVM");
+			break;
+		case GEN8_MATH_FUNCTION_RSQRTM:
+			stub("GEN8_MATH_FUNCTION_RSQRTM");
+			break;
+		default:
+			ksim_assert(false);
+			break;
+		}
+		break;
+	case BRW_OPCODE_ADD:
+		if (is_integer(unpack_inst_2src_dst(inst).type))
+			builder_emit_vpaddd(bld, 0, 0, 1);
+		else
+			builder_emit_vaddps(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_MUL:
+		if (is_integer(unpack_inst_2src_dst(inst).type))
+			builder_emit_vpmulld(bld, 0, 0, 1);
+		else
+			builder_emit_vmulps(bld, 0, 0, 1);
+		break;
+	case BRW_OPCODE_AVG:
+		stub("BRW_OPCODE_AVG");
+		break;
+	case BRW_OPCODE_FRC:
+		stub("BRW_OPCODE_FRC");
+		break;
+	case BRW_OPCODE_RNDU:
+		stub("BRW_OPCODE_RNDU");
+		break;
+	case BRW_OPCODE_RNDD:
+		stub("BRW_OPCODE_RNDD");
+		break;
+	case BRW_OPCODE_RNDE:
+		stub("BRW_OPCODE_RNDE");
+		break;
+	case BRW_OPCODE_RNDZ:
+		stub("BRW_OPCODE_RNDZ");
+		break;
+	case BRW_OPCODE_MAC:
+		stub("BRW_OPCODE_MAC");
+		break;
+	case BRW_OPCODE_MACH:
+		stub("BRW_OPCODE_MACH");
+		break;
+	case BRW_OPCODE_LZD:
+		stub("BRW_OPCODE_LZD");
+		break;
+	case BRW_OPCODE_FBH:
+		stub("BRW_OPCODE_FBH");
+		break;
+	case BRW_OPCODE_FBL:
+		stub("BRW_OPCODE_FBL");
+		break;
+	case BRW_OPCODE_CBIT:
+		stub("BRW_OPCODE_CBIT");
+		break;
+	case BRW_OPCODE_ADDC:
+		stub("BRW_OPCODE_ADDC");
+		break;
+	case BRW_OPCODE_SUBB:
+		stub("BRW_OPCODE_SUBB");
+		break;
+	case BRW_OPCODE_SAD2:
+		stub("BRW_OPCODE_SAD2");
+		break;
+	case BRW_OPCODE_SADA2:
+		stub("BRW_OPCODE_SADA2");
+		break;
+	case BRW_OPCODE_DP4:
+		stub("BRW_OPCODE_DP4");
+		break;
+	case BRW_OPCODE_DPH:
+		stub("BRW_OPCODE_DPH");
+		break;
+	case BRW_OPCODE_DP3:
+		stub("BRW_OPCODE_DP3");
+		break;
+	case BRW_OPCODE_DP2:
+		stub("BRW_OPCODE_DP2");
+		break;
+	case BRW_OPCODE_LINE: {
+		src0 = unpack_inst_2src_src0(inst);
+		src1 = unpack_inst_2src_src1(inst);
+		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
+		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
+		int subnum = src0.da16_subnum / 4;
+
+		builder_emit_src_load(bld, 0, inst, &src1);
+		builder_emit_vpbroadcastd(bld, 1, reg_offset(src0.num, subnum));
+		builder_emit_vpbroadcastd(bld, 2, reg_offset(src0.num, subnum + 3));
+		builder_emit_vfmadd132ps(bld, 0, 2, 1);
+		break;
+	}
+	case BRW_OPCODE_PLN: {
+		src0 = unpack_inst_2src_src0(inst);
+		src1 = unpack_inst_2src_src1(inst);
+		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
+		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
+
+		src2 = unpack_inst_2src_src1(inst);
+		src2.num++;
+
+		int subnum = src0.da16_subnum / 4;
+		builder_emit_src_load(bld, 2, inst, &src1);
+		builder_emit_vpbroadcastd(bld, 3, reg_offset(src0.num, subnum));
+		builder_emit_vpbroadcastd(bld, 4, reg_offset(src0.num, subnum + 3));
+		builder_emit_vfmadd132ps(bld, 2, 4, 3);
+		builder_emit_vpbroadcastd(bld, 1, reg_offset(src0.num, subnum + 1));
+		builder_emit_src_load(bld, 0, inst, &src2);
+		builder_emit_vfmadd132ps(bld, 0, 2, 1);
+		break;
+	}
+	case BRW_OPCODE_MAD:
+		if (is_integer(unpack_inst_3src_dst(inst).type)) {
+			builder_emit_vpmulld(bld, 1, 1, 2);
+			builder_emit_vpaddd(bld, 0, 0, 1);
+		} else {
+			builder_emit_vfmadd231ps(bld, 0, 1, 2);
+		}
+		break;
+	case BRW_OPCODE_LRP:
+		stub("BRW_OPCODE_LRP");
+		break;
+	case BRW_OPCODE_NENOP:
+		stub("BRW_OPCODE_NENOP");
+		break;
+	case BRW_OPCODE_NOP:
+		stub("BRW_OPCODE_NOP");
+		break;
+	}
+
+	if (opcode_info[opcode].num_srcs == 3) {
+		if (opcode_info[opcode].store_dst) {
+			struct inst_dst _dst = unpack_inst_3src_dst(inst);
+#if 0
+			struct inst_src _src = unpack_inst_3src_src0(inst);
+			dump_reg("dst", dst, _dst.type);
+			if (is_integer(_src.type) && is_float(_dst.type))
+				dst.f = _mm256_cvtepi32_ps(dst.d);
+			else if (is_float(_src.type) && is_integer(_dst.type))
+				dst.d = _mm256_cvtps_epi32(dst.f);
+#endif
+			builder_emit_dst_store(bld, 0, &_dst);
+		}
+	} else {
+		if (opcode_info[opcode].store_dst) {
+			struct inst_dst _dst = unpack_inst_2src_dst(inst);
+#if 0
+			struct inst_src _src = unpack_inst_2src_src0(inst);
+			dump_reg("dst", dst, _dst.type);
+			if (is_integer(_src.type) && is_float(_dst.type))
+				dst.f = _mm256_cvtepi32_ps(dst.d);
+			else if (is_float(_src.type) && is_integer(_dst.type))
+				dst.d = _mm256_cvtps_epi32(dst.f);
+#endif
+			builder_emit_dst_store(bld, 0, &_dst);
+		}
+	}
+
+	return eot;
+}
+
+void *
+compile_shader(void *kernel, struct shader *shader)
+{
+	struct builder bld;
+	void *insn;
+	bool eot;
+
+	shader->sfid[BRW_SFID_URB] = sfid_urb;
+	shader->sfid[GEN6_SFID_DATAPORT_RENDER_CACHE] = sfid_render_cache;
+
+	bld.shader = shader;
+	bld.p = shader->code;
+	bld.scalar_reg = 0;
+	bld.scalar_index = 0;
+	bld.cp_index = 1;
+	bld.next_send_arg = 0;
+
+	for (insn = kernel, eot = false; !eot; insn += 16)
+		eot = compile_inst(&bld, insn);
+
+	return bld.p;
 }
