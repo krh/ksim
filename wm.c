@@ -415,8 +415,8 @@ rasterize_primitive(struct primitive *prim)
 		};
 	}
 
-	const int max_x = 128 / 4 - 1;
-	const int max_y = 31;
+	const int tile_max_x = 128 / 4 - 1;
+	const int tile_max_y = 31;
 	const int group_max_x = 3;
 	const int group_max_y = 1;
 
@@ -424,7 +424,7 @@ rasterize_primitive(struct primitive *prim)
 	int w2_max_y = p.b01 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w2_delta = p.a01 * w2_max_x * max_x + p.b01 * w2_max_y * max_y;
+	p.max_w2_delta = p.a01 * w2_max_x * tile_max_x + p.b01 * w2_max_y * tile_max_y;
 	p.max_group_w2_delta =
 		p.a01 * w2_max_x * group_max_x + p.b01 * w2_max_y * group_max_y;
 
@@ -432,7 +432,7 @@ rasterize_primitive(struct primitive *prim)
 	int w0_max_y = p.b12 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w0_delta = p.a12 * w0_max_x * max_x + p.b12 * w0_max_y * max_y;
+	p.max_w0_delta = p.a12 * w0_max_x * tile_max_x + p.b12 * w0_max_y * tile_max_y;
 	p.max_group_w0_delta =
 		p.a12 * w0_max_x * group_max_x + p.b12 * w0_max_y * group_max_y;
 
@@ -440,7 +440,7 @@ rasterize_primitive(struct primitive *prim)
 	int w1_max_y = p.b20 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w1_delta = p.a20 * w1_max_x * max_x + p.b20 * w1_max_y * max_y;
+	p.max_w1_delta = p.a20 * w1_max_x * tile_max_x + p.b20 * w1_max_y * tile_max_y;
 	p.max_group_w1_delta =
 		p.a20 * w1_max_x * group_max_x + p.b20 * w1_max_y * group_max_y;
 
