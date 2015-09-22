@@ -125,14 +125,11 @@ sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
 }
 
 void
-sfid_urb(struct thread *t,
-	 uint32_t dst, uint32_t src,
-	 uint32_t function_control,
-	 bool header_present, int mlen, int rlen)
+sfid_urb(struct thread *t, const struct send_args *args)
 {
-	uint32_t opcode = field(function_control, 0, 3);
-	uint32_t global_offset = field(function_control, 4, 14);
-	bool per_slot_offset = field(function_control, 17, 17);
+	uint32_t opcode = field(args->function_control, 0, 3);
+	uint32_t global_offset = field(args->function_control, 4, 14);
+	bool per_slot_offset = field(args->function_control, 17, 17);
 
 	switch (opcode) {
 	case 0: /* write HWord */
@@ -144,7 +141,7 @@ sfid_urb(struct thread *t,
 	case 6: /* atomic add */
 		break;
 	case 7: /* SIMD8 write */
-		sfid_urb_simd8_write(t, src, global_offset, mlen);
+		sfid_urb_simd8_write(t, args->src, global_offset, args->mlen);
 		break;
 	}
 }

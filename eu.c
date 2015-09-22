@@ -894,18 +894,6 @@ do_cmp(struct inst *inst, union alu_reg src0, union alu_reg src1)
    return _mm256_set1_ps(0.0f);
 }
 
-void
-sfid_urb(struct thread *t,
-         uint32_t dst, uint32_t src,
-         uint32_t function_control,
-         bool header_present, int mlen, int rlen);
-
-void
-sfid_render_cache(struct thread *t,
-                  uint32_t dst, uint32_t src,
-                  uint32_t function_control,
-                  bool header_present, int mlen, int rlen);
-
 static const struct {
    int num_srcs;
    bool store_dst;
@@ -1116,29 +1104,29 @@ execute_inst(void *inst, struct thread *t)
    case BRW_OPCODE_SEND:
    case BRW_OPCODE_SENDC: {
       struct inst_send send = unpack_inst_send(inst);
+      struct send_args args = {
+	      .dst = unpack_inst_2src_dst(inst).num,
+	      .src = unpack_inst_2src_src0(inst).num,
+	      .function_control = send.function_control,
+	      .header_present = send.header_present,
+	      .mlen = send.mlen,
+	      .rlen = send.rlen
+      };
       eot = send.eot;
       switch (send.sfid) {
       case BRW_SFID_NULL:
       case BRW_SFID_MATH:
       case BRW_SFID_SAMPLER:
       case BRW_SFID_MESSAGE_GATEWAY:
-         break;
+	      break;
       case BRW_SFID_URB:
-         sfid_urb(t,
-                  unpack_inst_2src_dst(inst).num,
-                  unpack_inst_2src_src0(inst).num,
-                  send.function_control,
-                  send.header_present, send.mlen, send.rlen);
-         break;
+	      sfid_urb(t, &args);
+	      break;
       case BRW_SFID_THREAD_SPAWNER:
       case GEN6_SFID_DATAPORT_SAMPLER_CACHE:
       case GEN6_SFID_DATAPORT_RENDER_CACHE:
-         sfid_render_cache(t,
-                           unpack_inst_2src_dst(inst).num,
-                           unpack_inst_2src_src0(inst).num,
-                           send.function_control,
-                           send.header_present, send.mlen, send.rlen);
-         break;
+	      sfid_render_cache(t, &args);
+	      break;
       case GEN6_SFID_DATAPORT_CONSTANT_CACHE:
       case GEN7_SFID_DATAPORT_DATA_CACHE:
       case GEN7_SFID_PIXEL_INTERPOLATOR:

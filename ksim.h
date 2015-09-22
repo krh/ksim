@@ -437,6 +437,19 @@ struct thread {
         struct reg grf[128];
 };
 
+struct send_args {
+	uint32_t dst;
+	uint32_t src;
+	uint32_t function_control;
+	bool header_present;
+	uint32_t mlen;
+	uint32_t rlen;
+};
+
+struct shader {
+void sfid_urb(struct thread *t, const struct send_args *args);
+void sfid_render_cache(struct thread *t, const struct send_args *args);
+
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);

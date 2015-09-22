@@ -82,18 +82,16 @@ get_render_target(uint32_t binding_table_offset, int i, struct rt *rt)
 }
 
 void
-sfid_render_cache(struct thread *t,
-		  uint32_t dst, uint32_t src,
-		  uint32_t function_control,
-		  bool header_present, int mlen, int rlen)
+sfid_render_cache(struct thread *t, const struct send_args *args)
 {
-	uint32_t opcode = field(function_control, 14, 17);
-	uint32_t type = field(function_control, 8, 10);
-	uint32_t surface = field(function_control, 0, 7);
+	uint32_t opcode = field(args->function_control, 14, 17);
+	uint32_t type = field(args->function_control, 8, 10);
+	uint32_t surface = field(args->function_control, 0, 7);
 	uint32_t binding_table_offset;
 	struct rt rt;
 	bool rt_valid;
 	uint32_t *p;
+	int src = args->src;
 
 	binding_table_offset = t->grf[0].ud[4];
 	rt_valid = get_render_target(binding_table_offset, surface, &rt);
