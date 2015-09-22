@@ -28,7 +28,6 @@
 #include "write-png.h"
 
 struct payload {
-	struct { float a, b, c; } w, red, green, blue;
 	int area;
 	float inv_area;
 	int w2[8], w0[8], w1[8];
@@ -353,36 +352,9 @@ rasterize_primitive(struct primitive *prim)
 		return;
 	p.inv_area = 1.0f / p.area;
 
-	float w0 = 1.0f;
-	float red0 = 255.0f;
-	float blue0 = 0.0;
-	float green0 = 0.0f;
 
-	float w1 = 1.0f;
-	float red1 = 0.0f;
-	float blue1 = 255.0f;
-	float green1 = 0.0f;
 
-	float w2 = 1.0f / 2.0f;
-	float red2 = 0.0f;
-	float blue2 = 0.0f;
-	float green2 = 255.0f;
 
-	p.w.a = w0 - w1;
-	p.w.b = w2 - w1;
-	p.w.c = w1;
-
-	p.red.a = red0 - red1;
-	p.red.b = red2 - red1;
-	p.red.c = red1;
-
-	p.green.a = green0 - green1;
-	p.green.b = green2 - green1;
-	p.green.c = green1;
-
-	p.blue.a = blue0 - blue1;
-	p.blue.b = blue2 - blue1;
-	p.blue.c = blue1;
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
 		const struct value a0 = prim->vue[0][i + 2];
