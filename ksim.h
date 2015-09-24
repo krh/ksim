@@ -82,6 +82,7 @@ enum {
 	TRACE_PS = 1 << 7,		/* trace ps execution */
 	TRACE_EU = 1 << 8,		/* trace eu details */
 	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
+	TRACE_URB = 1 << 10,		/* urb traffic */
 };
 
 extern uint32_t trace_mask;

@@ -119,19 +119,23 @@ prepare_shaders(void)
 void
 sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
 {
-	spam("urb simd8 write, src g%d, global offset %d, mlen %lu, mask %02x\n",
-	     reg, offset, mlen, t->mask);
+	if (trace_mask & TRACE_URB) {
+		ksim_trace(TRACE_URB,
+			   "urb simd8 write, src g%d, global offset %d, mlen %lu, mask %02x\n",
+			   reg, offset, mlen, t->mask);
 
-	spam("  grf%d:", reg);
-	for (int c = 0; c < 8; c++)
-		spam("  %6d", t->grf[reg].d[c]);
-	spam("\n");
-
-	for (int i = 1; i < mlen; i++) {
-		spam("  grf%d:", reg + i);
+		ksim_trace(TRACE_URB, "  grf%d:", reg);
 		for (int c = 0; c < 8; c++)
-			spam("  %6.1f", t->grf[reg + i].f[c]);
-		spam("\n");
+			ksim_trace(TRACE_URB, "  %6d", t->grf[reg].d[c]);
+		ksim_trace(TRACE_URB, "\n");
+
+		for (int i = 1; i < mlen; i++) {
+			ksim_trace(TRACE_URB, "  grf%d:", reg + i);
+			for (int c = 0; c < 8; c++)
+				ksim_trace(TRACE_URB,
+					   "  %6.1f", t->grf[reg + i].f[c]);
+			ksim_trace(TRACE_URB, "\n");
+		}
 	}
 
 	uint32_t c;
