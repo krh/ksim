@@ -534,7 +534,6 @@ wm_clear(void)
 
 	if (!gt.ps.resolve &&
 	    get_render_target(gt.ps.binding_table_address, 0, &rt)) {
-		poll(NULL, 0, 1);
 		memset(rt.pixels, 0, rt.height * rt.stride);
 		depth = map_gtt_offset(gt.depth.address, &range);
 		memset(depth, 0, gt.depth.stride * gt.depth.height);
