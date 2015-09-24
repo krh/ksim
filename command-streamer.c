@@ -30,12 +30,6 @@
 struct gt gt;
 
 static void
-illegal_opcode(void)
-{
-	ksim_assert(!"illegal opcode");
-}
-
-static void
 unhandled_command(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "unhandled command\n");
@@ -226,7 +220,10 @@ handle_pipeline_select(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "PIPELINE_SELECT\n");
 
-	uint32_t pipeline = field(p[0], 0, 1);
+	struct GEN8_PIPELINE_SELECT v;
+	GEN8_PIPELINE_SELECT_unpack(NULL, p, &v);
+
+	uint32_t pipeline = v.PipelineSelection;
 
 	ksim_assert(pipeline == _3D);
 }
@@ -236,7 +233,10 @@ handle_3dstate_vf_statistics(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_STATISTICS\n");
 
-	gt.vf.statistics = field(p[0], 0, 0);
+	struct GEN8_3DSTATE_VF_STATISTICS v;
+	GEN8_3DSTATE_VF_STATISTICS_unpack(NULL, p, &v);
+
+	gt.vf.statistics = v.StatisticsEnable;
 }
 
 static command_handler_t
@@ -285,6 +285,9 @@ handle_3dstate_depth_buffer(uint32_t *p)
 static void
 handle_3dstate_stencil_buffer(uint32_t *p)
 {
+	struct GEN8_3DSTATE_STENCIL_BUFFER v;
+	GEN8_3DSTATE_STENCIL_BUFFER_unpack(NULL, p, &v);
+
 	ksim_trace(TRACE_CS, "3DSTATE_STENCIL_BUFFER\n");
 }
 
@@ -349,9 +352,12 @@ handle_3dstate_index_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_INDEX_BUFFER\n");
 
-	gt.vf.ib.format = field(p[1], 8, 9);
+	struct GEN8_3DSTATE_INDEX_BUFFER v;
+	GEN8_3DSTATE_INDEX_BUFFER_unpack(NULL, p, &v);
+
+	gt.vf.ib.format = v.IndexFormat;
 	gt.vf.ib.address = get_u64(&p[2]);
-	gt.vf.ib.size = p[4];
+	gt.vf.ib.size = v.BufferSize;
 }
 
 static void
@@ -359,7 +365,10 @@ handle_3dstate_vf(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF\n");
 
-	gt.vf.cut_index = field(p[1], 0, 31);
+	struct GEN8_3DSTATE_VF v;
+	GEN8_3DSTATE_VF_unpack(NULL, p, &v);
+
+	gt.vf.cut_index = v.CutIndex;
 }
 
 static void
@@ -373,8 +382,11 @@ handle_3dstate_cc_state_pointers(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CC_STATE_POINTERS\n");
 
-	if (p[1] & 1)
-		gt.cc.state = p[1] & ~1;
+	struct GEN8_3DSTATE_CC_STATE_POINTERS v;
+	GEN8_3DSTATE_CC_STATE_POINTERS_unpack(NULL, p, &v);
+
+	if (v.ColorCalcStatePointerValid)
+		gt.cc.state = v.ColorCalcStatePointer;
 }
 
 static void
@@ -392,7 +404,6 @@ handle_3dstate_vs(uint32_t *p)
 	GEN8_3DSTATE_VS_unpack(NULL, p, &v);
 
 	gt.vs.ksp = v.KernelStartPointer;
-
 	gt.vs.single_dispatch = v.SingleVertexDispatch;
 	gt.vs.vector_mask = v.VectorMaskEnable;
 	gt.vs.binding_table_entry_count = v.BindingTableEntryCount;
@@ -564,12 +575,16 @@ handle_3dstate_viewport_state_pointer_sf_clip(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_SF_CLIP\n");
 
+	struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP v;
+	GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(NULL, p, &v);
+
 	/* The driver is required to reemit dynamic indirect state
 	 * packets (viewports and such) after emitting
 	 * STATE_BASE_ADDRESS, which sounds like the dynamic state
 	 * base address is used by the command streamer. */
 
-	gt.sf.viewport_pointer = gt.dynamic_state_base_address + p[1];
+	gt.sf.viewport_pointer =
+		gt.dynamic_state_base_address + v.SFClipViewportPointer;
 }
 
 static void
@@ -577,7 +592,11 @@ handle_3dstate_viewport_state_pointer_cc(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_CC\n");
 
-	gt.cc.viewport_pointer = gt.dynamic_state_base_address + p[1];
+	struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC v;
+	GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(NULL, p, &v);
+
+	gt.cc.viewport_pointer =
+		gt.dynamic_state_base_address + v.CCViewportPointer;
 }
 
 static void
@@ -777,12 +796,13 @@ handle_3dstate_binding_table_edit_ps(uint32_t *p)
 static void
 handle_3dstate_vf_instancing(uint32_t *p)
 {
-	uint32_t ve = field(p[1], 0, 5);
-
 	ksim_trace(TRACE_CS, "3DSTATE_VF_INSTANCING\n");
 
-	gt.vf.ve[ve].instancing = field(p[1], 8, 8);
-	gt.vf.ve[ve].step_rate = field(p[1], 0, 5);
+	struct GEN8_3DSTATE_VF_INSTANCING v;
+	GEN8_3DSTATE_VF_INSTANCING_unpack(NULL, p, &v);
+
+	gt.vf.ve[v.VertexElementIndex].instancing = v.InstancingEnable;
+	gt.vf.ve[v.VertexElementIndex].step_rate = v.InstanceDataStepRate;
 }
 
 static void
@@ -790,13 +810,16 @@ handle_3dstate_vf_sgvs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_SGVS\n");
 
-	gt.vf.iid_enable = field(p[1], 31, 31);
-	gt.vf.iid_component = field(p[1], 29, 30);
-	gt.vf.iid_element = field(p[1], 16, 21);
+	struct GEN8_3DSTATE_VF_SGVS v;
+	GEN8_3DSTATE_VF_SGVS_unpack(NULL, p, &v);
 
-	gt.vf.vid_enable = field(p[1], 15, 15);
-	gt.vf.vid_component = field(p[1], 13, 14);
-	gt.vf.vid_element = field(p[1], 0, 5);
+	gt.vf.iid_enable = v.InstanceIDEnable;
+	gt.vf.iid_component = v.InstanceIDComponentNumber;
+	gt.vf.iid_element = v.InstanceIDElementOffset;
+
+	gt.vf.vid_enable = v.VertexIDEnable;
+	gt.vf.vid_component = v.VertexIDComponentNumber;
+	gt.vf.vid_element = v.VertexIDElementOffset;
 }
 
 static void
@@ -804,7 +827,10 @@ handle_3dstate_vf_topology(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_TOPOLOGY\n");
 
-	gt.ia.topology = field(p[1], 0, 5);
+	struct GEN8_3DSTATE_VF_TOPOLOGY v;
+	GEN8_3DSTATE_VF_TOPOLOGY_unpack(NULL, p, &v);
+
+	gt.ia.topology = v.PrimitiveTopologyType;
 }
 
 static void
@@ -836,10 +862,13 @@ handle_3dstate_ps_extra(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS_EXTRA\n");
 
-	gt.ps.uses_input_coverage_mask = field(p[1], 1, 1);
-	gt.ps.attribute_enable = field(p[1], 8, 8);
-	gt.ps.uses_source_w = field(p[1], 23, 23);
-	gt.ps.uses_source_depth = field(p[1], 24, 24);
+	struct GEN8_3DSTATE_PS_EXTRA v;
+	GEN8_3DSTATE_PS_EXTRA_unpack(NULL, p, &v);
+
+	gt.ps.uses_input_coverage_mask = v.PixelShaderUsesInputCoverageMask;
+	gt.ps.attribute_enable = v.AttributeEnable;
+	gt.ps.uses_source_w = v.PixelShaderUsesSourceW;
+	gt.ps.uses_source_depth = v.PixelShaderUsesSourceDepth;
 }
 
 static void
@@ -1102,18 +1131,19 @@ handle_3dprimitive(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DPRIMITIVE\n");
 
-	bool indirect = field(p[0], 10, 10);
+	struct GEN8_3DPRIMITIVE v;
+	GEN8_3DPRIMITIVE_unpack(NULL, p, &v);
 
-	gt.prim.predicate = field(p[0], 8, 8);
-	gt.prim.end_offset = field(p[1], 9, 9);
-	gt.prim.access_type = field(p[1], 8, 8);
+	gt.prim.predicate = v.PredicateEnable;
+	gt.prim.end_offset = v.EndOffsetEnable;
+	gt.prim.access_type = v.VertexAccessType;
 
-	if (!indirect) {
-		gt.prim.vertex_count = p[2];
-		gt.prim.start_vertex = p[3];
-		gt.prim.instance_count = p[4];
-		gt.prim.start_instance = p[5];
-		gt.prim.base_vertex = p[6];
+	if (!v.IndirectParameterEnable) {
+		gt.prim.vertex_count = v.VertexCountPerInstance;
+		gt.prim.start_vertex = v.StartVertexLocation;
+		gt.prim.instance_count = v.InstanceCount;
+		gt.prim.start_instance = v.StartInstanceLocation;
+		gt.prim.base_vertex = v.BaseVertexLocation;
 	}
 
 	dispatch_primitive();
