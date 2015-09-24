@@ -280,6 +280,7 @@ struct gt {
 
 	struct {
 		uint64_t viewport_pointer;
+		bool viewport_transform_enable;
 	} sf;
 
 	struct {
@@ -315,14 +316,34 @@ struct gt {
 		bool uses_source_w;
 		bool uses_input_coverage_mask;
 		bool attribute_enable;
+		bool fast_clear;
+		bool resolve;
 		void *shader;
 		struct shader *avx_shader;
 	} ps;
 
 	struct {
+		bool perspective_divide_disable;
+	} clip;
+
+	struct {
 		uint64_t viewport_pointer;
 		uint32_t state;
 	} cc;
+
+	struct {
+		uint64_t address;
+		uint32_t width;
+		uint32_t height;
+		uint32_t stride;
+		uint32_t format;
+		bool write_enable;
+		bool test_enable;
+		uint32_t test_function;
+		bool hiz_enable;
+		uint64_t hiz_address;
+		uint32_t hiz_stride;
+	} depth;
 
 	char urb[URB_SIZE];
 

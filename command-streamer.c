@@ -269,6 +269,17 @@ static void
 handle_3dstate_depth_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_DEPTH_BUFFER\n");
+
+	struct GEN8_3DSTATE_DEPTH_BUFFER v;
+	GEN8_3DSTATE_DEPTH_BUFFER_unpack(NULL, p, &v);
+
+	gt.depth.address = v.SurfaceBaseAddress;
+	gt.depth.width = v.Width + 1;
+	gt.depth.height = v.Height + 1;
+	gt.depth.stride = v.SurfacePitch + 1;
+	gt.depth.format = v.SurfaceFormat;
+	gt.depth.write_enable = v.DepthWriteEnable;
+	gt.depth.hiz_enable = v.HierarchicalDepthBufferEnable;
 }
 
 static void
@@ -281,6 +292,12 @@ static void
 handle_3dstate_hier_depth_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_HIER_DEPTH_BUFFER\n");
+
+	struct GEN8_3DSTATE_HIER_DEPTH_BUFFER v;
+	GEN8_3DSTATE_HIER_DEPTH_BUFFER_unpack(NULL, p, &v);
+
+	gt.depth.hiz_address = v.SurfaceBaseAddress;
+	gt.depth.hiz_stride = v.SurfacePitch + 1;
 }
 
 static void
@@ -371,27 +388,27 @@ handle_3dstate_vs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VS\n");
 
-	gt.vs.ksp = get_u64(&p[1]);
+	struct GEN8_3DSTATE_VS v;
+	GEN8_3DSTATE_VS_unpack(NULL, p, &v);
 
-	gt.vs.single_dispatch = field(p[3], 31, 31);
-	gt.vs.vector_mask = field(p[3], 30, 30);
-	gt.vs.binding_table_entry_count = field(p[3], 18, 25);
-	gt.vs.priority = field(p[3], 17, 17);
-	gt.vs.alternate_fp = field(p[3], 16, 16);
-	gt.vs.opcode_exception = field(p[3], 13, 13);
-	gt.vs.access_uav = field(p[3], 12, 12);
-	gt.vs.sw_exception = field(p[3], 7, 7);
+	gt.vs.ksp = v.KernelStartPointer;
 
-	gt.vs.scratch_pointer = get_u64(&p[4]) & ~1023;
-	gt.vs.scratch_size = field(p[4], 0, 3);
-
-	gt.vs.urb_start_grf = field(p[6], 20, 24);
-	gt.vs.vue_read_length = field(p[6], 11, 16);
-	gt.vs.vue_read_offset = field(p[6], 4, 9);
-
-	gt.vs.statistics = field(p[7], 10, 10);
-	gt.vs.simd8 = field(p[7], 2, 2);
-	gt.vs.enable = field(p[7], 0, 0);
+	gt.vs.single_dispatch = v.SingleVertexDispatch;
+	gt.vs.vector_mask = v.VectorMaskEnable;
+	gt.vs.binding_table_entry_count = v.BindingTableEntryCount;
+	gt.vs.priority = v.ThreadDispatchPriority;
+	gt.vs.alternate_fp = v.FloatingPointMode;
+	gt.vs.opcode_exception = v.IllegalOpcodeExceptionEnable;
+	gt.vs.access_uav = v.AccessesUAV;
+	gt.vs.sw_exception = v.SoftwareExceptionEnable;
+	gt.vs.scratch_pointer = v.ScratchSpaceBasePointer;
+	gt.vs.scratch_size = v.PerThreadScratchSpace;
+	gt.vs.urb_start_grf = v.DispatchGRFStartRegisterForURBData;
+	gt.vs.vue_read_length = v.VertexURBEntryReadLength;
+	gt.vs.vue_read_offset = v.VertexURBEntryReadOffset;
+	gt.vs.statistics = v.StatisticsEnable;
+	gt.vs.simd8 = v.SIMD8DispatchEnable;
+	gt.vs.enable = v.FunctionEnable;
 }
 
 static void
@@ -404,12 +421,22 @@ static void
 handle_3dstate_clip(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CLIP\n");
+
+	struct GEN8_3DSTATE_CLIP v;
+	GEN8_3DSTATE_CLIP_unpack(NULL, p, &v);
+
+	gt.clip.perspective_divide_disable = v.PerspectiveDivideDisable;
 }
 
 static void
 handle_3dstate_sf(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SF\n");
+
+	struct GEN8_3DSTATE_SF v;
+	GEN8_3DSTATE_SF_unpack(NULL, p, &v);
+
+	gt.sf.viewport_transform_enable = v.ViewportTransformEnable;
 }
 
 static void
@@ -417,7 +444,10 @@ handle_3dstate_wm(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM\n");
 
-	gt.wm.barycentric_mode = field(p[1], 11, 16);
+	struct GEN8_3DSTATE_WM v;
+	GEN8_3DSTATE_WM_unpack(NULL, p, &v);
+
+	gt.wm.barycentric_mode = v.BarycentricInterpolationMode;
 }
 
 static void
@@ -517,11 +547,16 @@ handle_3dstate_ps(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS\n");
 
-	gt.ps.ksp0 = get_u64(&p[1]);
-	gt.ps.enable_simd8 = field(p[6], 0, 0);
-	gt.ps.position_offset_xy = field(p[6], 3, 4);
-	gt.ps.push_constant_enable = field(p[6], 11, 11);
-	gt.ps.grf_start0 = field(p[7], 16, 22);
+	struct GEN8_3DSTATE_PS v;
+	GEN8_3DSTATE_PS_unpack(NULL, p, &v);
+
+	gt.ps.ksp0 = v.KernelStartPointer0;
+	gt.ps.enable_simd8 = v._8PixelDispatchEnable;
+	gt.ps.position_offset_xy = v.PositionXYOffsetSelect;
+	gt.ps.push_constant_enable = v.PushConstantEnable;
+	gt.ps.grf_start0 = v.DispatchGRFStartRegisterForConstantSetupData0;
+	gt.ps.fast_clear = v.RenderTargetFastClearEnable;
+	gt.ps.resolve = v.RenderTargetResolveEnable;
 }
 
 static void
@@ -788,6 +823,12 @@ static void
 handle_3dstate_wm_depth_stencil(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM_DEPTH_STENCIL\n");
+
+	struct GEN8_3DSTATE_WM_DEPTH_STENCIL v;
+	GEN8_3DSTATE_WM_DEPTH_STENCIL_unpack(NULL, p, &v);
+
+	gt.depth.test_enable = v.DepthTestEnable;
+	gt.depth.test_function = v.DepthTestFunction;
 }
 
 static void
