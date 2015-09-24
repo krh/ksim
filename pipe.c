@@ -385,11 +385,11 @@ assemble_primitives(struct value **vue, int count)
 		while (gt.ia.queue.head - tail >= 4) {
 			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
 			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
 			setup_prim(&prim);
-			prim.vue[0] = gt.ia.queue.vue[(tail + 2) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 3) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
 			setup_prim(&prim);
 			tail += 4;
 			gt.ia_primitives_count++;
@@ -399,11 +399,11 @@ assemble_primitives(struct value **vue, int count)
 		while (gt.ia.queue.head - tail >= 4) {
 			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
 			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
 			setup_prim(&prim);
-			prim.vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 3) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
 			setup_prim(&prim);
 			tail += 2;
 			gt.ia_primitives_count++;
