@@ -444,7 +444,7 @@ reset_ia_state(void)
 
 	gt.ia.queue.head = 0;
 	gt.ia.queue.tail = 0;
-	gt.ia.tristrip_parity = 1;
+	gt.ia.tristrip_parity = 0;
 	gt.ia.trifan_first_vertex = NULL;
 }
 
