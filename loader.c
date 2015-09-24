@@ -300,6 +300,9 @@ main(int argc, char *argv[])
 
 	trace_file = stdout;
 
+	if (!__builtin_cpu_supports("avx2"))
+		error(EXIT_FAILURE, 0, "AVX2 instructions not available");
+
 	for (i = 1; i < argc; i++) {
 		if (is_prefix(argv[i], "--trace", &value)) {
 			if (value == NULL)
