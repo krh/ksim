@@ -280,6 +280,8 @@ fetch_format(uint64_t offset, uint32_t format)
 	ksim_assert(range > format_size(format));
 
 	switch (format) {
+	case R32_FLOAT:
+		return vec4(f[0], 0.0f, 0.0f, 0.0f);
 	case R32G32_FLOAT:
 		return vec4(f[0], f[1], 0.0f, 0.0f);
 	case R32G32B32_FLOAT:
@@ -287,6 +289,7 @@ fetch_format(uint64_t offset, uint32_t format)
 	case R32G32B32A32_FLOAT:
 		return vec4(f[0], f[1], f[2], f[3]);
 	default:
+		stub("vertex format fetch");
 		assert(0);
 	}
 }
