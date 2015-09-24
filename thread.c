@@ -63,20 +63,6 @@ get_disasm(void)
 }
 
 void
-run_thread(struct thread *t, void *kernel, uint32_t trace_flag)
-{
-	void *insn;
-	bool eot = false;
-
-	for (insn = kernel; !eot; insn += 16) {
-		if (trace_mask & trace_flag)
-			gen_disasm_disassemble_insn(get_disasm(), insn, trace_file);
-
-		eot = execute_inst(insn, t);
-	}
-}
-
-void
 prepare_shaders(void)
 {
 	int offset = 0;
