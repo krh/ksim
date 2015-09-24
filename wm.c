@@ -320,7 +320,6 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	f(&t);
 }
 
-const int cpp = 4;
 const int tile_width = 128 / 4;
 const int tile_height = 32;
 
