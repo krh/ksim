@@ -1243,7 +1243,7 @@ execute_inst(void *inst, struct thread *t)
    }
    case BRW_OPCODE_PLN: {
 	   int num = unpack_inst_2src_src0(inst).num;
-	   int subnum = unpack_inst_2src_src0(inst).da16_subnum / 4;
+	   int subnum = unpack_inst_2src_src0(inst).da1_subnum / 4;
 
 	   unpacked_src = unpack_inst_2src_src1(inst);
 	   load_src(&src1, t, packed, &unpacked_src);
@@ -1953,7 +1953,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		src2 = unpack_inst_2src_src1(inst);
 		src2.num++;
 
-		int subnum = src0.da16_subnum / 4;
+		int subnum = src0.da1_subnum / 4;
 		builder_emit_src_load(bld, 2, inst, &src1);
 		builder_emit_vpbroadcastd(bld, 3, reg_offset(src0.num, subnum));
 		builder_emit_vpbroadcastd(bld, 4, reg_offset(src0.num, subnum + 3));
