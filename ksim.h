@@ -421,6 +421,7 @@ void dispatch_primitive(void);
 bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 struct value fetch_format(uint64_t offset, uint32_t format);
+uint32_t depth_format_size(uint32_t format);
 
 struct primitive {
 	struct { float x, y, z, w; } v[3];
@@ -453,6 +454,7 @@ urb_handle_to_entry(uint32_t handle)
 }
 
 void wm_flush(void);
+void wm_clear(void);
 
 struct reg {
 	union {

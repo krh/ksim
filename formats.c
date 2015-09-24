@@ -290,3 +290,17 @@ fetch_format(uint64_t offset, uint32_t format)
 		assert(0);
 	}
 }
+
+static const struct format_info depth_formats[] = {
+	[D32_FLOAT]				= { .size = 4 },
+	[D24_UNORM_X8_UINT]			= { .size = 4 },
+	[D16_UNORM]				= { .size = 2 },
+};
+
+uint32_t
+depth_format_size(uint32_t format)
+{
+	ksim_assert(format <= D16_UNORM);
+
+	return depth_formats[format].size;
+}

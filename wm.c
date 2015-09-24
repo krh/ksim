@@ -40,6 +40,7 @@ struct payload {
 	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
 
 	struct reg attribute_deltas[64];
+	float w_deltas[4];
 };
 
 struct rt {
@@ -143,8 +144,46 @@ sfid_render_cache(struct thread *t, const struct send_args *args)
 	}
 }
 
+static uint32_t
+depth_test(struct payload *p, uint32_t mask, int x, int y)
+{
+	void *buffer;
+	uint32_t *d;
+	uint64_t range;
+	uint32_t stride;
+	uint32_t cpp = depth_format_size(gt.depth.format);
+	uint32_t w_unorm;
+	int sx, sy;
+
+	buffer = map_gtt_offset(gt.depth.address, &range);
+	stride = gt.depth.stride;
+
+	/* early depth test */
+	float w[8];
+	for (int i = 0; i < 8; i++)
+		w[i] = p->w_deltas[0] * p->w1[i] * p->inv_area +
+			p->w_deltas[1] * p->w2[i] * p->inv_area +
+			p->w_deltas[3];
+
+	for (int i = 0; i < 8; i++) {
+		if ((mask & (1 << i)) == 0)
+			continue;
+		sx = x + (i & 1) + (i / 2 & 2);
+		sy = y + (i / 2 & 1);
+		d = buffer + sy * stride + sx * cpp;
+
+		w_unorm = w[i] * ((1 << 24) - 1);
+		if (gt.depth.test_enable && *d > w_unorm)
+			mask &= ~(1 << i);
+		if (gt.depth.write_enable && (mask & (1 << i)))
+			*d = w_unorm;
+	}
+
+	return mask;
+}
+
 static void
-dispatch_ps(struct payload *p, uint32_t mask, int x, int y, int w1, int w2)
+dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 {
 	struct thread t;
 	uint32_t g;
@@ -320,8 +359,10 @@ rasterize_tile(struct payload *p, int x0, int y0,
 				if ((p->w1[i] | p->w0[i] | p->w2[i]) > 0)
 					mask |= (1 << i);
 
+			if (gt.depth.test_enable || gt.depth.write_enable)
+				mask = depth_test(p, mask, x0 + x, y0 + y);
 			if (mask)
-				dispatch_ps(p, mask, x0 + x, y0 + y, w1, w2);
+				dispatch_ps(p, mask, x0 + x, y0 + y);
 
 		next:
 			w2 += p->a01 * 4;
@@ -370,6 +411,16 @@ rasterize_primitive(struct primitive *prim)
 	if (p.area <= 0)
 		return;
 	p.inv_area = 1.0f / p.area;
+
+	float w[3] = {
+		1.0f / prim->v[0].z,
+		1.0f / prim->v[1].z,
+		1.0f / prim->v[2].z
+	};
+	p.w_deltas[0] = w[1] - w[0];
+	p.w_deltas[1] = w[2] - w[0];
+	p.w_deltas[2] = 0.0f;
+	p.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
 		const struct value a0 = prim->vue[0][i + 2];
