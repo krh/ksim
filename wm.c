@@ -529,3 +529,19 @@ wm_flush(void)
 		write_png(framebuffer_filename,
 			  rt.width, rt.height, rt.stride, rt.pixels);
 }
+
+void
+wm_clear(void)
+{
+	struct rt rt;
+	void *depth;
+	uint64_t range;
+
+	if (!gt.ps.resolve &&
+	    get_render_target(gt.ps.binding_table_address, 0, &rt)) {
+		poll(NULL, 0, 1);
+		memset(rt.pixels, 0, rt.height * rt.stride);
+		depth = map_gtt_offset(gt.depth.address, &range);
+		memset(depth, 0, gt.depth.stride * gt.depth.height);
+	}
+}

@@ -430,6 +430,7 @@ assemble_primitives(struct value **vue, int count)
 
 	case _3DPRIM_RECTLIST:
 		stub("_3DPRIM_RECTLIST");
+		wm_clear();
 		tail = gt.ia.queue.head;
 		break;
 
