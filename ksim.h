@@ -477,9 +477,10 @@ uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
 void *compile_shader(void *insn, struct shader *s);
 
-#define __gen_address_type uint32_t
+#define __gen_address_type uint64_t
 #define __gen_combine_address(data, dst, address, delta) delta
 #define __gen_user_data void
+#define __gen_unpack_address(qw, start, end) __gen_unpack_field(qw, start, end)
 
 #include "gen8_pack.h"
 

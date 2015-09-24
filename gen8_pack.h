@@ -90,6 +90,37 @@ __gen_float(float v)
 #error #define __gen_combine_address before including this file
 #endif
 
+
+static inline void
+__gen_validate_mbo(uint64_t dw, uint32_t start, uint32_t end)
+{
+#if DEBUG
+   assert(1);
+#endif
+}
+
+static inline uint64_t
+__gen_unpack_field(uint64_t dw, uint32_t start, uint32_t end)
+{
+   uint64_t mask = (~0ul >> (64 - (end - start + 1)));
+
+   return (dw >> start) & mask;
+}
+
+static inline uint64_t
+__gen_unpack_float(uint64_t dw)
+{
+   return ((union __gen_value) { .dw = (dw) }).f;
+}
+
+static inline uint64_t
+__gen_unpack_offset(uint64_t dw, uint32_t start, uint32_t end)
+{
+   uint64_t mask = (~0ul >> (64 - (end - start + 1))) << start;
+
+   return dw & mask;
+}
+
 #endif
 
 #define GEN8_3DSTATE_URB_VS_length_bias 0x00000002
@@ -132,6 +163,26 @@ GEN8_3DSTATE_URB_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->VSURBEntryAllocationSize, 16, 24) |
       __gen_field(values->VSNumberofURBEntries, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_URB_VS_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_3DSTATE_URB_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->VSURBStartingAddress = __gen_unpack_field(dw1, 25, 31);
+   values->VSURBEntryAllocationSize = __gen_unpack_field(dw1, 16, 24);
+   values->VSNumberofURBEntries = __gen_unpack_field(dw1, 0, 15);
 
 }
 
@@ -254,6 +305,57 @@ GEN8_3DSTATE_VS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_VS_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->KernelStartPointer = __gen_unpack_offset(qw1, 6, 63);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->SingleVertexDispatch = __gen_unpack_field(dw3, 31, 31);
+   values->VectorMaskEnable = __gen_unpack_field(dw3, 30, 30);
+   values->SamplerCount = __gen_unpack_field(dw3, 27, 29);
+   values->BindingTableEntryCount = __gen_unpack_field(dw3, 18, 25);
+   values->ThreadDispatchPriority = __gen_unpack_field(dw3, 17, 17);
+   values->FloatingPointMode = __gen_unpack_field(dw3, 16, 16);
+   values->IllegalOpcodeExceptionEnable = __gen_unpack_field(dw3, 13, 13);
+   values->AccessesUAV = __gen_unpack_field(dw3, 12, 12);
+   values->SoftwareExceptionEnable = __gen_unpack_field(dw3, 7, 7);
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(qw4, 10, 63);
+   values->PerThreadScratchSpace = __gen_unpack_field(qw4, 0, 3);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->DispatchGRFStartRegisterForURBData = __gen_unpack_field(dw6, 20, 24);
+   values->VertexURBEntryReadLength = __gen_unpack_field(dw6, 11, 16);
+   values->VertexURBEntryReadOffset = __gen_unpack_field(dw6, 4, 9);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MaximumNumberofThreads = __gen_unpack_field(dw7, 23, 31);
+   values->StatisticsEnable = __gen_unpack_field(dw7, 10, 10);
+   values->SIMD8DispatchEnable = __gen_unpack_field(dw7, 2, 2);
+   values->VertexCacheDisable = __gen_unpack_field(dw7, 1, 1);
+   values->FunctionEnable = __gen_unpack_field(dw7, 0, 0);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->VertexURBEntryOutputReadOffset = __gen_unpack_field(dw8, 21, 26);
+   values->VertexURBEntryOutputLength = __gen_unpack_field(dw8, 16, 20);
+   values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_field(dw8, 8, 15);
+   values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_field(dw8, 0, 7);
+
+}
+
 #define GEN8_GPGPU_CSR_BASE_ADDRESS_length_bias 0x00000002
 #define GEN8_GPGPU_CSR_BASE_ADDRESS_header      \
    .CommandType          =  3,                  \
@@ -295,6 +397,24 @@ GEN8_GPGPU_CSR_BASE_ADDRESS_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] = qw1;
    dw[2] = qw1 >> 32;
+
+}
+
+static inline void
+GEN8_GPGPU_CSR_BASE_ADDRESS_unpack(__gen_user_data *data, const void * restrict src,
+                                 struct GEN8_GPGPU_CSR_BASE_ADDRESS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->GPGPUCSRBaseAddress = __gen_unpack_address(qw1, 12, 63);
 
 }
 
@@ -395,6 +515,53 @@ GEN8_MI_ATOMIC_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_ATOMIC_unpack(__gen_user_data *data, const void * restrict src,
+                    struct GEN8_MI_ATOMIC * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->MemoryType = __gen_unpack_field(dw0, 22, 22);
+   values->PostSyncOperation = __gen_unpack_field(dw0, 21, 21);
+   values->DataSize = __gen_unpack_field(dw0, 19, 20);
+   values->InlineData = __gen_unpack_field(dw0, 18, 18);
+   values->CSSTALL = __gen_unpack_field(dw0, 17, 17);
+   values->ReturnDataControl = __gen_unpack_field(dw0, 16, 16);
+   values->ATOMICOPCODE = __gen_unpack_field(dw0, 8, 15);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw1, 2, 47);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->Operand1DataDword0 = __gen_unpack_field(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->Operand2DataDword0 = __gen_unpack_field(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->Operand1DataDword1 = __gen_unpack_field(dw5, 0, 31);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->Operand2DataDword1 = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->Operand1DataDword2 = __gen_unpack_field(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->Operand2DataDword2 = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->Operand1DataDword3 = __gen_unpack_field(dw9, 0, 31);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->Operand2DataDword3 = __gen_unpack_field(dw10, 0, 31);
+
+}
+
 #define GEN8_MI_LOAD_REGISTER_REG_length_bias 0x00000002
 #define GEN8_MI_LOAD_REGISTER_REG_header        \
    .CommandType          =  0,                  \
@@ -430,6 +597,25 @@ GEN8_MI_LOAD_REGISTER_REG_pack(__gen_user_data *data, void * restrict dst,
    dw[2] =
       __gen_offset(values->DestinationRegisterAddress, 2, 22) |
       0;
+
+}
+
+static inline void
+GEN8_MI_LOAD_REGISTER_REG_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_MI_LOAD_REGISTER_REG * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SourceRegisterAddress = __gen_unpack_offset(dw1, 2, 22);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationRegisterAddress = __gen_unpack_offset(dw2, 2, 22);
 
 }
 
@@ -472,6 +658,24 @@ GEN8_MI_SEMAPHORE_SIGNAL_pack(__gen_user_data *data, void * restrict dst,
    dw[1] =
       __gen_field(values->TargetContextID, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_MI_SEMAPHORE_SIGNAL_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_MI_SEMAPHORE_SIGNAL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->PostSyncOperation = __gen_unpack_field(dw0, 21, 21);
+   values->TargetEngineSelect = __gen_unpack_field(dw0, 15, 17);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->TargetContextID = __gen_unpack_field(dw1, 0, 31);
 
 }
 
@@ -534,6 +738,28 @@ GEN8_MI_SEMAPHORE_WAIT_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_SEMAPHORE_WAIT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_MI_SEMAPHORE_WAIT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->MemoryType = __gen_unpack_field(dw0, 22, 22);
+   values->WaitMode = __gen_unpack_field(dw0, 15, 15);
+   values->CompareOperation = __gen_unpack_field(dw0, 12, 14);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SemaphoreDataDword = __gen_unpack_field(dw1, 0, 31);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->SemaphoreAddress = __gen_unpack_address(qw2, 2, 63);
+
+}
+
 #define GEN8_MI_STORE_REGISTER_MEM_length_bias 0x00000002
 #define GEN8_MI_STORE_REGISTER_MEM_header       \
    .CommandType          =  0,                  \
@@ -581,6 +807,27 @@ GEN8_MI_STORE_REGISTER_MEM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_STORE_REGISTER_MEM_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_MI_STORE_REGISTER_MEM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTT = __gen_unpack_field(dw0, 22, 22);
+   values->PredicateEnable = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->RegisterAddress = __gen_unpack_offset(dw1, 2, 22);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw2, 2, 63);
+
+}
+
 #define GEN8_PIPELINE_SELECT_length_bias 0x00000001
 #define GEN8_PIPELINE_SELECT_header             \
    .CommandType          =  3,                  \
@@ -614,6 +861,21 @@ GEN8_PIPELINE_SELECT_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->_3DCommandSubOpcode, 16, 23) |
       __gen_field(values->PipelineSelection, 0, 1) |
       0;
+
+}
+
+static inline void
+GEN8_PIPELINE_SELECT_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_PIPELINE_SELECT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->PipelineSelection = __gen_unpack_field(dw0, 0, 1);
 
 }
 
@@ -796,6 +1058,59 @@ GEN8_STATE_BASE_ADDRESS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_STATE_BASE_ADDRESS_unpack(__gen_user_data *data, const void * restrict src,
+                             struct GEN8_STATE_BASE_ADDRESS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->GeneralStateBaseAddress = __gen_unpack_address(qw1, 12, 63);
+   values->GeneralStateBaseAddressModifyEnable = __gen_unpack_field(qw1, 0, 0);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->SurfaceStateBaseAddress = __gen_unpack_address(qw4, 12, 63);
+   values->SurfaceStateBaseAddressModifyEnable = __gen_unpack_field(qw4, 0, 0);
+
+   const uint64_t qw6 __attribute__((unused)) = dw[6] | ((uint64_t ) dw[7] << 32);
+   values->DynamicStateBaseAddress = __gen_unpack_address(qw6, 12, 63);
+   values->DynamicStateBaseAddressModifyEnable = __gen_unpack_field(qw6, 0, 0);
+
+   const uint64_t qw8 __attribute__((unused)) = dw[8] | ((uint64_t ) dw[9] << 32);
+   values->IndirectObjectBaseAddress = __gen_unpack_address(qw8, 12, 63);
+   values->IndirectObjectBaseAddressModifyEnable = __gen_unpack_field(qw8, 0, 0);
+
+   const uint64_t qw10 __attribute__((unused)) = dw[10] | ((uint64_t ) dw[11] << 32);
+   values->InstructionBaseAddress = __gen_unpack_address(qw10, 12, 63);
+   values->InstructionBaseAddressModifyEnable = __gen_unpack_field(qw10, 0, 0);
+
+   const uint32_t dw12 __attribute__((unused)) = dw[12];
+   values->GeneralStateBufferSize = __gen_unpack_field(dw12, 12, 31);
+   values->GeneralStateBufferSizeModifyEnable = __gen_unpack_field(dw12, 0, 0);
+
+   const uint32_t dw13 __attribute__((unused)) = dw[13];
+   values->DynamicStateBufferSize = __gen_unpack_field(dw13, 12, 31);
+   values->DynamicStateBufferSizeModifyEnable = __gen_unpack_field(dw13, 0, 0);
+
+   const uint32_t dw14 __attribute__((unused)) = dw[14];
+   values->IndirectObjectBufferSize = __gen_unpack_field(dw14, 12, 31);
+   values->IndirectObjectBufferSizeModifyEnable = __gen_unpack_field(dw14, 0, 0);
+
+   const uint32_t dw15 __attribute__((unused)) = dw[15];
+   values->InstructionBufferSize = __gen_unpack_field(dw15, 12, 31);
+   values->InstructionBuffersizeModifyEnable = __gen_unpack_field(dw15, 0, 0);
+
+}
+
 #define GEN8_STATE_PREFETCH_length_bias 0x00000002
 #define GEN8_STATE_PREFETCH_header              \
    .CommandType          =  3,                  \
@@ -839,6 +1154,25 @@ GEN8_STATE_PREFETCH_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_STATE_PREFETCH_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_STATE_PREFETCH * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PrefetchPointer = __gen_unpack_address(dw1, 6, 31);
+   values->PrefetchCount = __gen_unpack_field(dw1, 0, 2);
+
+}
+
 #define GEN8_STATE_SIP_length_bias 0x00000002
 #define GEN8_STATE_SIP_header                   \
    .CommandType          =  3,                  \
@@ -878,6 +1212,24 @@ GEN8_STATE_SIP_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] = qw1;
    dw[2] = qw1 >> 32;
+
+}
+
+static inline void
+GEN8_STATE_SIP_unpack(__gen_user_data *data, const void * restrict src,
+                    struct GEN8_STATE_SIP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->SystemInstructionPointer = __gen_unpack_offset(qw1, 4, 63);
 
 }
 
@@ -926,6 +1278,24 @@ GEN8_SWTESS_BASE_ADDRESS_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] = qw1;
    dw[2] = qw1 >> 32;
+
+}
+
+static inline void
+GEN8_SWTESS_BASE_ADDRESS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_SWTESS_BASE_ADDRESS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->SWTessellationBaseAddress = __gen_unpack_address(qw1, 12, 47);
 
 }
 
@@ -1005,6 +1375,44 @@ GEN8_3DPRIMITIVE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DPRIMITIVE_unpack(__gen_user_data *data, const void * restrict src,
+                      struct GEN8_3DPRIMITIVE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->IndirectParameterEnable = __gen_unpack_field(dw0, 10, 10);
+   values->UAVCoherencyRequired = __gen_unpack_field(dw0, 9, 9);
+   values->PredicateEnable = __gen_unpack_field(dw0, 8, 8);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->EndOffsetEnable = __gen_unpack_field(dw1, 9, 9);
+   values->VertexAccessType = __gen_unpack_field(dw1, 8, 8);
+   values->PrimitiveTopologyType = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->VertexCountPerInstance = __gen_unpack_field(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->StartVertexLocation = __gen_unpack_field(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->InstanceCount = __gen_unpack_field(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->StartInstanceLocation = __gen_unpack_field(dw5, 0, 31);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->BaseVertexLocation = __gen_unpack_field(dw6, 0, 31);
+
+}
+
 #define GEN8_3DSTATE_AA_LINE_PARAMETERS_length_bias 0x00000002
 #define GEN8_3DSTATE_AA_LINE_PARAMETERS_header  \
    .CommandType          =  3,                  \
@@ -1058,6 +1466,33 @@ GEN8_3DSTATE_AA_LINE_PARAMETERS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->AAPointCoverageEndCapSlope * (1 << 8), 8, 15) |
       __gen_field(values->AACoverageEndCapSlope * (1 << 8), 0, 7) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_AA_LINE_PARAMETERS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_AA_LINE_PARAMETERS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->AAPointCoverageBias = (float) __gen_unpack_field(dw1, 24, 31) /  (1 << 8);
+   values->AACoverageBias = (float) __gen_unpack_field(dw1, 16, 23) /  (1 << 8);
+   values->AAPointCoverageSlope = (float) __gen_unpack_field(dw1, 8, 15) /  (1 << 8);
+   values->AACoverageSlope = (float) __gen_unpack_field(dw1, 0, 7) /  (1 << 8);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->AAPointCoverageEndCapBias = (float) __gen_unpack_field(dw2, 24, 31) /  (1 << 8);
+   values->AACoverageEndCapBias = (float) __gen_unpack_field(dw2, 16, 23) /  (1 << 8);
+   values->AAPointCoverageEndCapSlope = (float) __gen_unpack_field(dw2, 8, 15) /  (1 << 8);
+   values->AACoverageEndCapSlope = (float) __gen_unpack_field(dw2, 0, 7) /  (1 << 8);
 
 }
 
@@ -1126,6 +1561,26 @@ GEN8_3DSTATE_BINDING_TABLE_EDIT_DS_pack(__gen_user_data *data, void * restrict d
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_EDIT_DS_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_BINDING_TABLE_EDIT_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BindingTableBlockClear = __gen_unpack_field(dw1, 16, 31);
+   values->BindingTableEditTarget = __gen_unpack_field(dw1, 0, 1);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_BINDING_TABLE_EDIT_GS_length_bias 0x00000002
 #define GEN8_3DSTATE_BINDING_TABLE_EDIT_GS_header\
    .CommandType          =  3,                  \
@@ -1167,6 +1622,26 @@ GEN8_3DSTATE_BINDING_TABLE_EDIT_GS_pack(__gen_user_data *data, void * restrict d
       __gen_field(values->BindingTableBlockClear, 16, 31) |
       __gen_field(values->BindingTableEditTarget, 0, 1) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_EDIT_GS_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_BINDING_TABLE_EDIT_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BindingTableBlockClear = __gen_unpack_field(dw1, 16, 31);
+   values->BindingTableEditTarget = __gen_unpack_field(dw1, 0, 1);
 
    /* variable length fields follow */
 }
@@ -1216,6 +1691,26 @@ GEN8_3DSTATE_BINDING_TABLE_EDIT_HS_pack(__gen_user_data *data, void * restrict d
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_EDIT_HS_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_BINDING_TABLE_EDIT_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BindingTableBlockClear = __gen_unpack_field(dw1, 16, 31);
+   values->BindingTableEditTarget = __gen_unpack_field(dw1, 0, 1);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_BINDING_TABLE_EDIT_PS_length_bias 0x00000002
 #define GEN8_3DSTATE_BINDING_TABLE_EDIT_PS_header\
    .CommandType          =  3,                  \
@@ -1257,6 +1752,26 @@ GEN8_3DSTATE_BINDING_TABLE_EDIT_PS_pack(__gen_user_data *data, void * restrict d
       __gen_field(values->BindingTableBlockClear, 16, 31) |
       __gen_field(values->BindingTableEditTarget, 0, 1) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_EDIT_PS_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_BINDING_TABLE_EDIT_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BindingTableBlockClear = __gen_unpack_field(dw1, 16, 31);
+   values->BindingTableEditTarget = __gen_unpack_field(dw1, 0, 1);
 
    /* variable length fields follow */
 }
@@ -1306,6 +1821,26 @@ GEN8_3DSTATE_BINDING_TABLE_EDIT_VS_pack(__gen_user_data *data, void * restrict d
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_EDIT_VS_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_BINDING_TABLE_EDIT_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BindingTableBlockClear = __gen_unpack_field(dw1, 16, 31);
+   values->BindingTableEditTarget = __gen_unpack_field(dw1, 0, 1);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_DS_length_bias 0x00000002
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_DS_header\
    .CommandType          =  3,                  \
@@ -1342,6 +1877,24 @@ GEN8_3DSTATE_BINDING_TABLE_POINTERS_DS_pack(__gen_user_data *data, void * restri
    dw[1] =
       __gen_offset(values->PointertoDSBindingTable, 5, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POINTERS_DS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_BINDING_TABLE_POINTERS_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoDSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 
 }
 
@@ -1384,6 +1937,24 @@ GEN8_3DSTATE_BINDING_TABLE_POINTERS_GS_pack(__gen_user_data *data, void * restri
 
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POINTERS_GS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_BINDING_TABLE_POINTERS_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoGSBindingTable = __gen_unpack_offset(dw1, 5, 15);
+
+}
+
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_HS_length_bias 0x00000002
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_HS_header\
    .CommandType          =  3,                  \
@@ -1420,6 +1991,24 @@ GEN8_3DSTATE_BINDING_TABLE_POINTERS_HS_pack(__gen_user_data *data, void * restri
    dw[1] =
       __gen_offset(values->PointertoHSBindingTable, 5, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POINTERS_HS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_BINDING_TABLE_POINTERS_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoHSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 
 }
 
@@ -1462,6 +2051,24 @@ GEN8_3DSTATE_BINDING_TABLE_POINTERS_PS_pack(__gen_user_data *data, void * restri
 
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POINTERS_PS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_BINDING_TABLE_POINTERS_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoPSBindingTable = __gen_unpack_offset(dw1, 5, 15);
+
+}
+
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_VS_length_bias 0x00000002
 #define GEN8_3DSTATE_BINDING_TABLE_POINTERS_VS_header\
    .CommandType          =  3,                  \
@@ -1498,6 +2105,24 @@ GEN8_3DSTATE_BINDING_TABLE_POINTERS_VS_pack(__gen_user_data *data, void * restri
    dw[1] =
       __gen_offset(values->PointertoVSBindingTable, 5, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POINTERS_VS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_BINDING_TABLE_POINTERS_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoVSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 
 }
 
@@ -1557,6 +2182,28 @@ GEN8_3DSTATE_BINDING_TABLE_POOL_ALLOC_pack(__gen_user_data *data, void * restric
 
 }
 
+static inline void
+GEN8_3DSTATE_BINDING_TABLE_POOL_ALLOC_unpack(__gen_user_data *data, const void * restrict src,
+                                           struct GEN8_3DSTATE_BINDING_TABLE_POOL_ALLOC * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->BindingTablePoolBaseAddress = __gen_unpack_address(qw1, 12, 63);
+   values->BindingTablePoolEnable = __gen_unpack_field(qw1, 11, 11);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->BindingTablePoolBufferSize = __gen_unpack_field(dw3, 12, 31);
+
+}
+
 #define GEN8_3DSTATE_BLEND_STATE_POINTERS_length_bias 0x00000002
 #define GEN8_3DSTATE_BLEND_STATE_POINTERS_header\
    .CommandType          =  3,                  \
@@ -1598,6 +2245,25 @@ GEN8_3DSTATE_BLEND_STATE_POINTERS_pack(__gen_user_data *data, void * restrict ds
 
 }
 
+static inline void
+GEN8_3DSTATE_BLEND_STATE_POINTERS_unpack(__gen_user_data *data, const void * restrict src,
+                                       struct GEN8_3DSTATE_BLEND_STATE_POINTERS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BlendStatePointer = __gen_unpack_offset(dw1, 6, 31);
+   values->BlendStatePointerValid = __gen_unpack_field(dw1, 0, 0);
+
+}
+
 #define GEN8_3DSTATE_CC_STATE_POINTERS_length_bias 0x00000002
 #define GEN8_3DSTATE_CC_STATE_POINTERS_header   \
    .CommandType          =  3,                  \
@@ -1636,6 +2302,25 @@ GEN8_3DSTATE_CC_STATE_POINTERS_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->ColorCalcStatePointer, 6, 31) |
       __gen_field(values->ColorCalcStatePointerValid, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_CC_STATE_POINTERS_unpack(__gen_user_data *data, const void * restrict src,
+                                    struct GEN8_3DSTATE_CC_STATE_POINTERS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ColorCalcStatePointer = __gen_unpack_offset(dw1, 6, 31);
+   values->ColorCalcStatePointerValid = __gen_unpack_field(dw1, 0, 0);
 
 }
 
@@ -1688,6 +2373,30 @@ GEN8_3DSTATE_CHROMA_KEY_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_CHROMA_KEY_unpack(__gen_user_data *data, const void * restrict src,
+                             struct GEN8_3DSTATE_CHROMA_KEY * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ChromaKeyTableIndex = __gen_unpack_field(dw1, 30, 31);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ChromaKeyLowValue = __gen_unpack_field(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ChromaKeyHighValue = __gen_unpack_field(dw3, 0, 31);
+
+}
+
 #define GEN8_3DSTATE_CLEAR_PARAMS_length_bias 0x00000002
 #define GEN8_3DSTATE_CLEAR_PARAMS_header        \
    .CommandType          =  3,                  \
@@ -1729,6 +2438,27 @@ GEN8_3DSTATE_CLEAR_PARAMS_pack(__gen_user_data *data, void * restrict dst,
    dw[2] =
       __gen_field(values->DepthClearValueValid, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_CLEAR_PARAMS_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_CLEAR_PARAMS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DepthClearValue = __gen_unpack_float(dw1);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DepthClearValueValid = __gen_unpack_field(dw2, 0, 0);
 
 }
 
@@ -1828,6 +2558,49 @@ GEN8_3DSTATE_CLIP_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->ForceZeroRTAIndexEnable, 5, 5) |
       __gen_field(values->MaximumVPIndex, 0, 3) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_CLIP_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_3DSTATE_CLIP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ForceUserClipDistanceCullTestEnableBitmask = __gen_unpack_field(dw1, 20, 20);
+   values->VertexSubPixelPrecisionSelect = __gen_unpack_field(dw1, 19, 19);
+   values->EarlyCullEnable = __gen_unpack_field(dw1, 18, 18);
+   values->ForceUserClipDistanceClipTestEnableBitmask = __gen_unpack_field(dw1, 17, 17);
+   values->ForceClipMode = __gen_unpack_field(dw1, 16, 16);
+   values->ClipperStatisticsEnable = __gen_unpack_field(dw1, 10, 10);
+   values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_field(dw1, 0, 7);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClipEnable = __gen_unpack_field(dw2, 31, 31);
+   values->APIMode = __gen_unpack_field(dw2, 30, 30);
+   values->ViewportXYClipTestEnable = __gen_unpack_field(dw2, 28, 28);
+   values->GuardbandClipTestEnable = __gen_unpack_field(dw2, 26, 26);
+   values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_field(dw2, 16, 23);
+   values->ClipMode = __gen_unpack_field(dw2, 13, 15);
+   values->PerspectiveDivideDisable = __gen_unpack_field(dw2, 9, 9);
+   values->NonPerspectiveBarycentricEnable = __gen_unpack_field(dw2, 8, 8);
+   values->TriangleStripListProvokingVertexSelect = __gen_unpack_field(dw2, 4, 5);
+   values->LineStripListProvokingVertexSelect = __gen_unpack_field(dw2, 2, 3);
+   values->TriangleFanProvokingVertexSelect = __gen_unpack_field(dw2, 0, 1);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->MinimumPointWidth = (float) __gen_unpack_field(dw3, 17, 27) /  (1 << 3);
+   values->MaximumPointWidth = (float) __gen_unpack_field(dw3, 6, 16) /  (1 << 3);
+   values->ForceZeroRTAIndexEnable = __gen_unpack_field(dw3, 5, 5);
+   values->MaximumVPIndex = __gen_unpack_field(dw3, 0, 3);
 
 }
 
@@ -1938,6 +2711,23 @@ GEN8_3DSTATE_CONSTANT_DS_pack(__gen_user_data *data, void * restrict dst,
    GEN8_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+static inline void
+GEN8_3DSTATE_CONSTANT_DS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_CONSTANT_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
+}
+
 #define GEN8_3DSTATE_CONSTANT_GS_length_bias 0x00000002
 #define GEN8_3DSTATE_CONSTANT_GS_header         \
    .CommandType          =  3,                  \
@@ -1976,6 +2766,23 @@ GEN8_3DSTATE_CONSTANT_GS_pack(__gen_user_data *data, void * restrict dst,
       0;
 
    GEN8_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
+}
+
+static inline void
+GEN8_3DSTATE_CONSTANT_GS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_CONSTANT_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
 }
 
 #define GEN8_3DSTATE_CONSTANT_HS_length_bias 0x00000002
@@ -2018,6 +2825,23 @@ GEN8_3DSTATE_CONSTANT_HS_pack(__gen_user_data *data, void * restrict dst,
    GEN8_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+static inline void
+GEN8_3DSTATE_CONSTANT_HS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_CONSTANT_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
+}
+
 #define GEN8_3DSTATE_CONSTANT_PS_length_bias 0x00000002
 #define GEN8_3DSTATE_CONSTANT_PS_header         \
    .CommandType          =  3,                  \
@@ -2058,6 +2882,23 @@ GEN8_3DSTATE_CONSTANT_PS_pack(__gen_user_data *data, void * restrict dst,
    GEN8_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+static inline void
+GEN8_3DSTATE_CONSTANT_PS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_CONSTANT_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
+}
+
 #define GEN8_3DSTATE_CONSTANT_VS_length_bias 0x00000002
 #define GEN8_3DSTATE_CONSTANT_VS_header         \
    .CommandType          =  3,                  \
@@ -2096,6 +2937,23 @@ GEN8_3DSTATE_CONSTANT_VS_pack(__gen_user_data *data, void * restrict dst,
       0;
 
    GEN8_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
+}
+
+static inline void
+GEN8_3DSTATE_CONSTANT_VS_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_CONSTANT_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
 }
 
 #define GEN8_3DSTATE_DEPTH_BUFFER_length_bias 0x00000002
@@ -2195,6 +3053,47 @@ GEN8_3DSTATE_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_DEPTH_BUFFER_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_DEPTH_BUFFER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SurfaceType = __gen_unpack_field(dw1, 29, 31);
+   values->DepthWriteEnable = __gen_unpack_field(dw1, 28, 28);
+   values->StencilWriteEnable = __gen_unpack_field(dw1, 27, 27);
+   values->HierarchicalDepthBufferEnable = __gen_unpack_field(dw1, 22, 22);
+   values->SurfaceFormat = __gen_unpack_field(dw1, 18, 20);
+   values->SurfacePitch = __gen_unpack_field(dw1, 0, 17);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->Height = __gen_unpack_field(dw4, 18, 31);
+   values->Width = __gen_unpack_field(dw4, 4, 17);
+   values->LOD = __gen_unpack_field(dw4, 0, 3);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->Depth = __gen_unpack_field(dw5, 21, 31);
+   values->MinimumArrayElement = __gen_unpack_field(dw5, 10, 20);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->RenderTargetViewExtent = __gen_unpack_field(dw7, 21, 31);
+   values->SurfaceQPitch = __gen_unpack_field(dw7, 0, 14);
+
+}
+
 #define GEN8_3DSTATE_DRAWING_RECTANGLE_length_bias 0x00000002
 #define GEN8_3DSTATE_DRAWING_RECTANGLE_header   \
    .CommandType          =  3,                  \
@@ -2252,6 +3151,34 @@ GEN8_3DSTATE_DRAWING_RECTANGLE_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->DrawingRectangleOriginY, 16, 31) |
       __gen_field(values->DrawingRectangleOriginX, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_DRAWING_RECTANGLE_unpack(__gen_user_data *data, const void * restrict src,
+                                    struct GEN8_3DSTATE_DRAWING_RECTANGLE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->CoreModeSelect = __gen_unpack_field(dw0, 14, 15);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippedDrawingRectangleYMin = __gen_unpack_field(dw1, 16, 31);
+   values->ClippedDrawingRectangleXMin = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClippedDrawingRectangleYMax = __gen_unpack_field(dw2, 16, 31);
+   values->ClippedDrawingRectangleXMax = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DrawingRectangleOriginY = __gen_unpack_field(dw3, 16, 31);
+   values->DrawingRectangleOriginX = __gen_unpack_field(dw3, 0, 15);
 
 }
 
@@ -2376,6 +3303,58 @@ GEN8_3DSTATE_DS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_DS_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->KernelStartPointer = __gen_unpack_offset(qw1, 6, 63);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->SingleDomainPointDispatch = __gen_unpack_field(dw3, 31, 31);
+   values->VectorMaskEnable = __gen_unpack_field(dw3, 30, 30);
+   values->SamplerCount = __gen_unpack_field(dw3, 27, 29);
+   values->BindingTableEntryCount = __gen_unpack_field(dw3, 18, 25);
+   values->ThreadDispatchPriority = __gen_unpack_field(dw3, 17, 17);
+   values->FloatingPointMode = __gen_unpack_field(dw3, 16, 16);
+   values->AccessesUAV = __gen_unpack_field(dw3, 14, 14);
+   values->IllegalOpcodeExceptionEnable = __gen_unpack_field(dw3, 13, 13);
+   values->SoftwareExceptionEnable = __gen_unpack_field(dw3, 7, 7);
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(qw4, 10, 63);
+   values->PerThreadScratchSpace = __gen_unpack_field(qw4, 0, 3);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->DispatchGRFStartRegisterForURBData = __gen_unpack_field(dw6, 20, 24);
+   values->PatchURBEntryReadLength = __gen_unpack_field(dw6, 11, 17);
+   values->PatchURBEntryReadOffset = __gen_unpack_field(dw6, 4, 9);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MaximumNumberofThreads = __gen_unpack_field(dw7, 21, 29);
+   values->StatisticsEnable = __gen_unpack_field(dw7, 10, 10);
+   values->SIMD8DispatchEnable = __gen_unpack_field(dw7, 3, 3);
+   values->ComputeWCoordinateEnable = __gen_unpack_field(dw7, 2, 2);
+   values->CacheDisable = __gen_unpack_field(dw7, 1, 1);
+   values->FunctionEnable = __gen_unpack_field(dw7, 0, 0);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->VertexURBEntryOutputReadOffset = __gen_unpack_field(dw8, 21, 26);
+   values->VertexURBEntryOutputLength = __gen_unpack_field(dw8, 16, 20);
+   values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_field(dw8, 8, 15);
+   values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_field(dw8, 0, 7);
+
+}
+
 #define GEN8_3DSTATE_GATHER_CONSTANT_DS_length_bias 0x00000002
 #define GEN8_3DSTATE_GATHER_CONSTANT_DS_header  \
    .CommandType          =  3,                  \
@@ -2447,6 +3426,30 @@ GEN8_3DSTATE_GATHER_CONSTANT_DS_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_GATHER_CONSTANT_DS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_GATHER_CONSTANT_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferValid = __gen_unpack_field(dw1, 16, 31);
+   values->ConstantBufferBindingTableBlock = __gen_unpack_field(dw1, 12, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GatherBufferOffset = __gen_unpack_offset(dw2, 6, 22);
+   values->ConstantBufferDx9GenerateStall = __gen_unpack_field(dw2, 5, 5);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_GATHER_CONSTANT_GS_length_bias 0x00000002
 #define GEN8_3DSTATE_GATHER_CONSTANT_GS_header  \
    .CommandType          =  3,                  \
@@ -2496,6 +3499,30 @@ GEN8_3DSTATE_GATHER_CONSTANT_GS_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_GATHER_CONSTANT_GS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_GATHER_CONSTANT_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferValid = __gen_unpack_field(dw1, 16, 31);
+   values->ConstantBufferBindingTableBlock = __gen_unpack_field(dw1, 12, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GatherBufferOffset = __gen_unpack_offset(dw2, 6, 22);
+   values->ConstantBufferDx9GenerateStall = __gen_unpack_field(dw2, 5, 5);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_GATHER_CONSTANT_HS_length_bias 0x00000002
 #define GEN8_3DSTATE_GATHER_CONSTANT_HS_header  \
    .CommandType          =  3,                  \
@@ -2541,6 +3568,30 @@ GEN8_3DSTATE_GATHER_CONSTANT_HS_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->GatherBufferOffset, 6, 22) |
       __gen_field(values->ConstantBufferDx9GenerateStall, 5, 5) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_3DSTATE_GATHER_CONSTANT_HS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_GATHER_CONSTANT_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferValid = __gen_unpack_field(dw1, 16, 31);
+   values->ConstantBufferBindingTableBlock = __gen_unpack_field(dw1, 12, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GatherBufferOffset = __gen_unpack_offset(dw2, 6, 22);
+   values->ConstantBufferDx9GenerateStall = __gen_unpack_field(dw2, 5, 5);
 
    /* variable length fields follow */
 }
@@ -2596,6 +3647,31 @@ GEN8_3DSTATE_GATHER_CONSTANT_PS_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_GATHER_CONSTANT_PS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_GATHER_CONSTANT_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferValid = __gen_unpack_field(dw1, 16, 31);
+   values->ConstantBufferBindingTableBlock = __gen_unpack_field(dw1, 12, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GatherBufferOffset = __gen_unpack_offset(dw2, 6, 22);
+   values->ConstantBufferDx9GenerateStall = __gen_unpack_field(dw2, 5, 5);
+   values->ConstantBufferDx9Enable = __gen_unpack_field(dw2, 4, 4);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_GATHER_CONSTANT_VS_length_bias 0x00000002
 #define GEN8_3DSTATE_GATHER_CONSTANT_VS_header  \
    .CommandType          =  3,                  \
@@ -2643,6 +3719,31 @@ GEN8_3DSTATE_GATHER_CONSTANT_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->ConstantBufferDx9GenerateStall, 5, 5) |
       __gen_field(values->ConstantBufferDx9Enable, 4, 4) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_3DSTATE_GATHER_CONSTANT_VS_unpack(__gen_user_data *data, const void * restrict src,
+                                     struct GEN8_3DSTATE_GATHER_CONSTANT_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferValid = __gen_unpack_field(dw1, 16, 31);
+   values->ConstantBufferBindingTableBlock = __gen_unpack_field(dw1, 12, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GatherBufferOffset = __gen_unpack_offset(dw2, 6, 22);
+   values->ConstantBufferDx9GenerateStall = __gen_unpack_field(dw2, 5, 5);
+   values->ConstantBufferDx9Enable = __gen_unpack_field(dw2, 4, 4);
 
    /* variable length fields follow */
 }
@@ -2699,6 +3800,28 @@ GEN8_3DSTATE_GATHER_POOL_ALLOC_pack(__gen_user_data *data, void * restrict dst,
    dw[3] =
       __gen_field(values->GatherPoolBufferSize, 12, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_GATHER_POOL_ALLOC_unpack(__gen_user_data *data, const void * restrict src,
+                                    struct GEN8_3DSTATE_GATHER_POOL_ALLOC * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->GatherPoolBaseAddress = __gen_unpack_address(qw1, 12, 63);
+   values->GatherPoolEnable = __gen_unpack_field(qw1, 11, 11);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->GatherPoolBufferSize = __gen_unpack_field(dw3, 12, 31);
 
 }
 
@@ -2860,6 +3983,74 @@ GEN8_3DSTATE_GS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_GS_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->KernelStartPointer = __gen_unpack_offset(qw1, 6, 63);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->SingleProgramFlow = __gen_unpack_field(dw3, 31, 31);
+   values->VectorMaskEnable = __gen_unpack_field(dw3, 30, 30);
+   values->SamplerCount = __gen_unpack_field(dw3, 27, 29);
+   values->BindingTableEntryCount = __gen_unpack_field(dw3, 18, 25);
+   values->ThreadDispatchPriority = __gen_unpack_field(dw3, 17, 17);
+   values->FloatingPointMode = __gen_unpack_field(dw3, 16, 16);
+   values->IllegalOpcodeExceptionEnable = __gen_unpack_field(dw3, 13, 13);
+   values->AccessesUAV = __gen_unpack_field(dw3, 12, 12);
+   values->MaskStackExceptionEnable = __gen_unpack_field(dw3, 11, 11);
+   values->SoftwareExceptionEnable = __gen_unpack_field(dw3, 7, 7);
+   values->ExpectedVertexCount = __gen_unpack_field(dw3, 0, 5);
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(qw4, 10, 63);
+   values->PerThreadScratchSpace = __gen_unpack_field(qw4, 0, 3);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->OutputVertexSize = __gen_unpack_field(dw6, 23, 28);
+   values->OutputTopology = __gen_unpack_field(dw6, 17, 22);
+   values->VertexURBEntryReadLength = __gen_unpack_field(dw6, 11, 16);
+   values->IncludeVertexHandles = __gen_unpack_field(dw6, 10, 10);
+   values->VertexURBEntryReadOffset = __gen_unpack_field(dw6, 4, 9);
+   values->DispatchGRFStartRegisterForURBData = __gen_unpack_field(dw6, 0, 3);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MaximumNumberofThreads = __gen_unpack_field(dw7, 24, 31);
+   values->ControlDataHeaderSize = __gen_unpack_field(dw7, 20, 23);
+   values->InstanceControl = __gen_unpack_field(dw7, 15, 19);
+   values->DefaultStreamId = __gen_unpack_field(dw7, 13, 14);
+   values->DispatchMode = __gen_unpack_field(dw7, 11, 12);
+   values->StatisticsEnable = __gen_unpack_field(dw7, 10, 10);
+   values->InvocationsIncrementValue = __gen_unpack_field(dw7, 5, 9);
+   values->IncludePrimitiveID = __gen_unpack_field(dw7, 4, 4);
+   values->Hint = __gen_unpack_field(dw7, 3, 3);
+   values->ReorderMode = __gen_unpack_field(dw7, 2, 2);
+   values->DiscardAdjacency = __gen_unpack_field(dw7, 1, 1);
+   values->Enable = __gen_unpack_field(dw7, 0, 0);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->ControlDataFormat = __gen_unpack_field(dw8, 31, 31);
+   values->StaticOutput = __gen_unpack_field(dw8, 30, 30);
+   values->StaticOutputVertexCount = __gen_unpack_field(dw8, 16, 26);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->VertexURBEntryOutputReadOffset = __gen_unpack_field(dw9, 21, 26);
+   values->VertexURBEntryOutputLength = __gen_unpack_field(dw9, 16, 20);
+   values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_field(dw9, 8, 15);
+   values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_field(dw9, 0, 7);
+
+}
+
 #define GEN8_3DSTATE_HIER_DEPTH_BUFFER_length_bias 0x00000002
 #define GEN8_3DSTATE_HIER_DEPTH_BUFFER_header   \
    .CommandType          =  3,                  \
@@ -2915,6 +4106,30 @@ GEN8_3DSTATE_HIER_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
    dw[4] =
       __gen_field(values->SurfaceQPitch, 0, 14) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_HIER_DEPTH_BUFFER_unpack(__gen_user_data *data, const void * restrict src,
+                                    struct GEN8_3DSTATE_HIER_DEPTH_BUFFER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SurfacePitch = __gen_unpack_field(dw1, 0, 16);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SurfaceQPitch = __gen_unpack_field(dw4, 0, 14);
 
 }
 
@@ -3027,6 +4242,53 @@ GEN8_3DSTATE_HS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_HS_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SamplerCount = __gen_unpack_field(dw1, 27, 29);
+   values->BindingTableEntryCount = __gen_unpack_field(dw1, 18, 25);
+   values->ThreadDispatchPriority = __gen_unpack_field(dw1, 17, 17);
+   values->FloatingPointMode = __gen_unpack_field(dw1, 16, 16);
+   values->IllegalOpcodeExceptionEnable = __gen_unpack_field(dw1, 13, 13);
+   values->SoftwareExceptionEnable = __gen_unpack_field(dw1, 12, 12);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->Enable = __gen_unpack_field(dw2, 31, 31);
+   values->StatisticsEnable = __gen_unpack_field(dw2, 29, 29);
+   values->MaximumNumberofThreads = __gen_unpack_field(dw2, 8, 16);
+   values->InstanceCount = __gen_unpack_field(dw2, 0, 3);
+
+   const uint64_t qw3 __attribute__((unused)) = dw[3] | ((uint64_t ) dw[4] << 32);
+   values->KernelStartPointer = __gen_unpack_offset(qw3, 6, 63);
+
+   const uint64_t qw5 __attribute__((unused)) = dw[5] | ((uint64_t ) dw[6] << 32);
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(qw5, 10, 63);
+   values->PerThreadScratchSpace = __gen_unpack_field(qw5, 0, 3);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SingleProgramFlow = __gen_unpack_field(dw7, 27, 27);
+   values->VectorMaskEnable = __gen_unpack_field(dw7, 26, 26);
+   values->AccessesUAV = __gen_unpack_field(dw7, 25, 25);
+   values->IncludeVertexHandles = __gen_unpack_field(dw7, 24, 24);
+   values->DispatchGRFStartRegisterForURBData = __gen_unpack_field(dw7, 19, 23);
+   values->VertexURBEntryReadLength = __gen_unpack_field(dw7, 11, 16);
+   values->VertexURBEntryReadOffset = __gen_unpack_field(dw7, 4, 9);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+
+}
+
 #define GEN8_3DSTATE_INDEX_BUFFER_length_bias 0x00000002
 #define GEN8_3DSTATE_INDEX_BUFFER_header        \
    .CommandType          =  3,                  \
@@ -3088,6 +4350,30 @@ GEN8_3DSTATE_INDEX_BUFFER_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_INDEX_BUFFER_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_INDEX_BUFFER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->IndexFormat = __gen_unpack_field(dw1, 8, 9);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->BufferStartingAddress = __gen_unpack_address(qw2, 0, 63);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->BufferSize = __gen_unpack_field(dw4, 0, 31);
+
+}
+
 #define GEN8_3DSTATE_LINE_STIPPLE_length_bias 0x00000002
 #define GEN8_3DSTATE_LINE_STIPPLE_header        \
    .CommandType          =  3,                  \
@@ -3140,6 +4426,31 @@ GEN8_3DSTATE_LINE_STIPPLE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_LINE_STIPPLE_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_LINE_STIPPLE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ModifyEnableCurrentRepeatCounterCurrentStippleIndex = __gen_unpack_field(dw1, 31, 31);
+   values->CurrentRepeatCounter = __gen_unpack_field(dw1, 21, 29);
+   values->CurrentStippleIndex = __gen_unpack_field(dw1, 16, 19);
+   values->LineStipplePattern = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->LineStippleInverseRepeatCount = (float) __gen_unpack_field(dw2, 15, 31) /  (1 << 16);
+   values->LineStippleRepeatCount = __gen_unpack_field(dw2, 0, 8);
+
+}
+
 #define GEN8_3DSTATE_MONOFILTER_SIZE_length_bias 0x00000002
 #define GEN8_3DSTATE_MONOFILTER_SIZE_header     \
    .CommandType          =  3,                  \
@@ -3178,6 +4489,25 @@ GEN8_3DSTATE_MONOFILTER_SIZE_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->MonochromeFilterWidth, 3, 5) |
       __gen_field(values->MonochromeFilterHeight, 0, 2) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_MONOFILTER_SIZE_unpack(__gen_user_data *data, const void * restrict src,
+                                  struct GEN8_3DSTATE_MONOFILTER_SIZE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->MonochromeFilterWidth = __gen_unpack_field(dw1, 3, 5);
+   values->MonochromeFilterHeight = __gen_unpack_field(dw1, 0, 2);
 
 }
 
@@ -3226,6 +4556,26 @@ GEN8_3DSTATE_MULTISAMPLE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_MULTISAMPLE_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_MULTISAMPLE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PixelPositionOffsetEnable = __gen_unpack_field(dw1, 5, 5);
+   values->PixelLocation = __gen_unpack_field(dw1, 4, 4);
+   values->NumberofMultisamples = __gen_unpack_field(dw1, 1, 3);
+
+}
+
 #define GEN8_3DSTATE_POLY_STIPPLE_OFFSET_length_bias 0x00000002
 #define GEN8_3DSTATE_POLY_STIPPLE_OFFSET_header \
    .CommandType          =  3,                  \
@@ -3264,6 +4614,25 @@ GEN8_3DSTATE_POLY_STIPPLE_OFFSET_pack(__gen_user_data *data, void * restrict dst
       __gen_field(values->PolygonStippleXOffset, 8, 12) |
       __gen_field(values->PolygonStippleYOffset, 0, 4) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_POLY_STIPPLE_OFFSET_unpack(__gen_user_data *data, const void * restrict src,
+                                      struct GEN8_3DSTATE_POLY_STIPPLE_OFFSET * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PolygonStippleXOffset = __gen_unpack_field(dw1, 8, 12);
+   values->PolygonStippleYOffset = __gen_unpack_field(dw1, 0, 4);
 
 }
 
@@ -3306,6 +4675,22 @@ GEN8_3DSTATE_POLY_STIPPLE_PATTERN_pack(__gen_user_data *data, void * restrict ds
          0;
    }
 
+}
+
+static inline void
+GEN8_3DSTATE_POLY_STIPPLE_PATTERN_unpack(__gen_user_data *data, const void * restrict src,
+                                       struct GEN8_3DSTATE_POLY_STIPPLE_PATTERN * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* skipping instancing 1..1 */
 }
 
 #define GEN8_3DSTATE_PS_length_bias 0x00000002
@@ -3451,6 +4836,62 @@ GEN8_3DSTATE_PS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_PS_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->KernelStartPointer0 = __gen_unpack_offset(qw1, 6, 63);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->SingleProgramFlow = __gen_unpack_field(dw3, 31, 31);
+   values->VectorMaskEnable = __gen_unpack_field(dw3, 30, 30);
+   values->SamplerCount = __gen_unpack_field(dw3, 27, 29);
+   values->SinglePrecisionDenormalMode = __gen_unpack_field(dw3, 26, 26);
+   values->BindingTableEntryCount = __gen_unpack_field(dw3, 18, 25);
+   values->ThreadDispatchPriority = __gen_unpack_field(dw3, 17, 17);
+   values->FloatingPointMode = __gen_unpack_field(dw3, 16, 16);
+   values->RoundingMode = __gen_unpack_field(dw3, 14, 15);
+   values->IllegalOpcodeExceptionEnable = __gen_unpack_field(dw3, 13, 13);
+   values->MaskStackExceptionEnable = __gen_unpack_field(dw3, 11, 11);
+   values->SoftwareExceptionEnable = __gen_unpack_field(dw3, 7, 7);
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(qw4, 10, 63);
+   values->PerThreadScratchSpace = __gen_unpack_field(qw4, 0, 3);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->MaximumNumberofThreadsPerPSD = __gen_unpack_field(dw6, 23, 31);
+   values->PushConstantEnable = __gen_unpack_field(dw6, 11, 11);
+   values->RenderTargetFastClearEnable = __gen_unpack_field(dw6, 8, 8);
+   values->RenderTargetResolveEnable = __gen_unpack_field(dw6, 6, 6);
+   values->PositionXYOffsetSelect = __gen_unpack_field(dw6, 3, 4);
+   values->_32PixelDispatchEnable = __gen_unpack_field(dw6, 2, 2);
+   values->_16PixelDispatchEnable = __gen_unpack_field(dw6, 1, 1);
+   values->_8PixelDispatchEnable = __gen_unpack_field(dw6, 0, 0);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->DispatchGRFStartRegisterForConstantSetupData0 = __gen_unpack_field(dw7, 16, 22);
+   values->DispatchGRFStartRegisterForConstantSetupData1 = __gen_unpack_field(dw7, 8, 14);
+   values->DispatchGRFStartRegisterForConstantSetupData2 = __gen_unpack_field(dw7, 0, 6);
+
+   const uint64_t qw8 __attribute__((unused)) = dw[8] | ((uint64_t ) dw[9] << 32);
+   values->KernelStartPointer1 = __gen_unpack_offset(qw8, 6, 63);
+
+   const uint64_t qw10 __attribute__((unused)) = dw[10] | ((uint64_t ) dw[11] << 32);
+   values->KernelStartPointer2 = __gen_unpack_offset(qw10, 6, 63);
+
+}
+
 #define GEN8_3DSTATE_PS_BLEND_length_bias 0x00000002
 #define GEN8_3DSTATE_PS_BLEND_header            \
    .CommandType          =  3,                  \
@@ -3503,6 +4944,32 @@ GEN8_3DSTATE_PS_BLEND_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->AlphaTestEnable, 8, 8) |
       __gen_field(values->IndependentAlphaBlendEnable, 7, 7) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_PS_BLEND_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_3DSTATE_PS_BLEND * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->AlphaToCoverageEnable = __gen_unpack_field(dw1, 31, 31);
+   values->HasWriteableRT = __gen_unpack_field(dw1, 30, 30);
+   values->ColorBufferBlendEnable = __gen_unpack_field(dw1, 29, 29);
+   values->SourceAlphaBlendFactor = __gen_unpack_field(dw1, 24, 28);
+   values->DestinationAlphaBlendFactor = __gen_unpack_field(dw1, 19, 23);
+   values->SourceBlendFactor = __gen_unpack_field(dw1, 14, 18);
+   values->DestinationBlendFactor = __gen_unpack_field(dw1, 9, 13);
+   values->AlphaTestEnable = __gen_unpack_field(dw1, 8, 8);
+   values->IndependentAlphaBlendEnable = __gen_unpack_field(dw1, 7, 7);
 
 }
 
@@ -3575,6 +5042,37 @@ GEN8_3DSTATE_PS_EXTRA_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_PS_EXTRA_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_3DSTATE_PS_EXTRA * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PixelShaderValid = __gen_unpack_field(dw1, 31, 31);
+   values->PixelShaderDoesnotwritetoRT = __gen_unpack_field(dw1, 30, 30);
+   values->oMaskPresenttoRenderTarget = __gen_unpack_field(dw1, 29, 29);
+   values->PixelShaderKillsPixel = __gen_unpack_field(dw1, 28, 28);
+   values->PixelShaderComputedDepthMode = __gen_unpack_field(dw1, 26, 27);
+   values->ForceComputedDepth = __gen_unpack_field(dw1, 25, 25);
+   values->PixelShaderUsesSourceDepth = __gen_unpack_field(dw1, 24, 24);
+   values->PixelShaderUsesSourceW = __gen_unpack_field(dw1, 23, 23);
+   values->Removed = __gen_unpack_field(dw1, 17, 17);
+   values->AttributeEnable = __gen_unpack_field(dw1, 8, 8);
+   values->PixelShaderDisablesAlphaToCoverage = __gen_unpack_field(dw1, 7, 7);
+   values->PixelShaderIsPerSample = __gen_unpack_field(dw1, 6, 6);
+   values->PixelShaderHasUAV = __gen_unpack_field(dw1, 2, 2);
+   values->PixelShaderUsesInputCoverageMask = __gen_unpack_field(dw1, 1, 1);
+
+}
+
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_DS_length_bias 0x00000002
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_DS_header\
    .CommandType          =  3,                  \
@@ -3613,6 +5111,25 @@ GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_DS_pack(__gen_user_data *data, void * restrict 
       __gen_field(values->ConstantBufferOffset, 16, 20) |
       __gen_field(values->ConstantBufferSize, 0, 5) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_DS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferOffset = __gen_unpack_field(dw1, 16, 20);
+   values->ConstantBufferSize = __gen_unpack_field(dw1, 0, 5);
 
 }
 
@@ -3657,6 +5174,25 @@ GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_GS_pack(__gen_user_data *data, void * restrict 
 
 }
 
+static inline void
+GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_GS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferOffset = __gen_unpack_field(dw1, 16, 20);
+   values->ConstantBufferSize = __gen_unpack_field(dw1, 0, 5);
+
+}
+
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_HS_length_bias 0x00000002
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_HS_header\
    .CommandType          =  3,                  \
@@ -3695,6 +5231,25 @@ GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_HS_pack(__gen_user_data *data, void * restrict 
       __gen_field(values->ConstantBufferOffset, 16, 20) |
       __gen_field(values->ConstantBufferSize, 0, 5) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_HS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferOffset = __gen_unpack_field(dw1, 16, 20);
+   values->ConstantBufferSize = __gen_unpack_field(dw1, 0, 5);
 
 }
 
@@ -3739,6 +5294,25 @@ GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_PS_pack(__gen_user_data *data, void * restrict 
 
 }
 
+static inline void
+GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_PS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferOffset = __gen_unpack_field(dw1, 16, 20);
+   values->ConstantBufferSize = __gen_unpack_field(dw1, 0, 5);
+
+}
+
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_VS_length_bias 0x00000002
 #define GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_VS_header\
    .CommandType          =  3,                  \
@@ -3777,6 +5351,25 @@ GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_VS_pack(__gen_user_data *data, void * restrict 
       __gen_field(values->ConstantBufferOffset, 16, 20) |
       __gen_field(values->ConstantBufferSize, 0, 5) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_VS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_PUSH_CONSTANT_ALLOC_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ConstantBufferOffset = __gen_unpack_field(dw1, 16, 20);
+   values->ConstantBufferSize = __gen_unpack_field(dw1, 0, 5);
 
 }
 
@@ -3891,6 +5484,48 @@ GEN8_3DSTATE_RASTER_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_RASTER_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_3DSTATE_RASTER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->APIMode = __gen_unpack_field(dw1, 22, 23);
+   values->FrontWinding = __gen_unpack_field(dw1, 21, 21);
+   values->ForcedSampleCount = __gen_unpack_field(dw1, 18, 20);
+   values->CullMode = __gen_unpack_field(dw1, 16, 17);
+   values->ForceMultisampling = __gen_unpack_field(dw1, 14, 14);
+   values->SmoothPointEnable = __gen_unpack_field(dw1, 13, 13);
+   values->DXMultisampleRasterizationEnable = __gen_unpack_field(dw1, 12, 12);
+   values->DXMultisampleRasterizationMode = __gen_unpack_field(dw1, 10, 11);
+   values->GlobalDepthOffsetEnableSolid = __gen_unpack_field(dw1, 9, 9);
+   values->GlobalDepthOffsetEnableWireframe = __gen_unpack_field(dw1, 8, 8);
+   values->GlobalDepthOffsetEnablePoint = __gen_unpack_field(dw1, 7, 7);
+   values->FrontFaceFillMode = __gen_unpack_field(dw1, 5, 6);
+   values->BackFaceFillMode = __gen_unpack_field(dw1, 3, 4);
+   values->AntialiasingEnable = __gen_unpack_field(dw1, 2, 2);
+   values->ScissorRectangleEnable = __gen_unpack_field(dw1, 1, 1);
+   values->ViewportZClipTestEnable = __gen_unpack_field(dw1, 0, 0);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->GlobalDepthOffsetConstant = __gen_unpack_float(dw2);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->GlobalDepthOffsetScale = __gen_unpack_float(dw3);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->GlobalDepthOffsetClamp = __gen_unpack_float(dw4);
+
+}
+
 #define GEN8_3DSTATE_SAMPLER_PALETTE_LOAD0_length_bias 0x00000002
 #define GEN8_3DSTATE_SAMPLER_PALETTE_LOAD0_header\
    .CommandType          =  3,                  \
@@ -3950,6 +5585,22 @@ GEN8_3DSTATE_SAMPLER_PALETTE_LOAD0_pack(__gen_user_data *data, void * restrict d
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_SAMPLER_PALETTE_LOAD0_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_SAMPLER_PALETTE_LOAD0 * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_SAMPLER_PALETTE_LOAD1_length_bias 0x00000002
 #define GEN8_3DSTATE_SAMPLER_PALETTE_LOAD1_header\
    .CommandType          =  3,                  \
@@ -3981,6 +5632,22 @@ GEN8_3DSTATE_SAMPLER_PALETTE_LOAD1_pack(__gen_user_data *data, void * restrict d
       __gen_field(values->_3DCommandSubOpcode, 16, 23) |
       __gen_field(values->DwordLength, 0, 7) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_3DSTATE_SAMPLER_PALETTE_LOAD1_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_3DSTATE_SAMPLER_PALETTE_LOAD1 * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
 
    /* variable length fields follow */
 }
@@ -4024,6 +5691,24 @@ GEN8_3DSTATE_SAMPLER_STATE_POINTERS_DS_pack(__gen_user_data *data, void * restri
 
 }
 
+static inline void
+GEN8_3DSTATE_SAMPLER_STATE_POINTERS_DS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_SAMPLER_STATE_POINTERS_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoDSSamplerState = __gen_unpack_offset(dw1, 5, 31);
+
+}
+
 #define GEN8_3DSTATE_SAMPLER_STATE_POINTERS_GS_length_bias 0x00000002
 #define GEN8_3DSTATE_SAMPLER_STATE_POINTERS_GS_header\
    .CommandType          =  3,                  \
@@ -4060,6 +5745,24 @@ GEN8_3DSTATE_SAMPLER_STATE_POINTERS_GS_pack(__gen_user_data *data, void * restri
    dw[1] =
       __gen_offset(values->PointertoGSSamplerState, 5, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SAMPLER_STATE_POINTERS_GS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_SAMPLER_STATE_POINTERS_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoGSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 
 }
 
@@ -4102,6 +5805,24 @@ GEN8_3DSTATE_SAMPLER_STATE_POINTERS_HS_pack(__gen_user_data *data, void * restri
 
 }
 
+static inline void
+GEN8_3DSTATE_SAMPLER_STATE_POINTERS_HS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_SAMPLER_STATE_POINTERS_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoHSSamplerState = __gen_unpack_offset(dw1, 5, 31);
+
+}
+
 #define GEN8_3DSTATE_SAMPLER_STATE_POINTERS_PS_length_bias 0x00000002
 #define GEN8_3DSTATE_SAMPLER_STATE_POINTERS_PS_header\
    .CommandType          =  3,                  \
@@ -4138,6 +5859,24 @@ GEN8_3DSTATE_SAMPLER_STATE_POINTERS_PS_pack(__gen_user_data *data, void * restri
    dw[1] =
       __gen_offset(values->PointertoPSSamplerState, 5, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SAMPLER_STATE_POINTERS_PS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_SAMPLER_STATE_POINTERS_PS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoPSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 
 }
 
@@ -4180,6 +5919,24 @@ GEN8_3DSTATE_SAMPLER_STATE_POINTERS_VS_pack(__gen_user_data *data, void * restri
 
 }
 
+static inline void
+GEN8_3DSTATE_SAMPLER_STATE_POINTERS_VS_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_3DSTATE_SAMPLER_STATE_POINTERS_VS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PointertoVSSamplerState = __gen_unpack_offset(dw1, 5, 31);
+
+}
+
 #define GEN8_3DSTATE_SAMPLE_MASK_length_bias 0x00000002
 #define GEN8_3DSTATE_SAMPLE_MASK_header         \
    .CommandType          =  3,                  \
@@ -4216,6 +5973,24 @@ GEN8_3DSTATE_SAMPLE_MASK_pack(__gen_user_data *data, void * restrict dst,
    dw[1] =
       __gen_field(values->SampleMask, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SAMPLE_MASK_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_SAMPLE_MASK * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SampleMask = __gen_unpack_field(dw1, 0, 15);
 
 }
 
@@ -4330,6 +6105,60 @@ GEN8_3DSTATE_SAMPLE_PATTERN_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_SAMPLE_PATTERN_unpack(__gen_user_data *data, const void * restrict src,
+                                 struct GEN8_3DSTATE_SAMPLE_PATTERN * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* skipping instancing 1..1 */
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->_8xSample7XOffset = (float) __gen_unpack_field(dw5, 28, 31) /  (1 << 4);
+   values->_8xSample7YOffset = (float) __gen_unpack_field(dw5, 24, 27) /  (1 << 4);
+   values->_8xSample6XOffset = (float) __gen_unpack_field(dw5, 20, 23) /  (1 << 4);
+   values->_8xSample6YOffset = (float) __gen_unpack_field(dw5, 16, 19) /  (1 << 4);
+   values->_8xSample5XOffset = (float) __gen_unpack_field(dw5, 12, 15) /  (1 << 4);
+   values->_8xSample5YOffset = (float) __gen_unpack_field(dw5, 8, 11) /  (1 << 4);
+   values->_8xSample4XOffset = (float) __gen_unpack_field(dw5, 4, 7) /  (1 << 4);
+   values->_8xSample4YOffset = (float) __gen_unpack_field(dw5, 0, 3) /  (1 << 4);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->_8xSample3XOffset = (float) __gen_unpack_field(dw6, 28, 31) /  (1 << 4);
+   values->_8xSample3YOffset = (float) __gen_unpack_field(dw6, 24, 27) /  (1 << 4);
+   values->_8xSample2XOffset = (float) __gen_unpack_field(dw6, 20, 23) /  (1 << 4);
+   values->_8xSample2YOffset = (float) __gen_unpack_field(dw6, 16, 19) /  (1 << 4);
+   values->_8xSample1XOffset = (float) __gen_unpack_field(dw6, 12, 15) /  (1 << 4);
+   values->_8xSample1YOffset = (float) __gen_unpack_field(dw6, 8, 11) /  (1 << 4);
+   values->_8xSample0XOffset = (float) __gen_unpack_field(dw6, 4, 7) /  (1 << 4);
+   values->_8xSample0YOffset = (float) __gen_unpack_field(dw6, 0, 3) /  (1 << 4);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->_4xSample3XOffset = (float) __gen_unpack_field(dw7, 28, 31) /  (1 << 4);
+   values->_4xSample3YOffset = (float) __gen_unpack_field(dw7, 24, 27) /  (1 << 4);
+   values->_4xSample2XOffset = (float) __gen_unpack_field(dw7, 20, 23) /  (1 << 4);
+   values->_4xSample2YOffset = (float) __gen_unpack_field(dw7, 16, 19) /  (1 << 4);
+   values->_4xSample1XOffset = (float) __gen_unpack_field(dw7, 12, 15) /  (1 << 4);
+   values->_4xSample1YOffset = (float) __gen_unpack_field(dw7, 8, 11) /  (1 << 4);
+   values->_4xSample0XOffset = (float) __gen_unpack_field(dw7, 4, 7) /  (1 << 4);
+   values->_4xSample0YOffset = (float) __gen_unpack_field(dw7, 0, 3) /  (1 << 4);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->_1xSample0XOffset = (float) __gen_unpack_field(dw8, 20, 23) /  (1 << 4);
+   values->_1xSample0YOffset = (float) __gen_unpack_field(dw8, 16, 19) /  (1 << 4);
+   values->_2xSample1XOffset = (float) __gen_unpack_field(dw8, 12, 15) /  (1 << 4);
+   values->_2xSample1YOffset = (float) __gen_unpack_field(dw8, 8, 11) /  (1 << 4);
+   values->_2xSample0XOffset = (float) __gen_unpack_field(dw8, 4, 7) /  (1 << 4);
+   values->_2xSample0YOffset = (float) __gen_unpack_field(dw8, 0, 3) /  (1 << 4);
+
+}
+
 #define GEN8_3DSTATE_SBE_length_bias 0x00000002
 #define GEN8_3DSTATE_SBE_header                 \
    .CommandType          =  3,                  \
@@ -4400,6 +6229,41 @@ GEN8_3DSTATE_SBE_pack(__gen_user_data *data, void * restrict dst,
    dw[3] =
       __gen_field(values->ConstantInterpolationEnable, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SBE_unpack(__gen_user_data *data, const void * restrict src,
+                      struct GEN8_3DSTATE_SBE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ForceVertexURBEntryReadLength = __gen_unpack_field(dw1, 29, 29);
+   values->ForceVertexURBEntryReadOffset = __gen_unpack_field(dw1, 28, 28);
+   values->NumberofSFOutputAttributes = __gen_unpack_field(dw1, 22, 27);
+   values->AttributeSwizzleEnable = __gen_unpack_field(dw1, 21, 21);
+   values->PointSpriteTextureCoordinateOrigin = __gen_unpack_field(dw1, 20, 20);
+   values->PrimitiveIDOverrideComponentW = __gen_unpack_field(dw1, 19, 19);
+   values->PrimitiveIDOverrideComponentZ = __gen_unpack_field(dw1, 18, 18);
+   values->PrimitiveIDOverrideComponentY = __gen_unpack_field(dw1, 17, 17);
+   values->PrimitiveIDOverrideComponentX = __gen_unpack_field(dw1, 16, 16);
+   values->VertexURBEntryReadLength = __gen_unpack_field(dw1, 11, 15);
+   values->VertexURBEntryReadOffset = __gen_unpack_field(dw1, 5, 10);
+   values->PrimitiveIDOverrideAttributeSelect = __gen_unpack_field(dw1, 0, 4);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->PointSpriteTextureCoordinateEnable = __gen_unpack_field(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ConstantInterpolationEnable = __gen_unpack_field(dw3, 0, 31);
 
 }
 
@@ -4503,6 +6367,23 @@ GEN8_3DSTATE_SBE_SWIZ_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_SBE_SWIZ_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_3DSTATE_SBE_SWIZ * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* skipping instancing 1..1 */
+   /* skipping instancing 9..9 */
+}
+
 #define GEN8_3DSTATE_SCISSOR_STATE_POINTERS_length_bias 0x00000002
 #define GEN8_3DSTATE_SCISSOR_STATE_POINTERS_header\
    .CommandType          =  3,                  \
@@ -4539,6 +6420,24 @@ GEN8_3DSTATE_SCISSOR_STATE_POINTERS_pack(__gen_user_data *data, void * restrict 
    dw[1] =
       __gen_offset(values->ScissorRectPointer, 5, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SCISSOR_STATE_POINTERS_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_3DSTATE_SCISSOR_STATE_POINTERS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ScissorRectPointer = __gen_unpack_offset(dw1, 5, 31);
 
 }
 
@@ -4620,6 +6519,41 @@ GEN8_3DSTATE_SF_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_SF_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_SF * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->LegacyGlobalDepthBiasEnable = __gen_unpack_field(dw1, 11, 11);
+   values->StatisticsEnable = __gen_unpack_field(dw1, 10, 10);
+   values->ViewportTransformEnable = __gen_unpack_field(dw1, 1, 1);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->LineWidth = (float) __gen_unpack_field(dw2, 18, 27) /  (1 << 7);
+   values->LineEndCapAntialiasingRegionWidth = __gen_unpack_field(dw2, 16, 17);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->LastPixelEnable = __gen_unpack_field(dw3, 31, 31);
+   values->TriangleStripListProvokingVertexSelect = __gen_unpack_field(dw3, 29, 30);
+   values->LineStripListProvokingVertexSelect = __gen_unpack_field(dw3, 27, 28);
+   values->TriangleFanProvokingVertexSelect = __gen_unpack_field(dw3, 25, 26);
+   values->AALineDistanceMode = __gen_unpack_field(dw3, 14, 14);
+   values->SmoothPointEnable = __gen_unpack_field(dw3, 13, 13);
+   values->VertexSubPixelPrecisionSelect = __gen_unpack_field(dw3, 12, 12);
+   values->PointWidthSource = __gen_unpack_field(dw3, 11, 11);
+   values->PointWidth = (float) __gen_unpack_field(dw3, 0, 10) /  (1 << 3);
+
+}
+
 #define GEN8_3DSTATE_SO_BUFFER_length_bias 0x00000002
 #define GEN8_3DSTATE_SO_BUFFER_header           \
    .CommandType          =  3,                  \
@@ -4696,6 +6630,39 @@ GEN8_3DSTATE_SO_BUFFER_pack(__gen_user_data *data, void * restrict dst,
    dw[7] =
       __gen_field(values->StreamOffset, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_SO_BUFFER_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_3DSTATE_SO_BUFFER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SOBufferEnable = __gen_unpack_field(dw1, 31, 31);
+   values->SOBufferIndex = __gen_unpack_field(dw1, 29, 30);
+   values->StreamOffsetWriteEnable = __gen_unpack_field(dw1, 21, 21);
+   values->StreamOutputBufferOffsetAddressEnable = __gen_unpack_field(dw1, 20, 20);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 2, 47);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SurfaceSize = __gen_unpack_field(dw4, 0, 29);
+
+   const uint64_t qw5 __attribute__((unused)) = dw[5] | ((uint64_t ) dw[6] << 32);
+   values->StreamOutputBufferOffsetAddress = __gen_unpack_address(qw5, 2, 47);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->StreamOffset = __gen_unpack_field(dw7, 0, 31);
 
 }
 
@@ -4815,6 +6782,34 @@ GEN8_3DSTATE_SO_DECL_LIST_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_SO_DECL_LIST_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_SO_DECL_LIST * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 8);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StreamtoBufferSelects3 = __gen_unpack_field(dw1, 12, 15);
+   values->StreamtoBufferSelects2 = __gen_unpack_field(dw1, 8, 11);
+   values->StreamtoBufferSelects1 = __gen_unpack_field(dw1, 4, 7);
+   values->StreamtoBufferSelects0 = __gen_unpack_field(dw1, 0, 3);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->NumEntries3 = __gen_unpack_field(dw2, 24, 31);
+   values->NumEntries2 = __gen_unpack_field(dw2, 16, 23);
+   values->NumEntries1 = __gen_unpack_field(dw2, 8, 15);
+   values->NumEntries0 = __gen_unpack_field(dw2, 0, 7);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_STENCIL_BUFFER_length_bias 0x00000002
 #define GEN8_3DSTATE_STENCIL_BUFFER_header      \
    .CommandType          =  3,                  \
@@ -4872,6 +6867,31 @@ GEN8_3DSTATE_STENCIL_BUFFER_pack(__gen_user_data *data, void * restrict dst,
    dw[4] =
       __gen_field(values->SurfaceQPitch, 0, 14) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_STENCIL_BUFFER_unpack(__gen_user_data *data, const void * restrict src,
+                                 struct GEN8_3DSTATE_STENCIL_BUFFER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StencilBufferEnable = __gen_unpack_field(dw1, 31, 31);
+   values->SurfacePitch = __gen_unpack_field(dw1, 0, 16);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SurfaceQPitch = __gen_unpack_field(dw4, 0, 14);
 
 }
 
@@ -4963,6 +6983,47 @@ GEN8_3DSTATE_STREAMOUT_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_STREAMOUT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_3DSTATE_STREAMOUT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SOFunctionEnable = __gen_unpack_field(dw1, 31, 31);
+   values->APIRenderingDisable = __gen_unpack_field(dw1, 30, 30);
+   values->RenderStreamSelect = __gen_unpack_field(dw1, 27, 28);
+   values->ReorderMode = __gen_unpack_field(dw1, 26, 26);
+   values->SOStatisticsEnable = __gen_unpack_field(dw1, 25, 25);
+   values->ForceRendering = __gen_unpack_field(dw1, 23, 24);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->Stream3VertexReadOffset = __gen_unpack_field(dw2, 29, 29);
+   values->Stream3VertexReadLength = __gen_unpack_field(dw2, 24, 28);
+   values->Stream2VertexReadOffset = __gen_unpack_field(dw2, 21, 21);
+   values->Stream2VertexReadLength = __gen_unpack_field(dw2, 16, 20);
+   values->Stream1VertexReadOffset = __gen_unpack_field(dw2, 13, 13);
+   values->Stream1VertexReadLength = __gen_unpack_field(dw2, 8, 12);
+   values->Stream0VertexReadOffset = __gen_unpack_field(dw2, 5, 5);
+   values->Stream0VertexReadLength = __gen_unpack_field(dw2, 0, 4);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->Buffer1SurfacePitch = __gen_unpack_field(dw3, 16, 27);
+   values->Buffer0SurfacePitch = __gen_unpack_field(dw3, 0, 11);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->Buffer3SurfacePitch = __gen_unpack_field(dw4, 16, 27);
+   values->Buffer2SurfacePitch = __gen_unpack_field(dw4, 0, 11);
+
+}
+
 #define GEN8_3DSTATE_TE_length_bias 0x00000002
 #define GEN8_3DSTATE_TE_header                  \
    .CommandType          =  3,                  \
@@ -5032,6 +7093,34 @@ GEN8_3DSTATE_TE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_TE_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_TE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->Partitioning = __gen_unpack_field(dw1, 12, 13);
+   values->OutputTopology = __gen_unpack_field(dw1, 8, 9);
+   values->TEDomain = __gen_unpack_field(dw1, 4, 5);
+   values->TEMode = __gen_unpack_field(dw1, 1, 2);
+   values->TEEnable = __gen_unpack_field(dw1, 0, 0);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->MaximumTessellationFactorOdd = __gen_unpack_float(dw2);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->MaximumTessellationFactorNotOdd = __gen_unpack_float(dw3);
+
+}
+
 #define GEN8_3DSTATE_URB_DS_length_bias 0x00000002
 #define GEN8_3DSTATE_URB_DS_header              \
    .CommandType          =  3,                  \
@@ -5072,6 +7161,26 @@ GEN8_3DSTATE_URB_DS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->DSURBEntryAllocationSize, 16, 24) |
       __gen_field(values->DSNumberofURBEntries, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_URB_DS_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_3DSTATE_URB_DS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DSURBStartingAddress = __gen_unpack_field(dw1, 25, 31);
+   values->DSURBEntryAllocationSize = __gen_unpack_field(dw1, 16, 24);
+   values->DSNumberofURBEntries = __gen_unpack_field(dw1, 0, 15);
 
 }
 
@@ -5118,6 +7227,26 @@ GEN8_3DSTATE_URB_GS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_URB_GS_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_3DSTATE_URB_GS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->GSURBStartingAddress = __gen_unpack_field(dw1, 25, 31);
+   values->GSURBEntryAllocationSize = __gen_unpack_field(dw1, 16, 24);
+   values->GSNumberofURBEntries = __gen_unpack_field(dw1, 0, 15);
+
+}
+
 #define GEN8_3DSTATE_URB_HS_length_bias 0x00000002
 #define GEN8_3DSTATE_URB_HS_header              \
    .CommandType          =  3,                  \
@@ -5158,6 +7287,26 @@ GEN8_3DSTATE_URB_HS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->HSURBEntryAllocationSize, 16, 24) |
       __gen_field(values->HSNumberofURBEntries, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_URB_HS_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_3DSTATE_URB_HS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->HSURBStartingAddress = __gen_unpack_field(dw1, 25, 31);
+   values->HSURBEntryAllocationSize = __gen_unpack_field(dw1, 16, 24);
+   values->HSNumberofURBEntries = __gen_unpack_field(dw1, 0, 15);
 
 }
 
@@ -5239,6 +7388,22 @@ GEN8_3DSTATE_VERTEX_BUFFERS_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_VERTEX_BUFFERS_unpack(__gen_user_data *data, const void * restrict src,
+                                 struct GEN8_3DSTATE_VERTEX_BUFFERS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_VERTEX_ELEMENTS_length_bias 0x00000002
 #define GEN8_3DSTATE_VERTEX_ELEMENTS_header     \
    .CommandType          =  3,                  \
@@ -5311,6 +7476,22 @@ GEN8_3DSTATE_VERTEX_ELEMENTS_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_3DSTATE_VERTEX_ELEMENTS_unpack(__gen_user_data *data, const void * restrict src,
+                                  struct GEN8_3DSTATE_VERTEX_ELEMENTS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_3DSTATE_VF_length_bias 0x00000002
 #define GEN8_3DSTATE_VF_header                  \
    .CommandType          =  3,                  \
@@ -5349,6 +7530,25 @@ GEN8_3DSTATE_VF_pack(__gen_user_data *data, void * restrict dst,
    dw[1] =
       __gen_field(values->CutIndex, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_VF_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_VF * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->IndexedDrawCutIndexEnable = __gen_unpack_field(dw0, 8, 8);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->CutIndex = __gen_unpack_field(dw1, 0, 31);
 
 }
 
@@ -5395,6 +7595,28 @@ GEN8_3DSTATE_VF_INSTANCING_pack(__gen_user_data *data, void * restrict dst,
    dw[2] =
       __gen_field(values->InstanceDataStepRate, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_VF_INSTANCING_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_3DSTATE_VF_INSTANCING * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InstancingEnable = __gen_unpack_field(dw1, 8, 8);
+   values->VertexElementIndex = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->InstanceDataStepRate = __gen_unpack_field(dw2, 0, 31);
 
 }
 
@@ -5455,6 +7677,29 @@ GEN8_3DSTATE_VF_SGVS_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_VF_SGVS_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_3DSTATE_VF_SGVS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InstanceIDEnable = __gen_unpack_field(dw1, 31, 31);
+   values->InstanceIDComponentNumber = __gen_unpack_field(dw1, 29, 30);
+   values->InstanceIDElementOffset = __gen_unpack_field(dw1, 16, 21);
+   values->VertexIDEnable = __gen_unpack_field(dw1, 15, 15);
+   values->VertexIDComponentNumber = __gen_unpack_field(dw1, 13, 14);
+   values->VertexIDElementOffset = __gen_unpack_field(dw1, 0, 5);
+
+}
+
 #define GEN8_3DSTATE_VF_STATISTICS_length_bias 0x00000001
 #define GEN8_3DSTATE_VF_STATISTICS_header       \
    .CommandType          =  3,                  \
@@ -5485,6 +7730,21 @@ GEN8_3DSTATE_VF_STATISTICS_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->_3DCommandSubOpcode, 16, 23) |
       __gen_field(values->StatisticsEnable, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_VF_STATISTICS_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_3DSTATE_VF_STATISTICS * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->StatisticsEnable = __gen_unpack_field(dw0, 0, 0);
 
 }
 
@@ -5527,6 +7787,24 @@ GEN8_3DSTATE_VF_TOPOLOGY_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_VF_TOPOLOGY_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_3DSTATE_VF_TOPOLOGY * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->PrimitiveTopologyType = __gen_unpack_field(dw1, 0, 5);
+
+}
+
 #define GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_length_bias 0x00000002
 #define GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_header\
    .CommandType          =  3,                  \
@@ -5566,6 +7844,24 @@ GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_pack(__gen_user_data *data, void * restr
 
 }
 
+static inline void
+GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(__gen_user_data *data, const void * restrict src,
+                                             struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->CCViewportPointer = __gen_unpack_offset(dw1, 5, 31);
+
+}
+
 #define GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_length_bias 0x00000002
 #define GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_header\
    .CommandType          =  3,                  \
@@ -5602,6 +7898,24 @@ GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_pack(__gen_user_data *data, void * 
    dw[1] =
       __gen_offset(values->SFClipViewportPointer, 6, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(__gen_user_data *data, const void * restrict src,
+                                                  struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SFClipViewportPointer = __gen_unpack_offset(dw1, 6, 31);
 
 }
 
@@ -5694,6 +8008,38 @@ GEN8_3DSTATE_WM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_WM_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_3DSTATE_WM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StatisticsEnable = __gen_unpack_field(dw1, 31, 31);
+   values->LegacyDepthBufferClearEnable = __gen_unpack_field(dw1, 30, 30);
+   values->LegacyDepthBufferResolveEnable = __gen_unpack_field(dw1, 28, 28);
+   values->LegacyHierarchicalDepthBufferResolveEnable = __gen_unpack_field(dw1, 27, 27);
+   values->LegacyDiamondLineRasterization = __gen_unpack_field(dw1, 26, 26);
+   values->EarlyDepthStencilControl = __gen_unpack_field(dw1, 21, 22);
+   values->ForceThreadDispatchEnable = __gen_unpack_field(dw1, 19, 20);
+   values->PositionZWInterpolationMode = __gen_unpack_field(dw1, 17, 18);
+   values->BarycentricInterpolationMode = __gen_unpack_field(dw1, 11, 16);
+   values->LineEndCapAntialiasingRegionWidth = __gen_unpack_field(dw1, 8, 9);
+   values->LineAntialiasingRegionWidth = __gen_unpack_field(dw1, 6, 7);
+   values->PolygonStippleEnable = __gen_unpack_field(dw1, 4, 4);
+   values->LineStippleEnable = __gen_unpack_field(dw1, 3, 3);
+   values->PointRasterizationRule = __gen_unpack_field(dw1, 2, 2);
+   values->ForceKillPixelEnable = __gen_unpack_field(dw1, 0, 1);
+
+}
+
 #define GEN8_3DSTATE_WM_CHROMAKEY_length_bias 0x00000002
 #define GEN8_3DSTATE_WM_CHROMAKEY_header        \
    .CommandType          =  3,                  \
@@ -5730,6 +8076,24 @@ GEN8_3DSTATE_WM_CHROMAKEY_pack(__gen_user_data *data, void * restrict dst,
    dw[1] =
       __gen_field(values->ChromaKeyKillEnable, 31, 31) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_WM_CHROMAKEY_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_3DSTATE_WM_CHROMAKEY * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ChromaKeyKillEnable = __gen_unpack_field(dw1, 31, 31);
 
 }
 
@@ -5809,6 +8173,43 @@ GEN8_3DSTATE_WM_DEPTH_STENCIL_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_3DSTATE_WM_DEPTH_STENCIL_unpack(__gen_user_data *data, const void * restrict src,
+                                   struct GEN8_3DSTATE_WM_DEPTH_STENCIL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StencilFailOp = __gen_unpack_field(dw1, 29, 31);
+   values->StencilPassDepthFailOp = __gen_unpack_field(dw1, 26, 28);
+   values->StencilPassDepthPassOp = __gen_unpack_field(dw1, 23, 25);
+   values->BackfaceStencilTestFunction = __gen_unpack_field(dw1, 20, 22);
+   values->BackfaceStencilFailOp = __gen_unpack_field(dw1, 17, 19);
+   values->BackfaceStencilPassDepthFailOp = __gen_unpack_field(dw1, 14, 16);
+   values->BackfaceStencilPassDepthPassOp = __gen_unpack_field(dw1, 11, 13);
+   values->StencilTestFunction = __gen_unpack_field(dw1, 8, 10);
+   values->DepthTestFunction = __gen_unpack_field(dw1, 5, 7);
+   values->DoubleSidedStencilEnable = __gen_unpack_field(dw1, 4, 4);
+   values->StencilTestEnable = __gen_unpack_field(dw1, 3, 3);
+   values->StencilBufferWriteEnable = __gen_unpack_field(dw1, 2, 2);
+   values->DepthTestEnable = __gen_unpack_field(dw1, 1, 1);
+   values->DepthBufferWriteEnable = __gen_unpack_field(dw1, 0, 0);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->StencilTestMask = __gen_unpack_field(dw2, 24, 31);
+   values->StencilWriteMask = __gen_unpack_field(dw2, 16, 23);
+   values->BackfaceStencilTestMask = __gen_unpack_field(dw2, 8, 15);
+   values->BackfaceStencilWriteMask = __gen_unpack_field(dw2, 0, 7);
+
+}
+
 #define GEN8_3DSTATE_WM_HZ_OP_length_bias 0x00000002
 #define GEN8_3DSTATE_WM_HZ_OP_header            \
    .CommandType          =  3,                  \
@@ -5880,6 +8281,43 @@ GEN8_3DSTATE_WM_HZ_OP_pack(__gen_user_data *data, void * restrict dst,
    dw[4] =
       __gen_field(values->SampleMask, 0, 15) |
       0;
+
+}
+
+static inline void
+GEN8_3DSTATE_WM_HZ_OP_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_3DSTATE_WM_HZ_OP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StencilBufferClearEnable = __gen_unpack_field(dw1, 31, 31);
+   values->DepthBufferClearEnable = __gen_unpack_field(dw1, 30, 30);
+   values->ScissorRectangleEnable = __gen_unpack_field(dw1, 29, 29);
+   values->DepthBufferResolveEnable = __gen_unpack_field(dw1, 28, 28);
+   values->HierarchicalDepthBufferResolveEnable = __gen_unpack_field(dw1, 27, 27);
+   values->PixelPositionOffsetEnable = __gen_unpack_field(dw1, 26, 26);
+   values->FullSurfaceDepthClear = __gen_unpack_field(dw1, 25, 25);
+   values->StencilClearValue = __gen_unpack_field(dw1, 16, 23);
+   values->NumberofMultisamples = __gen_unpack_field(dw1, 13, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClearRectangleYMin = __gen_unpack_field(dw2, 16, 31);
+   values->ClearRectangleXMin = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ClearRectangleYMax = __gen_unpack_field(dw3, 16, 31);
+   values->ClearRectangleXMax = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SampleMask = __gen_unpack_field(dw4, 0, 15);
 
 }
 
@@ -5996,6 +8434,66 @@ GEN8_GPGPU_WALKER_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_GPGPU_WALKER_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_GPGPU_WALKER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->IndirectParameterEnable = __gen_unpack_field(dw0, 10, 10);
+   values->PredicateEnable = __gen_unpack_field(dw0, 8, 8);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->IndirectDataLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_offset(dw3, 6, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SIMDSize = __gen_unpack_field(dw4, 30, 31);
+   values->ThreadDepthCounterMaximum = __gen_unpack_field(dw4, 16, 21);
+   values->ThreadHeightCounterMaximum = __gen_unpack_field(dw4, 8, 13);
+   values->ThreadWidthCounterMaximum = __gen_unpack_field(dw4, 0, 5);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->ThreadGroupIDStartingX = __gen_unpack_field(dw5, 0, 31);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->ThreadGroupIDXDimension = __gen_unpack_field(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->ThreadGroupIDStartingY = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->ThreadGroupIDYDimension = __gen_unpack_field(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->ThreadGroupIDStartingResumeZ = __gen_unpack_field(dw11, 0, 31);
+
+   const uint32_t dw12 __attribute__((unused)) = dw[12];
+   values->ThreadGroupIDZDimension = __gen_unpack_field(dw12, 0, 31);
+
+   const uint32_t dw13 __attribute__((unused)) = dw[13];
+   values->RightExecutionMask = __gen_unpack_field(dw13, 0, 31);
+
+   const uint32_t dw14 __attribute__((unused)) = dw[14];
+   values->BottomExecutionMask = __gen_unpack_field(dw14, 0, 31);
+
+}
+
 #define GEN8_MEDIA_CURBE_LOAD_length_bias 0x00000002
 #define GEN8_MEDIA_CURBE_LOAD_header            \
    .CommandType          =  3,                  \
@@ -6043,6 +8541,29 @@ GEN8_MEDIA_CURBE_LOAD_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MEDIA_CURBE_LOAD_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_MEDIA_CURBE_LOAD * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->CURBETotalDataLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->CURBEDataStartAddress = __gen_unpack_field(dw3, 0, 31);
+
+}
+
 #define GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_length_bias 0x00000002
 #define GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_header\
    .CommandType          =  3,                  \
@@ -6087,6 +8608,29 @@ GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_pack(__gen_user_data *data, void * restrict
    dw[3] =
       __gen_offset(values->InterfaceDescriptorDataStartAddress, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(__gen_user_data *data, const void * restrict src,
+                                          struct GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->InterfaceDescriptorTotalLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->InterfaceDescriptorDataStartAddress = __gen_unpack_offset(dw3, 0, 31);
 
 }
 
@@ -6174,6 +8718,45 @@ GEN8_MEDIA_OBJECT_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->ScoreboardColor, 16, 19) |
       __gen_field(values->ScoreboardMask, 0, 7) |
       0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_MEDIA_OBJECT_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_MEDIA_OBJECT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MediaCommandPipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->MediaCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ChildrenPresent = __gen_unpack_field(dw2, 31, 31);
+   values->ThreadSynchronization = __gen_unpack_field(dw2, 24, 24);
+   values->ForceDestination = __gen_unpack_field(dw2, 22, 22);
+   values->UseScoreboard = __gen_unpack_field(dw2, 21, 21);
+   values->SliceDestinationSelect = __gen_unpack_field(dw2, 19, 20);
+   values->SubSliceDestinationSelect = __gen_unpack_field(dw2, 17, 18);
+   values->IndirectDataLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_address(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->ScoredboardY = __gen_unpack_field(dw4, 16, 24);
+   values->ScoreboardX = __gen_unpack_field(dw4, 0, 8);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->ScoreboardColor = __gen_unpack_field(dw5, 16, 19);
+   values->ScoreboardMask = __gen_unpack_field(dw5, 0, 7);
 
    /* variable length fields follow */
 }
@@ -6267,6 +8850,47 @@ GEN8_MEDIA_OBJECT_GRPID_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_MEDIA_OBJECT_GRPID_unpack(__gen_user_data *data, const void * restrict src,
+                             struct GEN8_MEDIA_OBJECT_GRPID * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MediaCommandPipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->MediaCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->EndofThreadGroup = __gen_unpack_field(dw2, 23, 23);
+   values->ForceDestination = __gen_unpack_field(dw2, 22, 22);
+   values->UseScoreboard = __gen_unpack_field(dw2, 21, 21);
+   values->SliceDestinationSelect = __gen_unpack_field(dw2, 19, 20);
+   values->SubSliceDestinationSelect = __gen_unpack_field(dw2, 17, 18);
+   values->IndirectDataLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_address(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->ScoreboardY = __gen_unpack_field(dw4, 16, 24);
+   values->ScoreboardX = __gen_unpack_field(dw4, 0, 8);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->ScoreboardColor = __gen_unpack_field(dw5, 16, 19);
+   values->ScoreboardMask = __gen_unpack_field(dw5, 0, 7);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->GroupID = __gen_unpack_field(dw6, 0, 31);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_MEDIA_OBJECT_PRT_length_bias 0x00000002
 #define GEN8_MEDIA_OBJECT_PRT_header            \
    .CommandType          =  3,                  \
@@ -6325,6 +8949,32 @@ GEN8_MEDIA_OBJECT_PRT_pack(__gen_user_data *data, void * restrict dst,
          0;
    }
 
+}
+
+static inline void
+GEN8_MEDIA_OBJECT_PRT_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_MEDIA_OBJECT_PRT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ChildrenPresent = __gen_unpack_field(dw2, 31, 31);
+   values->PRT_FenceNeeded = __gen_unpack_field(dw2, 23, 23);
+   values->PRT_FenceType = __gen_unpack_field(dw2, 22, 22);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+
+   /* skipping instancing 4..4 */
 }
 
 #define GEN8_MEDIA_OBJECT_WALKER_length_bias 0x00000002
@@ -6474,6 +9124,84 @@ GEN8_MEDIA_OBJECT_WALKER_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_MEDIA_OBJECT_WALKER_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_MEDIA_OBJECT_WALKER * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ChildrenPresent = __gen_unpack_field(dw2, 31, 31);
+   values->ThreadSynchronization = __gen_unpack_field(dw2, 24, 24);
+   values->UseScoreboard = __gen_unpack_field(dw2, 21, 21);
+   values->IndirectDataLength = __gen_unpack_field(dw2, 0, 16);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_offset(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->GroupIDLoopSelect = __gen_unpack_field(dw5, 8, 31);
+   values->ScoreboardMask = __gen_unpack_field(dw5, 0, 7);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->ColorCountMinusOne = __gen_unpack_field(dw6, 24, 27);
+   values->MiddleLoopExtraSteps = __gen_unpack_field(dw6, 16, 20);
+   values->LocalMidLoopUnitY = __gen_unpack_field(dw6, 12, 13);
+   values->MidLoopUnitX = __gen_unpack_field(dw6, 8, 9);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->GlobalLoopExecCount = __gen_unpack_field(dw7, 16, 25);
+   values->LocalLoopExecCount = __gen_unpack_field(dw7, 0, 9);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->BlockResolutionY = __gen_unpack_field(dw8, 16, 24);
+   values->BlockResolutionX = __gen_unpack_field(dw8, 0, 8);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->LocalStartY = __gen_unpack_field(dw9, 16, 24);
+   values->LocalStartX = __gen_unpack_field(dw9, 0, 8);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->LocalOuterLoopStrideY = __gen_unpack_field(dw11, 16, 25);
+   values->LocalOuterLoopStrideX = __gen_unpack_field(dw11, 0, 9);
+
+   const uint32_t dw12 __attribute__((unused)) = dw[12];
+   values->LocalInnerLoopUnitY = __gen_unpack_field(dw12, 16, 25);
+   values->LocalInnerLoopUnitX = __gen_unpack_field(dw12, 0, 9);
+
+   const uint32_t dw13 __attribute__((unused)) = dw[13];
+   values->GlobalResolutionY = __gen_unpack_field(dw13, 16, 24);
+   values->GlobalResolutionX = __gen_unpack_field(dw13, 0, 8);
+
+   const uint32_t dw14 __attribute__((unused)) = dw[14];
+   values->GlobalStartY = __gen_unpack_field(dw14, 16, 25);
+   values->GlobalStartX = __gen_unpack_field(dw14, 0, 9);
+
+   const uint32_t dw15 __attribute__((unused)) = dw[15];
+   values->GlobalOuterLoopStrideY = __gen_unpack_field(dw15, 16, 25);
+   values->GlobalOuterLoopStrideX = __gen_unpack_field(dw15, 0, 9);
+
+   const uint32_t dw16 __attribute__((unused)) = dw[16];
+   values->GlobalInnerLoopUnitY = __gen_unpack_field(dw16, 16, 25);
+   values->GlobalInnerLoopUnitX = __gen_unpack_field(dw16, 0, 9);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_MEDIA_STATE_FLUSH_length_bias 0x00000002
 #define GEN8_MEDIA_STATE_FLUSH_header           \
    .CommandType          =  3,                  \
@@ -6514,6 +9242,26 @@ GEN8_MEDIA_STATE_FLUSH_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->WatermarkRequired, 6, 6) |
       __gen_field(values->InterfaceDescriptorOffset, 0, 5) |
       0;
+
+}
+
+static inline void
+GEN8_MEDIA_STATE_FLUSH_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_MEDIA_STATE_FLUSH * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->FlushtoGO = __gen_unpack_field(dw1, 7, 7);
+   values->WatermarkRequired = __gen_unpack_field(dw1, 6, 6);
+   values->InterfaceDescriptorOffset = __gen_unpack_field(dw1, 0, 5);
 
 }
 
@@ -6643,6 +9391,67 @@ GEN8_MEDIA_VFE_STATE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MEDIA_VFE_STATE_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_MEDIA_VFE_STATE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->Pipeline = __gen_unpack_field(dw0, 27, 28);
+   values->MediaCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->SubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 15);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw1, 10, 31);
+   values->StackSize = __gen_unpack_field(dw1, 4, 7);
+   values->PerThreadScratchSpace = __gen_unpack_field(dw1, 0, 3);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ScratchSpaceBasePointerHigh = __gen_unpack_offset(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->MaximumNumberofThreads = __gen_unpack_field(dw3, 16, 31);
+   values->NumberofURBEntries = __gen_unpack_field(dw3, 8, 15);
+   values->ResetGatewayTimer = __gen_unpack_field(dw3, 7, 7);
+   values->BypassGatewayControl = __gen_unpack_field(dw3, 6, 6);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SliceDisable = __gen_unpack_field(dw4, 0, 1);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->URBEntryAllocationSize = __gen_unpack_field(dw5, 16, 31);
+   values->CURBEAllocationSize = __gen_unpack_field(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->ScoreboardEnable = __gen_unpack_field(dw6, 31, 31);
+   values->ScoreboardType = __gen_unpack_field(dw6, 30, 30);
+   values->ScoreboardMask = __gen_unpack_field(dw6, 0, 7);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->Scoreboard3DeltaY = __gen_unpack_field(dw7, 28, 31);
+   values->Scoreboard3DeltaX = __gen_unpack_field(dw7, 24, 27);
+   values->Scoreboard2DeltaY = __gen_unpack_field(dw7, 20, 23);
+   values->Scoreboard2DeltaX = __gen_unpack_field(dw7, 16, 19);
+   values->Scoreboard1DeltaY = __gen_unpack_field(dw7, 12, 15);
+   values->Scoreboard1DeltaX = __gen_unpack_field(dw7, 8, 11);
+   values->Scoreboard0DeltaY = __gen_unpack_field(dw7, 4, 7);
+   values->Scoreboard0DeltaX = __gen_unpack_field(dw7, 0, 3);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->Scoreboard7DeltaY = __gen_unpack_field(dw8, 28, 31);
+   values->Scoreboard7DeltaX = __gen_unpack_field(dw8, 24, 27);
+   values->Scoreboard6DeltaY = __gen_unpack_field(dw8, 20, 23);
+   values->Scoreboard6DeltaX = __gen_unpack_field(dw8, 16, 19);
+   values->Scoreboard5DeltaY = __gen_unpack_field(dw8, 12, 15);
+   values->Scoreboard5DeltaX = __gen_unpack_field(dw8, 8, 11);
+   values->Scoreboard4DeltaY = __gen_unpack_field(dw8, 4, 7);
+   values->Scoreboard4DeltaX = __gen_unpack_field(dw8, 0, 3);
+
+}
+
 #define GEN8_MI_ARB_CHECK_length_bias 0x00000001
 #define GEN8_MI_ARB_CHECK_header                \
    .CommandType          =  0,                  \
@@ -6668,6 +9477,18 @@ GEN8_MI_ARB_CHECK_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_ARB_CHECK_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_MI_ARB_CHECK * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+
+}
+
 #define GEN8_MI_BATCH_BUFFER_END_length_bias 0x00000001
 #define GEN8_MI_BATCH_BUFFER_END_header         \
    .CommandType          =  0,                  \
@@ -6690,6 +9511,18 @@ GEN8_MI_BATCH_BUFFER_END_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->CommandType, 29, 31) |
       __gen_field(values->MICommandOpcode, 23, 28) |
       0;
+
+}
+
+static inline void
+GEN8_MI_BATCH_BUFFER_END_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_MI_BATCH_BUFFER_END * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
 
 }
 
@@ -6745,6 +9578,27 @@ GEN8_MI_BATCH_BUFFER_START_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_BATCH_BUFFER_START_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_MI_BATCH_BUFFER_START * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->_2ndLevelBatchBuffer = __gen_unpack_field(dw0, 22, 22);
+   values->AddOffsetEnable = __gen_unpack_field(dw0, 16, 16);
+   values->PredicationEnable = __gen_unpack_field(dw0, 15, 15);
+   values->ResourceStreamerEnable = __gen_unpack_field(dw0, 10, 10);
+   values->AddressSpaceIndicator = __gen_unpack_field(dw0, 8, 8);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->BatchBufferStartAddress = __gen_unpack_address(qw1, 2, 47);
+
+}
+
 #define GEN8_MI_CLFLUSH_length_bias 0x00000002
 #define GEN8_MI_CLFLUSH_header                  \
    .CommandType          =  0,                  \
@@ -6786,6 +9640,25 @@ GEN8_MI_CLFLUSH_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] = qw1;
    dw[2] = qw1 >> 32;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_MI_CLFLUSH_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_MI_CLFLUSH * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTT = __gen_unpack_field(dw0, 22, 22);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 9);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->PageBaseAddress = __gen_unpack_address(qw1, 12, 47);
+   values->StartingCachelineOffset = __gen_unpack_field(qw1, 6, 11);
 
    /* variable length fields follow */
 }
@@ -6836,6 +9709,27 @@ GEN8_MI_CONDITIONAL_BATCH_BUFFER_END_pack(__gen_user_data *data, void * restrict
 
    dw[2] = qw2;
    dw[3] = qw2 >> 32;
+
+}
+
+static inline void
+GEN8_MI_CONDITIONAL_BATCH_BUFFER_END_unpack(__gen_user_data *data, const void * restrict src,
+                                          struct GEN8_MI_CONDITIONAL_BATCH_BUFFER_END * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTT = __gen_unpack_field(dw0, 22, 22);
+   values->CompareSemaphore = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->CompareDataDword = __gen_unpack_field(dw1, 0, 31);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->CompareAddress = __gen_unpack_address(qw2, 3, 47);
 
 }
 
@@ -6895,6 +9789,27 @@ GEN8_MI_COPY_MEM_MEM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_COPY_MEM_MEM_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_MI_COPY_MEM_MEM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTTSource = __gen_unpack_field(dw0, 22, 22);
+   values->UseGlobalGTTDestination = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->DestinationMemoryAddress = __gen_unpack_address(qw1, 2, 63);
+
+   const uint64_t qw3 __attribute__((unused)) = dw[3] | ((uint64_t ) dw[4] << 32);
+   values->SourceMemoryAddress = __gen_unpack_address(qw3, 2, 63);
+
+}
+
 #define GEN8_MI_LOAD_REGISTER_IMM_length_bias 0x00000002
 #define GEN8_MI_LOAD_REGISTER_IMM_header        \
    .CommandType          =  0,                  \
@@ -6932,6 +9847,26 @@ GEN8_MI_LOAD_REGISTER_IMM_pack(__gen_user_data *data, void * restrict dst,
    dw[2] =
       __gen_field(values->DataDWord, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_MI_LOAD_REGISTER_IMM_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_MI_LOAD_REGISTER_IMM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->ByteWriteDisables = __gen_unpack_field(dw0, 8, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->RegisterOffset = __gen_unpack_offset(dw1, 2, 22);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DataDWord = __gen_unpack_field(dw2, 0, 31);
 
 }
 
@@ -6982,6 +9917,27 @@ GEN8_MI_LOAD_REGISTER_MEM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_LOAD_REGISTER_MEM_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_MI_LOAD_REGISTER_MEM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTT = __gen_unpack_field(dw0, 22, 22);
+   values->AsyncModeEnable = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->RegisterAddress = __gen_unpack_offset(dw1, 2, 22);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw2, 2, 63);
+
+}
+
 #define GEN8_MI_LOAD_SCAN_LINES_EXCL_length_bias 0x00000002
 #define GEN8_MI_LOAD_SCAN_LINES_EXCL_header     \
    .CommandType          =  0,                  \
@@ -7019,6 +9975,24 @@ GEN8_MI_LOAD_SCAN_LINES_EXCL_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->StartScanLineNumber, 16, 28) |
       __gen_field(values->EndScanLineNumber, 0, 12) |
       0;
+
+}
+
+static inline void
+GEN8_MI_LOAD_SCAN_LINES_EXCL_unpack(__gen_user_data *data, const void * restrict src,
+                                  struct GEN8_MI_LOAD_SCAN_LINES_EXCL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DisplayPlaneSelect = __gen_unpack_field(dw0, 19, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 5);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StartScanLineNumber = __gen_unpack_field(dw1, 16, 28);
+   values->EndScanLineNumber = __gen_unpack_field(dw1, 0, 12);
 
 }
 
@@ -7067,6 +10041,25 @@ GEN8_MI_LOAD_SCAN_LINES_INCL_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_LOAD_SCAN_LINES_INCL_unpack(__gen_user_data *data, const void * restrict src,
+                                  struct GEN8_MI_LOAD_SCAN_LINES_INCL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DisplayPlaneSelect = __gen_unpack_field(dw0, 19, 21);
+   values->ScanLineEventDoneForward = __gen_unpack_field(dw0, 17, 18);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 5);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->StartScanLineNumber = __gen_unpack_field(dw1, 16, 28);
+   values->EndScanLineNumber = __gen_unpack_field(dw1, 0, 12);
+
+}
+
 #define GEN8_MI_LOAD_URB_MEM_length_bias 0x00000002
 #define GEN8_MI_LOAD_URB_MEM_header             \
    .CommandType          =  0,                  \
@@ -7110,6 +10103,25 @@ GEN8_MI_LOAD_URB_MEM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_LOAD_URB_MEM_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_MI_LOAD_URB_MEM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->URBAddress = __gen_unpack_field(dw1, 2, 14);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw2, 6, 63);
+
+}
+
 #define GEN8_MI_MATH_length_bias 0x00000002
 #define GEN8_MI_MATH_header                     \
    .CommandType          =  0,                  \
@@ -7149,6 +10161,26 @@ GEN8_MI_MATH_pack(__gen_user_data *data, void * restrict dst,
    /* variable length fields follow */
 }
 
+static inline void
+GEN8_MI_MATH_unpack(__gen_user_data *data, const void * restrict src,
+                  struct GEN8_MI_MATH * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 5);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ALUINSTRUCTION1 = __gen_unpack_field(dw1, 0, 31);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ALUINSTRUCTION2 = __gen_unpack_field(dw2, 0, 31);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_MI_NOOP_length_bias 0x00000001
 #define GEN8_MI_NOOP_header                     \
    .CommandType          =  0,                  \
@@ -7175,6 +10207,20 @@ GEN8_MI_NOOP_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->IdentificationNumberRegisterWriteEnable, 22, 22) |
       __gen_field(values->IdentificationNumber, 0, 21) |
       0;
+
+}
+
+static inline void
+GEN8_MI_NOOP_unpack(__gen_user_data *data, const void * restrict src,
+                  struct GEN8_MI_NOOP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->IdentificationNumberRegisterWriteEnable = __gen_unpack_field(dw0, 22, 22);
+   values->IdentificationNumber = __gen_unpack_field(dw0, 0, 21);
 
 }
 
@@ -7218,6 +10264,21 @@ GEN8_MI_PREDICATE_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_PREDICATE_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_MI_PREDICATE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->LoadOperation = __gen_unpack_field(dw0, 6, 7);
+   values->CombineOperation = __gen_unpack_field(dw0, 3, 4);
+   values->CompareOperation = __gen_unpack_field(dw0, 0, 1);
+
+}
+
 #define GEN8_MI_REPORT_HEAD_length_bias 0x00000001
 #define GEN8_MI_REPORT_HEAD_header              \
    .CommandType          =  0,                  \
@@ -7240,6 +10301,18 @@ GEN8_MI_REPORT_HEAD_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->CommandType, 29, 31) |
       __gen_field(values->MICommandOpcode, 23, 28) |
       0;
+
+}
+
+static inline void
+GEN8_MI_REPORT_HEAD_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_MI_REPORT_HEAD * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
 
 }
 
@@ -7272,6 +10345,19 @@ GEN8_MI_RS_CONTEXT_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_RS_CONTEXT_unpack(__gen_user_data *data, const void * restrict src,
+                        struct GEN8_MI_RS_CONTEXT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->ResourceStreamerSave = __gen_unpack_field(dw0, 0, 0);
+
+}
+
 #define GEN8_MI_RS_CONTROL_length_bias 0x00000001
 #define GEN8_MI_RS_CONTROL_header               \
    .CommandType          =  0,                  \
@@ -7298,6 +10384,19 @@ GEN8_MI_RS_CONTROL_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->MICommandOpcode, 23, 28) |
       __gen_field(values->ResourceStreamerControl, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_MI_RS_CONTROL_unpack(__gen_user_data *data, const void * restrict src,
+                        struct GEN8_MI_RS_CONTROL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->ResourceStreamerControl = __gen_unpack_field(dw0, 0, 0);
 
 }
 
@@ -7343,6 +10442,26 @@ GEN8_MI_RS_STORE_DATA_IMM_pack(__gen_user_data *data, void * restrict dst,
    dw[3] =
       __gen_field(values->DataDWord0, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_MI_RS_STORE_DATA_IMM_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_MI_RS_STORE_DATA_IMM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->DestinationAddress = __gen_unpack_address(qw1, 2, 63);
+   values->CoreModeEnable = __gen_unpack_field(qw1, 0, 0);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DataDWord0 = __gen_unpack_field(dw3, 0, 31);
 
 }
 
@@ -7393,6 +10512,28 @@ GEN8_MI_SET_CONTEXT_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_SET_CONTEXT_unpack(__gen_user_data *data, const void * restrict src,
+                         struct GEN8_MI_SET_CONTEXT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->LogicalContextAddress = __gen_unpack_address(dw1, 12, 31);
+   values->ReservedMustbe1 = __gen_unpack_field(dw1, 8, 8);
+   values->CoreModeEnable = __gen_unpack_field(dw1, 4, 4);
+   values->ResourceStreamerStateSaveEnable = __gen_unpack_field(dw1, 3, 3);
+   values->ResourceStreamerStateRestoreEnable = __gen_unpack_field(dw1, 2, 2);
+   values->ForceRestore = __gen_unpack_field(dw1, 1, 1);
+   values->RestoreInhibit = __gen_unpack_field(dw1, 0, 0);
+
+}
+
 #define GEN8_MI_SET_PREDICATE_length_bias 0x00000001
 #define GEN8_MI_SET_PREDICATE_header            \
    .CommandType          =  0,                  \
@@ -7426,6 +10567,19 @@ GEN8_MI_SET_PREDICATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->MICommandOpcode, 23, 28) |
       __gen_field(values->PREDICATEENABLE, 0, 3) |
       0;
+
+}
+
+static inline void
+GEN8_MI_SET_PREDICATE_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_MI_SET_PREDICATE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->PREDICATEENABLE = __gen_unpack_field(dw0, 0, 3);
 
 }
 
@@ -7483,6 +10637,31 @@ GEN8_MI_STORE_DATA_IMM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_STORE_DATA_IMM_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_MI_STORE_DATA_IMM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UseGlobalGTT = __gen_unpack_field(dw0, 22, 22);
+   values->StoreQword = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 9);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->Address = __gen_unpack_address(qw1, 2, 47);
+   values->CoreModeEnable = __gen_unpack_field(qw1, 0, 0);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DataDWord0 = __gen_unpack_field(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DataDWord1 = __gen_unpack_field(dw4, 0, 31);
+
+}
+
 #define GEN8_MI_STORE_DATA_INDEX_length_bias 0x00000002
 #define GEN8_MI_STORE_DATA_INDEX_header         \
    .CommandType          =  0,                  \
@@ -7525,6 +10704,29 @@ GEN8_MI_STORE_DATA_INDEX_pack(__gen_user_data *data, void * restrict dst,
    dw[3] =
       __gen_field(values->DataDWord1, 0, 31) |
       0;
+
+}
+
+static inline void
+GEN8_MI_STORE_DATA_INDEX_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_MI_STORE_DATA_INDEX * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->UsePerProcessHardwareStatusPage = __gen_unpack_field(dw0, 21, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->Offset = __gen_unpack_field(dw1, 2, 11);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DataDWord0 = __gen_unpack_field(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DataDWord1 = __gen_unpack_field(dw3, 0, 31);
 
 }
 
@@ -7571,6 +10773,25 @@ GEN8_MI_STORE_URB_MEM_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_STORE_URB_MEM_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_MI_STORE_URB_MEM * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->URBAddress = __gen_unpack_field(dw1, 2, 14);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw2, 6, 63);
+
+}
+
 #define GEN8_MI_SUSPEND_FLUSH_length_bias 0x00000001
 #define GEN8_MI_SUSPEND_FLUSH_header            \
    .CommandType          =  0,                  \
@@ -7595,6 +10816,19 @@ GEN8_MI_SUSPEND_FLUSH_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->MICommandOpcode, 23, 28) |
       __gen_field(values->SuspendFlush, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_MI_SUSPEND_FLUSH_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_MI_SUSPEND_FLUSH * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->SuspendFlush = __gen_unpack_field(dw0, 0, 0);
 
 }
 
@@ -7625,40 +10859,17 @@ GEN8_MI_TOPOLOGY_FILTER_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
-#define GEN8_MI_UPDATE_GTT_length_bias 0x00000002
-#define GEN8_MI_UPDATE_GTT_header               \
-   .CommandType          =  0,                  \
-   .MICommandOpcode      = 35
-
-#define GEN8_MI_UPDATE_GTT_length 0x00000000
-
-struct GEN8_MI_UPDATE_GTT {
-   uint32_t                                     CommandType;
-   uint32_t                                     MICommandOpcode;
-   uint32_t                                     DwordLength;
-   __gen_address_type                           EntryAddress;
-   /* variable length fields follow */
-};
-
 static inline void
-GEN8_MI_UPDATE_GTT_pack(__gen_user_data *data, void * restrict dst,
-                        const struct GEN8_MI_UPDATE_GTT * restrict values)
+GEN8_MI_TOPOLOGY_FILTER_unpack(__gen_user_data *data, const void * restrict src,
+                             struct GEN8_MI_TOPOLOGY_FILTER * restrict values)
 {
-   uint32_t *dw = (uint32_t * restrict) dst;
+   const uint32_t *dw = (uint32_t * restrict) src;
 
-   dw[0] =
-      __gen_field(values->CommandType, 29, 31) |
-      __gen_field(values->MICommandOpcode, 23, 28) |
-      __gen_field(values->DwordLength, 0, 9) |
-      0;
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->TopologyFilterValue = __gen_unpack_field(dw0, 0, 5);
 
-   uint32_t dw1 =
-      0;
-
-   dw[1] =
-      __gen_combine_address(data, &dw[1], values->EntryAddress, dw1);
-
-   /* variable length fields follow */
 }
 
 #define GEN8_MI_URB_ATOMIC_ALLOC_length_bias 0x00000001
@@ -7687,6 +10898,20 @@ GEN8_MI_URB_ATOMIC_ALLOC_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->URBAtomicStorageOffset, 12, 19) |
       __gen_field(values->URBAtomicStorageSize, 0, 8) |
       0;
+
+}
+
+static inline void
+GEN8_MI_URB_ATOMIC_ALLOC_unpack(__gen_user_data *data, const void * restrict src,
+                              struct GEN8_MI_URB_ATOMIC_ALLOC * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->URBAtomicStorageOffset = __gen_unpack_field(dw0, 12, 19);
+   values->URBAtomicStorageSize = __gen_unpack_field(dw0, 0, 8);
 
 }
 
@@ -7725,6 +10950,23 @@ GEN8_MI_URB_CLEAR_pack(__gen_user_data *data, void * restrict dst,
 
 }
 
+static inline void
+GEN8_MI_URB_CLEAR_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_MI_URB_CLEAR * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->URBClearLength = __gen_unpack_field(dw1, 16, 29);
+   values->URBAddress = __gen_unpack_offset(dw1, 0, 14);
+
+}
+
 #define GEN8_MI_USER_INTERRUPT_length_bias 0x00000001
 #define GEN8_MI_USER_INTERRUPT_header           \
    .CommandType          =  0,                  \
@@ -7747,6 +10989,18 @@ GEN8_MI_USER_INTERRUPT_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->CommandType, 29, 31) |
       __gen_field(values->MICommandOpcode, 23, 28) |
       0;
+
+}
+
+static inline void
+GEN8_MI_USER_INTERRUPT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_MI_USER_INTERRUPT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
 
 }
 
@@ -7796,6 +11050,30 @@ GEN8_MI_WAIT_FOR_EVENT_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->DisplayPlaneAFlipPendingWaitEnable, 1, 1) |
       __gen_field(values->DisplayPipeAScanLineWaitEnable, 0, 0) |
       0;
+
+}
+
+static inline void
+GEN8_MI_WAIT_FOR_EVENT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_MI_WAIT_FOR_EVENT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DisplayPipeCVerticalBlankWaitEnable = __gen_unpack_field(dw0, 21, 21);
+   values->DisplaySpriteCFlipPendingWaitEnable = __gen_unpack_field(dw0, 20, 20);
+   values->DisplayPlaneCFlipPendingWaitEnable = __gen_unpack_field(dw0, 15, 15);
+   values->DisplayPipeCScanLineWaitEnable = __gen_unpack_field(dw0, 14, 14);
+   values->DisplayPipeBVerticalBlankWaitEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DisplaySpriteBFlipPendingWaitEnable = __gen_unpack_field(dw0, 10, 10);
+   values->DisplayPlaneBFlipPendingWaitEnable = __gen_unpack_field(dw0, 9, 9);
+   values->DisplayPipeBScanLineWaitEnable = __gen_unpack_field(dw0, 8, 8);
+   values->DisplayPipeAVerticalBlankWaitEnable = __gen_unpack_field(dw0, 3, 3);
+   values->DisplaySpriteAFlipPendingWaitEnable = __gen_unpack_field(dw0, 2, 2);
+   values->DisplayPlaneAFlipPendingWaitEnable = __gen_unpack_field(dw0, 1, 1);
+   values->DisplayPipeAScanLineWaitEnable = __gen_unpack_field(dw0, 0, 0);
 
 }
 
@@ -7907,6 +11185,50 @@ GEN8_PIPE_CONTROL_pack(__gen_user_data *data, void * restrict dst,
 
    dw[4] = qw4;
    dw[5] = qw4 >> 32;
+
+}
+
+static inline void
+GEN8_PIPE_CONTROL_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_PIPE_CONTROL * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->CommandSubType = __gen_unpack_field(dw0, 27, 28);
+   values->_3DCommandOpcode = __gen_unpack_field(dw0, 24, 26);
+   values->_3DCommandSubOpcode = __gen_unpack_field(dw0, 16, 23);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DestinationAddressType = __gen_unpack_field(dw1, 24, 24);
+   values->LRIPostSyncOperation = __gen_unpack_field(dw1, 23, 23);
+   values->StoreDataIndex = __gen_unpack_field(dw1, 21, 21);
+   values->CommandStreamerStallEnable = __gen_unpack_field(dw1, 20, 20);
+   values->GlobalSnapshotCountReset = __gen_unpack_field(dw1, 19, 19);
+   values->TLBInvalidate = __gen_unpack_field(dw1, 18, 18);
+   values->GenericMediaStateClear = __gen_unpack_field(dw1, 16, 16);
+   values->PostSyncOperation = __gen_unpack_field(dw1, 14, 15);
+   values->DepthStallEnable = __gen_unpack_field(dw1, 13, 13);
+   values->RenderTargetCacheFlushEnable = __gen_unpack_field(dw1, 12, 12);
+   values->InstructionCacheInvalidateEnable = __gen_unpack_field(dw1, 11, 11);
+   values->TextureCacheInvalidationEnable = __gen_unpack_field(dw1, 10, 10);
+   values->IndirectStatePointersDisable = __gen_unpack_field(dw1, 9, 9);
+   values->NotifyEnable = __gen_unpack_field(dw1, 8, 8);
+   values->PipeControlFlushEnable = __gen_unpack_field(dw1, 7, 7);
+   values->DCFlushEnable = __gen_unpack_field(dw1, 5, 5);
+   values->VFCacheInvalidationEnable = __gen_unpack_field(dw1, 4, 4);
+   values->ConstantCacheInvalidationEnable = __gen_unpack_field(dw1, 3, 3);
+   values->StateCacheInvalidationEnable = __gen_unpack_field(dw1, 2, 2);
+   values->StallAtPixelScoreboard = __gen_unpack_field(dw1, 1, 1);
+   values->DepthCacheFlushEnable = __gen_unpack_field(dw1, 0, 0);
+
+   const uint64_t qw2 __attribute__((unused)) = dw[2] | ((uint64_t ) dw[3] << 32);
+   values->Address = __gen_unpack_address(qw2, 2, 47);
+
+   const uint64_t qw4 __attribute__((unused)) = dw[4] | ((uint64_t ) dw[5] << 32);
+   values->ImmediateData = __gen_unpack_field(qw4, 0, 63);
 
 }
 
