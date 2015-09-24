@@ -435,7 +435,8 @@ void wm_flush(void);
 
 struct reg {
 	union {
-		__m256 reg; /* for alignment */
+		__m256 reg;
+		__m256i ireg;
 		float f[8];
 		uint32_t ud[8];
 		int32_t d[8];

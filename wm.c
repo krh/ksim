@@ -104,17 +104,31 @@ sfid_render_cache(struct thread *t, const struct send_args *args)
 	case 12: /* rt write */
 		switch (type) {
 		case 4: /* simd8 */ {
+			__m256i r, g, b, a, shift;
+			struct reg argb;
+			__m256 scale;
+			scale = _mm256_set1_ps(255.0f);
+
+			r = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 0].reg, scale));
+			g = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 1].reg, scale));
+			b = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 2].reg, scale));
+			a = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 3].reg, scale));
+
+			shift = _mm256_set1_epi32(8);
+			argb.ireg = _mm256_sllv_epi32(a, shift);
+			argb.ireg = _mm256_or_si256(argb.ireg, r);
+			argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
+			argb.ireg = _mm256_or_si256(argb.ireg, g);
+			argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
+			argb.ireg = _mm256_or_si256(argb.ireg, b);
+
 			for (int i = 0; i < 8; i++) {
 				if ((t->mask & (1 << i)) == 0)
 					continue;
 				sx = x + (i & 1) + (i / 2 & 2);
 				sy = y + (i / 2 & 1);
 				p = rt.pixels + sy * rt.stride + sx * rt.cpp;
-				*p =
-					((uint32_t) (t->grf[src + 0].f[i] * 255.0f) << 16) |
-					((uint32_t) (t->grf[src + 1].f[i] * 255.0f) <<  8) |
-					((uint32_t) (t->grf[src + 2].f[i] * 255.0f) <<  0) |
-					((uint32_t) (t->grf[src + 3].f[i] * 255.0f) << 24);
+				*p = argb.ud[i];
 			}
 			break;
 		}
