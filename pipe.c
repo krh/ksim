@@ -339,8 +339,8 @@ assemble_primitives(struct value **vue, int count)
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
 			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
 			setup_prim(&prim);
 			tail += 3;

@@ -339,24 +339,6 @@ rasterize_primitive(struct primitive *prim)
 
 	struct payload p;
 
-#if 0
-	p.a01 = (y0 - y1);
-	p.b01 = (x1 - x0);
-	p.c01 = (x0 * y1 - y0 * x1);
-
-	p.a12 = (y1 - y2);
-	p.b12 = (x2 - x1);
-	p.c12 = (x1 * y2 - y1 * x2);
-
-	p.a20 = (y2 - y0);
-	p.b20 = (x0 - x2);
-	p.c20 = (x2 * y0 - y2 * x0);
-
-	p.area = p.a01 * x2 + p.b01 * y2 + p.c01;
-
-	if (p.area <= 0)
-		return;
-#else
 	p.a01 = (y1 - y0);
 	p.b01 = (x0 - x1);
 	p.c01 = (x1 * y0 - y1 * x0);
@@ -373,7 +355,6 @@ rasterize_primitive(struct primitive *prim)
 
 	if (p.area <= 0)
 		return;
-#endif
 	p.inv_area = 1.0f / p.area;
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
