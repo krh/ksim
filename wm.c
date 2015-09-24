@@ -30,19 +30,22 @@
 #include "write-png.h"
 
 struct payload {
+	int x0, y0;
+	int start_w2, start_w0, start_w1;
 	float inv_area;
 	int w2[8], w0[8], w1[8];
-	int w2_offsets[8], w0_offsets[8], w1_offsets[8];
 	int a01, b01, c01;
 	int a12, b12, c12;
 	int a20, b20, c20;
 
 	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
 
-	struct reg attribute_deltas[64];
 	float w_deltas[4];
+	struct reg attribute_deltas[64];
+	struct thread t;
 };
 
+/* Decode this at jit time and put in constant pool. */
 struct rt {
 	const uint32_t *state;
 	void *pixels;
@@ -185,7 +188,6 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 static void
 dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 {
-	struct thread t;
 	uint32_t g;
 
 	assert(gt.ps.enable_simd8);
@@ -193,9 +195,9 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t.mask = mask;
+	p->t.mask = mask;
 	/* Fixed function header */
-	t.grf[0] = (struct reg) {
+	p->t.grf[0] = (struct reg) {
 		.ud = {
 			/* R0.0 */
 			gt.ia.topology |
@@ -218,7 +220,7 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 		}
 	};
 
-	t.grf[1] = (struct reg) {
+	p->t.grf[1] = (struct reg) {
 		.ud = {
 			/* R1.0-1: MBZ */
 			0,
@@ -242,8 +244,8 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
 		for (int i = 0; i < 8; i++) {
-			t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
 		}
 		g += 2;
 		/* if (simd16) ... */
@@ -251,8 +253,8 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
 		for (int i = 0; i < 8; i++) {
-			t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
 		}
 		g += 2;
 		/* if (simd16) ... */
@@ -260,8 +262,8 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
 		for (int i = 0; i < 8; i++) {
-			t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
+			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
+			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
 		}
 		g += 2;
 		/* if (simd16) ... */
@@ -304,32 +306,40 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	}
 
 	if (gt.ps.push_constant_enable)
-		g = load_constants(&t, &gt.ps.curbe, gt.ps.grf_start0);
+		g = load_constants(&p->t, &gt.ps.curbe, gt.ps.grf_start0);
 	else
 		g = gt.ps.grf_start0;
 
 	if (gt.ps.attribute_enable) {
-		memcpy(&t.grf[g], p->attribute_deltas,
-		       gt.sbe.num_attributes * 2 * sizeof(t.grf[0]));
+		memcpy(&p->t.grf[g], p->attribute_deltas,
+		       gt.sbe.num_attributes * 2 * sizeof(p->t.grf[0]));
 	}
 
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
 	void (*f)(struct thread *t) = (void *) gt.ps.avx_shader->code;
-	f(&t);
+	f(&p->t);
 }
 
 const int tile_width = 128 / 4;
 const int tile_height = 32;
 
 static void
-rasterize_tile(struct payload *p, int x0, int y0,
-	       int start_w2, int start_w0, int start_w1)
+rasterize_tile(struct payload *p)
 {
-	int row_w2 = start_w2;
-	int row_w0 = start_w0;
-	int row_w1 = start_w1;
+	int row_w2 = p->start_w2;
+	int row_w0 = p->start_w0;
+	int row_w1 = p->start_w1;
+
+	int w2_offsets[8], w0_offsets[8], w1_offsets[8];
+	for (int i = 0; i < 8; i++) {
+		int sx = (i & 1) + ((i & ~3) >> 1);
+		int sy = (i & 2) >> 1;
+		w2_offsets[i] = p->a01 * sx + p->b01 * sy;
+		w0_offsets[i] = p->a12 * sx + p->b12 * sy;
+		w1_offsets[i] = p->a20 * sx + p->b20 * sy;
+	}
 
 	for (int y = 0; y < tile_height; y += 2) {
 		int w2 = row_w2;
@@ -344,9 +354,9 @@ rasterize_tile(struct payload *p, int x0, int y0,
 				goto next;
 
 			for (int i = 0; i < 8; i++) {
-				p->w2[i] = w2 + p->w2_offsets[i];
-				p->w0[i] = w0 + p->w0_offsets[i];
-				p->w1[i] = w1 + p->w1_offsets[i];
+				p->w2[i] = w2 + w2_offsets[i];
+				p->w0[i] = w0 + w0_offsets[i];
+				p->w1[i] = w1 + w1_offsets[i];
 			}
 
 			uint32_t mask = 0;
@@ -355,9 +365,9 @@ rasterize_tile(struct payload *p, int x0, int y0,
 					mask |= (1 << i);
 
 			if (gt.depth.test_enable || gt.depth.write_enable)
-				mask = depth_test(p, mask, x0 + x, y0 + y);
+				mask = depth_test(p, mask, p->x0 + x, p->y0 + y);
 			if (mask)
-				dispatch_ps(p, mask, x0 + x, y0 + y);
+				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
 
 		next:
 			w2 += p->a01 * 4;
@@ -471,14 +481,6 @@ rasterize_primitive(struct primitive *prim)
 	p.max_group_w1_delta =
 		p.a20 * w1_max_x * group_max_x + p.b20 * w1_max_y * group_max_y;
 
-	for (int i = 0; i < 8; i++) {
-		int sx = (i & 1) + ((i & ~3) >> 1);
-		int sy = (i & 2) >> 1;
-		p.w2_offsets[i] = p.a01 * sx + p.b01 * sy;
-		p.w0_offsets[i] = p.a12 * sx + p.b12 * sy;
-		p.w1_offsets[i] = p.a20 * sx + p.b20 * sy;
-	}
-
 	int min_x, min_y, max_x, max_y;
 
 	min_x = INT_MAX;
@@ -511,22 +513,22 @@ rasterize_primitive(struct primitive *prim)
 	int row_w2 = p.a01 * min_x + p.b01 * min_y + p.c01;
 	int row_w0 = p.a12 * min_x + p.b12 * min_y + p.c12;
 	int row_w1 = p.a20 * min_x + p.b20 * min_y + p.c20;
-	for (int y = min_y; y < max_y; y += tile_height) {
-		int w2 = row_w2;
-		int w0 = row_w0;
-		int w1 = row_w1;
+	for (p.y0 = min_y; p.y0 < max_y; p.y0 += tile_height) {
+		p.start_w2 = row_w2;
+		p.start_w0 = row_w0;
+		p.start_w1 = row_w1;
 
-		for (int x = min_x; x < max_x; x += tile_width) {
-			int max_w2 = w2 + max_w2_delta;
-			int max_w0 = w0 + max_w0_delta;
-			int max_w1 = w1 + max_w1_delta;
+		for (p.x0 = min_x; p.x0 < max_x; p.x0 += tile_width) {
+			int max_w2 = p.start_w2 + max_w2_delta;
+			int max_w0 = p.start_w0 + max_w0_delta;
+			int max_w1 = p.start_w1 + max_w1_delta;
 
 			if ((max_w2 | max_w0 | max_w1) >= 0)
-				rasterize_tile(&p, x, y, w2, w0, w1);
+				rasterize_tile(&p);
 
-			w2 += tile_width * p.a01;
-			w0 += tile_width * p.a12;
-			w1 += tile_width * p.a20;
+			p.start_w2 += tile_width * p.a01;
+			p.start_w0 += tile_width * p.a12;
+			p.start_w1 += tile_width * p.a20;
 		}
 
 		row_w2 += tile_height * p.b01;
