@@ -30,8 +30,6 @@
 #include "write-png.h"
 
 struct payload {
-	int min_x, min_y, max_x, max_y;
-	int area;
 	float inv_area;
 	int w2[8], w0[8], w1[8];
 	int w2_offsets[8], w0_offsets[8], w1_offsets[8];
@@ -39,7 +37,6 @@ struct payload {
 	int a12, b12, c12;
 	int a20, b20, c20;
 
-	int max_w0_delta, max_w1_delta, max_w2_delta;
 	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
 
 	struct reg attribute_deltas[64];
@@ -349,7 +346,7 @@ rasterize_tile(struct payload *p, int x0, int y0,
 			for (int i = 0; i < 8; i++) {
 				p->w2[i] = w2 + p->w2_offsets[i];
 				p->w0[i] = w0 + p->w0_offsets[i];
-				p->w1[i] = p->area - p->w2[i] - p->w0[i];
+				p->w1[i] = w1 + p->w1_offsets[i];
 			}
 
 			uint32_t mask = 0;
@@ -397,11 +394,11 @@ rasterize_primitive(struct primitive *prim)
 	p.b20 = (x2 - x0);
 	p.c20 = (x0 * y2 - y0 * x2);
 
-	p.area = p.a01 * x2 + p.b01 * y2 + p.c01;
+	int area = p.a01 * x2 + p.b01 * y2 + p.c01;
 
-	if (p.area <= 0)
+	if (area <= 0)
 		return;
-	p.inv_area = 1.0f / p.area;
+	p.inv_area = 1.0f / area;
 
 	float w[3] = {
 		1.0f / prim->v[0].z,
@@ -451,9 +448,10 @@ rasterize_primitive(struct primitive *prim)
 
 	int w2_max_x = p.a01 > 0 ? 1 : 0;
 	int w2_max_y = p.b01 > 0 ? 1 : 0;
+	int max_w0_delta, max_w1_delta, max_w2_delta;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w2_delta = p.a01 * w2_max_x * tile_max_x + p.b01 * w2_max_y * tile_max_y;
+	max_w2_delta = p.a01 * w2_max_x * tile_max_x + p.b01 * w2_max_y * tile_max_y;
 	p.max_group_w2_delta =
 		p.a01 * w2_max_x * group_max_x + p.b01 * w2_max_y * group_max_y;
 
@@ -461,7 +459,7 @@ rasterize_primitive(struct primitive *prim)
 	int w0_max_y = p.b12 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w0_delta = p.a12 * w0_max_x * tile_max_x + p.b12 * w0_max_y * tile_max_y;
+	max_w0_delta = p.a12 * w0_max_x * tile_max_x + p.b12 * w0_max_y * tile_max_y;
 	p.max_group_w0_delta =
 		p.a12 * w0_max_x * group_max_x + p.b12 * w0_max_y * group_max_y;
 
@@ -469,7 +467,7 @@ rasterize_primitive(struct primitive *prim)
 	int w1_max_y = p.b20 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
-	p.max_w1_delta = p.a20 * w1_max_x * tile_max_x + p.b20 * w1_max_y * tile_max_y;
+	max_w1_delta = p.a20 * w1_max_x * tile_max_x + p.b20 * w1_max_y * tile_max_y;
 	p.max_group_w1_delta =
 		p.a20 * w1_max_x * group_max_x + p.b20 * w1_max_y * group_max_y;
 
@@ -481,45 +479,47 @@ rasterize_primitive(struct primitive *prim)
 		p.w1_offsets[i] = p.a20 * sx + p.b20 * sy;
 	}
 
-	p.min_x = INT_MAX;
-	p.min_y = INT_MAX;
-	p.max_x = INT_MIN;
-	p.max_y = INT_MIN;
+	int min_x, min_y, max_x, max_y;
+
+	min_x = INT_MAX;
+	min_y = INT_MAX;
+	max_x = INT_MIN;
+	max_y = INT_MIN;
 	for (int i = 0; i < 3; i++) {
 		int x, y;
 
 		x = floor(prim->v[i].x);
-		if (x < p.min_x)
-			p.min_x = x;
+		if (x < min_x)
+			min_x = x;
 		y = floor(prim->v[i].y);
-		if (y < p.min_y)
-			p.min_y = y;
+		if (y < min_y)
+			min_y = y;
 
 		x = ceil(prim->v[i].x);
-		if (p.max_x < x)
-			p.max_x = x;
+		if (max_x < x)
+			max_x = x;
 		y = ceil(prim->v[i].y);
-		if (p.max_y < y)
-			p.max_y = y;
+		if (max_y < y)
+			max_y = y;
 	}
 
-	p.min_x = p.min_x & ~(tile_width - 1);
-	p.min_y = p.min_y & ~(tile_height - 1);
-	p.max_x = (p.max_x + tile_width - 1) & ~(tile_width - 1);
-	p.max_y = (p.max_y + tile_height - 1) & ~(tile_height - 1);
+	min_x = min_x & ~(tile_width - 1);
+	min_y = min_y & ~(tile_height - 1);
+	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
+	max_y = (max_y + tile_height - 1) & ~(tile_height - 1);
 
-	int row_w2 = p.a01 * p.min_x + p.b01 * p.min_y + p.c01;
-	int row_w0 = p.a12 * p.min_x + p.b12 * p.min_y + p.c12;
-	int row_w1 = p.a20 * p.min_x + p.b20 * p.min_y + p.c20;
-	for (int y = p.min_y; y < p.max_y; y += tile_height) {
+	int row_w2 = p.a01 * min_x + p.b01 * min_y + p.c01;
+	int row_w0 = p.a12 * min_x + p.b12 * min_y + p.c12;
+	int row_w1 = p.a20 * min_x + p.b20 * min_y + p.c20;
+	for (int y = min_y; y < max_y; y += tile_height) {
 		int w2 = row_w2;
 		int w0 = row_w0;
 		int w1 = row_w1;
 
-		for (int x = p.min_x; x < p.max_x; x += tile_width) {
-			int max_w2 = w2 + p.max_w2_delta;
-			int max_w0 = w0 + p.max_w0_delta;
-			int max_w1 = w1 + p.max_w1_delta;
+		for (int x = min_x; x < max_x; x += tile_width) {
+			int max_w2 = w2 + max_w2_delta;
+			int max_w0 = w0 + max_w0_delta;
+			int max_w1 = w1 + max_w1_delta;
 
 			if ((max_w2 | max_w0 | max_w1) >= 0)
 				rasterize_tile(&p, x, y, w2, w0, w1);
