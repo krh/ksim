@@ -5,7 +5,7 @@ bin_PROGRAMS = ksim
 ksim_SOURCES = loader.c command-streamer.c \
 	pipe.c formats.c thread.c wm.c eu.c write-png.c write-png.h
 ksim_CFLAGS = -fvisibility=hidden -Wall -march=native -mrtm
-ksim_LDADD = libdisasm/libdisasm.la -lpng
+ksim_LDADD = libdisasm/libdisasm.la -lpng -lm
 
 module_LTLIBRARIES = ksim-stub.la
 moduledir = $(libdir)

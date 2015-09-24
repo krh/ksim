@@ -23,11 +23,14 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
 
 #include "ksim.h"
 #include "write-png.h"
 
 struct payload {
+	int min_x, min_y, max_x, max_y;
 	int area;
 	float inv_area;
 	int w2[8], w0[8], w1[8];
@@ -325,7 +328,7 @@ const int tile_height = 32;
 
 static void
 rasterize_tile(struct payload *p, int x0, int y0,
-	       int start_w2, int start_w0, int start_w1, void *tile, uint32_t stride)
+	       int start_w2, int start_w0, int start_w1)
 {
 	int row_w2 = start_w2;
 	int row_w0 = start_w0;
@@ -373,13 +376,6 @@ rasterize_tile(struct payload *p, int x0, int y0,
 void
 rasterize_primitive(struct primitive *prim)
 {
-	struct rt rt;
-
-	if (!get_render_target(gt.ps.binding_table_address, 0, &rt)) {
-		spam("assuming binding_table[0], but nothing valid there\n");
-		return;
-	}
-
 	const int x0 = prim->v[0].x;
 	const int y0 = prim->v[0].y;
 	const int x1 = prim->v[1].x;
@@ -485,23 +481,48 @@ rasterize_primitive(struct primitive *prim)
 		p.w1_offsets[i] = p.a20 * sx + p.b20 * sy;
 	}
 
-	int row_w2 = p.c01;
-	int row_w0 = p.c12;
-	int row_w1 = p.c20;
-	for (int y = 0; y < rt.height; y += tile_height) {
+	p.min_x = INT_MAX;
+	p.min_y = INT_MAX;
+	p.max_x = INT_MIN;
+	p.max_y = INT_MIN;
+	for (int i = 0; i < 3; i++) {
+		int x, y;
+
+		x = floor(prim->v[i].x);
+		if (x < p.min_x)
+			p.min_x = x;
+		y = floor(prim->v[i].y);
+		if (y < p.min_y)
+			p.min_y = y;
+
+		x = ceil(prim->v[i].x);
+		if (p.max_x < x)
+			p.max_x = x;
+		y = ceil(prim->v[i].y);
+		if (p.max_y < y)
+			p.max_y = y;
+	}
+
+	p.min_x = p.min_x & ~(tile_width - 1);
+	p.min_y = p.min_y & ~(tile_height - 1);
+	p.max_x = (p.max_x + tile_width - 1) & ~(tile_width - 1);
+	p.max_y = (p.max_y + tile_height - 1) & ~(tile_height - 1);
+
+	int row_w2 = p.a01 * p.min_x + p.b01 * p.min_y + p.c01;
+	int row_w0 = p.a12 * p.min_x + p.b12 * p.min_y + p.c12;
+	int row_w1 = p.a20 * p.min_x + p.b20 * p.min_y + p.c20;
+	for (int y = p.min_y; y < p.max_y; y += tile_height) {
 		int w2 = row_w2;
 		int w0 = row_w0;
 		int w1 = row_w1;
 
-		for (int x = 0; x < rt.width; x += tile_width) {
+		for (int x = p.min_x; x < p.max_x; x += tile_width) {
 			int max_w2 = w2 + p.max_w2_delta;
 			int max_w0 = w0 + p.max_w0_delta;
 			int max_w1 = w1 + p.max_w1_delta;
 
-			if ((max_w2 | max_w0 | max_w1) >= 0) {
-				void *tile = rt.pixels + y * rt.stride + x * 4;
-				rasterize_tile(&p, x, y, w2, w0, w1, tile, rt.stride);
-			}
+			if ((max_w2 | max_w0 | max_w1) >= 0)
+				rasterize_tile(&p, x, y, w2, w0, w1);
 
 			w2 += tile_width * p.a01;
 			w0 += tile_width * p.a12;
