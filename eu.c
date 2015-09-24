@@ -1631,9 +1631,16 @@ builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
 }
 
 static void
-builder_emit_dst_store(struct builder *bld, int avx_reg, struct inst_dst *dst)
+builder_emit_dst_store(struct builder *bld, int avx_reg,
+		       struct inst *inst, struct inst_dst *dst)
 {
-	builder_emit_m256i_store(bld, avx_reg, offsetof(struct thread, grf[dst->num]));
+	struct inst_common common = unpack_inst_common(inst);
+
+	if (common.saturate)
+		stub("eu: dest saturate");
+
+	builder_emit_m256i_store(bld, avx_reg,
+				 offsetof(struct thread, grf[dst->num]));
 }
 
 static inline int
@@ -1985,6 +1992,8 @@ compile_inst(struct builder *bld, struct inst *inst)
 	if (opcode_info[opcode].num_srcs == 3) {
 		if (opcode_info[opcode].store_dst) {
 			struct inst_dst _dst = unpack_inst_3src_dst(inst);
+			if (_dst.hstride > 1)
+				stub("eu: 3src dst hstride > 1");
 #if 0
 			struct inst_src _src = unpack_inst_3src_src0(inst);
 			dump_reg("dst", dst, _dst.type);
@@ -1993,11 +2002,13 @@ compile_inst(struct builder *bld, struct inst *inst)
 			else if (is_float(_src.type) && is_integer(_dst.type))
 				dst.d = _mm256_cvtps_epi32(dst.f);
 #endif
-			builder_emit_dst_store(bld, 0, &_dst);
+			builder_emit_dst_store(bld, 0, inst, &_dst);
 		}
 	} else {
 		if (opcode_info[opcode].store_dst) {
 			struct inst_dst _dst = unpack_inst_2src_dst(inst);
+			if (_dst.hstride > 1)
+				stub("eu: 2src dst hstride > 1");
 #if 0
 			struct inst_src _src = unpack_inst_2src_src0(inst);
 			dump_reg("dst", dst, _dst.type);
@@ -2006,7 +2017,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			else if (is_float(_src.type) && is_integer(_dst.type))
 				dst.d = _mm256_cvtps_epi32(dst.f);
 #endif
-			builder_emit_dst_store(bld, 0, &_dst);
+			builder_emit_dst_store(bld, 0, inst, &_dst);
 		}
 	}
 
