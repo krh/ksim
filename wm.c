@@ -155,6 +155,8 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 	uint32_t cpp = depth_format_size(gt.depth.format);
 	int sx, sy;
 
+	ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
+
 	buffer = map_gtt_offset(gt.depth.address, &range);
 	stride = gt.depth.stride;
 
