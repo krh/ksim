@@ -153,18 +153,17 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 	uint64_t range;
 	uint32_t stride;
 	uint32_t cpp = depth_format_size(gt.depth.format);
-	uint32_t w_unorm;
 	int sx, sy;
 
 	buffer = map_gtt_offset(gt.depth.address, &range);
 	stride = gt.depth.stride;
 
 	/* early depth test */
-	float w[8];
-	for (int i = 0; i < 8; i++)
-		w[i] = p->w_deltas[0] * p->w1.f[i] +
-			p->w_deltas[1] * p->w2.f[i] + p->w_deltas[3];
-
+	struct reg w, w_unorm;
+	w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), p->w1.reg,
+				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), p->w2.reg,
+						_mm256_set1_ps(p->w_deltas[3])));
+	w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
 	for (int i = 0; i < 8; i++) {
 		if ((mask & (1 << i)) == 0)
 			continue;
@@ -172,11 +171,10 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 		sy = y + (i / 2 & 1);
 		d = buffer + sy * stride + sx * cpp;
 
-		w_unorm = w[i] * ((1 << 24) - 1);
-		if (gt.depth.test_enable && *d > w_unorm)
+		if (gt.depth.test_enable && *d > w_unorm.ud[i])
 			mask &= ~(1 << i);
 		if (gt.depth.write_enable && (mask & (1 << i)))
-			*d = w_unorm;
+			*d = w_unorm.ud[i];
 	}
 
 	return mask;
