@@ -284,6 +284,15 @@ struct gt {
 	} sf;
 
 	struct {
+		uint32_t min_x;
+		uint32_t min_y;
+		uint32_t max_x;
+		uint32_t max_y;
+		uint32_t origin_x;
+		uint32_t origin_y;
+	}  drawing_rectangle;
+
+	struct {
 		uint32_t barycentric_mode;
 	} wm;
 

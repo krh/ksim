@@ -978,6 +978,16 @@ static void
 handle_3dstate_drawing_rectangle(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_DRAWING_RECTANGLE\n");
+
+	struct GEN8_3DSTATE_DRAWING_RECTANGLE v;
+	GEN8_3DSTATE_DRAWING_RECTANGLE_unpack(NULL, p, &v);
+
+	gt.drawing_rectangle.min_x = v.ClippedDrawingRectangleXMin;
+	gt.drawing_rectangle.min_y = v.ClippedDrawingRectangleYMin;
+	gt.drawing_rectangle.max_x = v.ClippedDrawingRectangleXMax;
+	gt.drawing_rectangle.max_y = v.ClippedDrawingRectangleYMax;
+	gt.drawing_rectangle.origin_x = v.DrawingRectangleOriginX;
+	gt.drawing_rectangle.origin_y = v.DrawingRectangleOriginY;
 }
 
 static void

@@ -508,6 +508,15 @@ rasterize_primitive(struct primitive *prim)
 			max_y = y;
 	}
 
+	if (min_x < gt.drawing_rectangle.min_x)
+		min_x = gt.drawing_rectangle.min_x;
+	if (min_y < gt.drawing_rectangle.min_y)
+		min_y = gt.drawing_rectangle.min_y;
+	if (max_x > gt.drawing_rectangle.max_x)
+		max_x = gt.drawing_rectangle.max_x;
+	if (max_y > gt.drawing_rectangle.max_y)
+		max_y = gt.drawing_rectangle.max_y;
+
 	min_x = min_x & ~(tile_width - 1);
 	min_y = min_y & ~(tile_height - 1);
 	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
