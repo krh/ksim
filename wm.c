@@ -33,7 +33,7 @@ struct payload {
 	int x0, y0;
 	int start_w2, start_w0, start_w1;
 	float inv_area;
-	int w2[8], w0[8], w1[8];
+	struct reg w2, w0, w1;
 	int a01, b01, c01;
 	int a12, b12, c12;
 	int a20, b20, c20;
@@ -164,9 +164,8 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 	/* early depth test */
 	float w[8];
 	for (int i = 0; i < 8; i++)
-		w[i] = p->w_deltas[0] * p->w1[i] * p->inv_area +
-			p->w_deltas[1] * p->w2[i] * p->inv_area +
-			p->w_deltas[3];
+		w[i] = p->w_deltas[0] * p->w1.f[i] +
+			p->w_deltas[1] * p->w2.f[i] + p->w_deltas[3];
 
 	for (int i = 0; i < 8; i++) {
 		if ((mask & (1 << i)) == 0)
@@ -243,28 +242,22 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		for (int i = 0; i < 8; i++) {
-			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
-		}
+		p->t.grf[g].reg = p->w1.reg;
+		p->t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		for (int i = 0; i < 8; i++) {
-			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
-		}
+		p->t.grf[g].reg = p->w1.reg;
+		p->t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		for (int i = 0; i < 8; i++) {
-			p->t.grf[g].f[i] = p->w1[i] * p->inv_area;
-			p->t.grf[g + 1].f[i] = p->w2[i] * p->inv_area;
-		}
+		p->t.grf[g].reg = p->w1.reg;
+		p->t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
@@ -332,14 +325,19 @@ rasterize_tile(struct payload *p)
 	int row_w0 = p->start_w0;
 	int row_w1 = p->start_w1;
 
-	int w2_offsets[8], w0_offsets[8], w1_offsets[8];
-	for (int i = 0; i < 8; i++) {
-		int sx = (i & 1) + ((i & ~3) >> 1);
-		int sy = (i & 2) >> 1;
-		w2_offsets[i] = p->a01 * sx + p->b01 * sy;
-		w0_offsets[i] = p->a12 * sx + p->b12 * sy;
-		w1_offsets[i] = p->a20 * sx + p->b20 * sy;
-	}
+	struct reg w2_offsets, w0_offsets, w1_offsets;
+	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
+	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+
+	w2_offsets.ireg =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->a01), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->b01), sy.ireg);
+	w0_offsets.ireg =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->a12), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->b12), sy.ireg);
+	w1_offsets.ireg =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->a20), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->b20), sy.ireg);
 
 	for (int y = 0; y < tile_height; y += 2) {
 		int w2 = row_w2;
@@ -353,16 +351,32 @@ rasterize_tile(struct payload *p)
 			if ((max_w2 | max_w0 | max_w1) < 0)
 				goto next;
 
-			for (int i = 0; i < 8; i++) {
-				p->w2[i] = w2 + w2_offsets[i];
-				p->w0[i] = w0 + w0_offsets[i];
-				p->w1[i] = w1 + w1_offsets[i];
-			}
+			p->w2.ireg = _mm256_add_epi32(_mm256_set1_epi32(w2),
+						      w2_offsets.ireg);
+			p->w0.ireg = _mm256_add_epi32(_mm256_set1_epi32(w0),
+						      w0_offsets.ireg);
+			p->w1.ireg = _mm256_add_epi32(_mm256_set1_epi32(w1),
+						      w1_offsets.ireg);
+			struct reg det;
+			det.ireg =
+				_mm256_or_si256(_mm256_or_si256(p->w1.ireg,
+								p->w0.ireg),
+						p->w2.ireg);
 
 			uint32_t mask = 0;
 			for (int i = 0; i < 8; i++)
-				if ((p->w1[i] | p->w0[i] | p->w2[i]) > 0)
+				if (det.d[i] > 0)
 					mask |= (1 << i);
+
+			p->w2.reg =
+				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w2.ireg),
+					      _mm256_set1_ps(p->inv_area));
+			p->w0.reg =
+				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w0.ireg),
+					      _mm256_set1_ps(p->inv_area));
+			p->w1.reg =
+				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w1.ireg),
+					      _mm256_set1_ps(p->inv_area));
 
 			if (gt.depth.test_enable || gt.depth.write_enable)
 				mask = depth_test(p, mask, p->x0 + x, p->y0 + y);
