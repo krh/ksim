@@ -38,8 +38,6 @@ struct payload {
 	int a12, b12, c12;
 	int a20, b20, c20;
 
-	int max_group_w0_delta, max_group_w1_delta, max_group_w2_delta;
-
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
 	struct thread t;
@@ -321,9 +319,9 @@ const int tile_height = 32;
 static void
 rasterize_tile(struct payload *p)
 {
-	int row_w2 = p->start_w2;
-	int row_w0 = p->start_w0;
-	int row_w1 = p->start_w1;
+	struct reg row_w2, w2;
+	struct reg row_w0, w0;
+	struct reg row_w1, w1;
 
 	struct reg w2_offsets, w0_offsets, w1_offsets;
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
@@ -339,43 +337,44 @@ rasterize_tile(struct payload *p)
 		_mm256_mullo_epi32(_mm256_set1_epi32(p->a20), sx.ireg) +
 		_mm256_mullo_epi32(_mm256_set1_epi32(p->b20), sy.ireg);
 
+	row_w2.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w2),
+				       w2_offsets.ireg);
+
+	row_w0.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w0),
+				       w0_offsets.ireg);
+
+	row_w1.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w1),
+				       w1_offsets.ireg);
+
+
 	for (int y = 0; y < tile_height; y += 2) {
-		int w2 = row_w2;
-		int w0 = row_w0;
-		int w1 = row_w1;
+		w2.ireg = row_w2.ireg;
+		w0.ireg = row_w0.ireg;
+		w1.ireg = row_w1.ireg;
 
 		for (int x = 0; x < tile_width; x += 4) {
-			int max_w2 = w2 + p->max_group_w2_delta;
-			int max_w0 = w0 + p->max_group_w0_delta;
-			int max_w1 = w1 + p->max_group_w1_delta;
-			if ((max_w2 | max_w0 | max_w1) < 0)
-				goto next;
-
-			p->w2.ireg = _mm256_add_epi32(_mm256_set1_epi32(w2),
-						      w2_offsets.ireg);
-			p->w0.ireg = _mm256_add_epi32(_mm256_set1_epi32(w0),
-						      w0_offsets.ireg);
-			p->w1.ireg = _mm256_add_epi32(_mm256_set1_epi32(w1),
-						      w1_offsets.ireg);
 			struct reg det;
 			det.ireg =
-				_mm256_or_si256(_mm256_or_si256(p->w1.ireg,
-								p->w0.ireg),
-						p->w2.ireg);
+				_mm256_or_si256(_mm256_or_si256(w1.ireg,
+								w0.ireg), w2.ireg);
 
-			uint32_t mask = 0;
-			for (int i = 0; i < 8; i++)
-				if (det.d[i] > 0)
-					mask |= (1 << i);
+			/* FIXME: This is a e >= 0 test, which
+			 * over-rasterizes lower-right edge pixels.
+			 * We can subtract one for those edge
+			 * functions - instead of adding one for top
+			 * left edge. */
+			uint32_t mask = _mm256_movemask_ps(det.reg) ^ 0xff;
+			if (mask == 0)
+				goto next;
 
 			p->w2.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w2.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(w2.ireg),
 					      _mm256_set1_ps(p->inv_area));
 			p->w0.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w0.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(w0.ireg),
 					      _mm256_set1_ps(p->inv_area));
 			p->w1.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(p->w1.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(w1.ireg),
 					      _mm256_set1_ps(p->inv_area));
 
 			if (gt.depth.test_enable || gt.depth.write_enable)
@@ -384,13 +383,13 @@ rasterize_tile(struct payload *p)
 				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
 
 		next:
-			w2 += p->a01 * 4;
-			w0 += p->a12 * 4;
-			w1 += p->a20 * 4;
+			w2.ireg = _mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->a01 * 4));
+			w0.ireg = _mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->a12 * 4));
+			w1.ireg = _mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->a20 * 4));
 		}
-		row_w2 += 2 * p->b01;
-		row_w0 += 2 * p->b12;
-		row_w1 += 2 * p->b20;
+		row_w2.ireg = _mm256_add_epi32(row_w2.ireg, _mm256_set1_epi32(p->b01 * 2));
+		row_w0.ireg = _mm256_add_epi32(row_w0.ireg, _mm256_set1_epi32(p->b12 * 2));
+		row_w1.ireg = _mm256_add_epi32(row_w1.ireg, _mm256_set1_epi32(p->b20 * 2));
 	}
 }
 
@@ -467,8 +466,6 @@ rasterize_primitive(struct primitive *prim)
 
 	const int tile_max_x = 128 / 4 - 1;
 	const int tile_max_y = 31;
-	const int group_max_x = 3;
-	const int group_max_y = 1;
 
 	int w2_max_x = p.a01 > 0 ? 1 : 0;
 	int w2_max_y = p.b01 > 0 ? 1 : 0;
@@ -476,24 +473,18 @@ rasterize_primitive(struct primitive *prim)
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
 	max_w2_delta = p.a01 * w2_max_x * tile_max_x + p.b01 * w2_max_y * tile_max_y;
-	p.max_group_w2_delta =
-		p.a01 * w2_max_x * group_max_x + p.b01 * w2_max_y * group_max_y;
 
 	int w0_max_x = p.a12 > 0 ? 1: 0;
 	int w0_max_y = p.b12 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
 	max_w0_delta = p.a12 * w0_max_x * tile_max_x + p.b12 * w0_max_y * tile_max_y;
-	p.max_group_w0_delta =
-		p.a12 * w0_max_x * group_max_x + p.b12 * w0_max_y * group_max_y;
 
 	int w1_max_x = p.a20 > 0 ? 1 : 0;
 	int w1_max_y = p.b20 > 0 ? 1 : 0;
 
 	/* delta from w2 in top-left corner to maximum w2 in tile */
 	max_w1_delta = p.a20 * w1_max_x * tile_max_x + p.b20 * w1_max_y * tile_max_y;
-	p.max_group_w1_delta =
-		p.a20 * w1_max_x * group_max_x + p.b20 * w1_max_y * group_max_y;
 
 	int min_x, min_y, max_x, max_y;
 
