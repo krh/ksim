@@ -37,6 +37,7 @@
 #include <error.h>
 #include <errno.h>
 #include <dlfcn.h>
+#include <sys/prctl.h>
 
 #include <i915_drm.h>
 
@@ -713,6 +714,8 @@ ksim_stub_init(void)
 	ksim_assert(args != NULL &&
 		    sscanf(args, "%d,%d,%d",
 			   &memfd, &socket_fd, &trace_mask) == 3);
+
+	prctl(PR_SET_PDEATHSIG, SIGHUP);
 
 	libc_close = dlsym(RTLD_NEXT, "close");
 	libc_ioctl = dlsym(RTLD_NEXT, "ioctl");
