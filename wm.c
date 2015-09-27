@@ -22,9 +22,12 @@
  */
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <pthread.h>
+#include <sched.h>
 
 #include "ksim.h"
 #include "write-png.h"
@@ -42,6 +45,94 @@ struct payload {
 	struct reg attribute_deltas[64];
 	struct thread t;
 };
+
+struct queue {
+	pthread_mutex_t m;
+	pthread_cond_t ready_cond, idle_cond;
+	struct payload entries[16];
+	uint32_t idle_mask;
+	uint32_t ready_mask;
+};
+
+static void
+queue_init(struct queue *q)
+{
+	pthread_mutex_init(&q->m, NULL);
+	pthread_cond_init(&q->ready_cond, NULL);
+	pthread_cond_init(&q->idle_cond, NULL);
+	q->idle_mask = ((1 << 16) - 1);
+}
+
+static void
+queue_put(struct queue *q, struct payload *p)
+{
+	pthread_mutex_lock(&q->m);
+	int size;
+
+	while (q->idle_mask == 0)
+		pthread_cond_wait(&q->idle_cond, &q->m);
+	int entry = __builtin_ffs(q->idle_mask) - 1;
+
+	ksim_trace(TRACE_QUEUE, "queue put %d\n", entry);
+
+	q->idle_mask &= ~(1 << entry);
+	q->ready_mask |= (1 << entry);
+
+	size = offsetof(struct payload, attribute_deltas[gt.sbe.num_attributes * 2]);
+	memcpy(&q->entries[entry], p, size);
+
+	pthread_cond_signal(&q->ready_cond);
+
+	pthread_mutex_unlock(&q->m);
+}
+
+static struct payload *
+queue_get(struct queue *q)
+{
+	pthread_mutex_lock(&q->m);
+
+	while (q->ready_mask == 0) {
+		ksim_trace(TRACE_QUEUE,  "queue empty\n");
+		pthread_cond_wait(&q->ready_cond, &q->m);
+	}
+
+	int entry = __builtin_ffs(q->ready_mask) - 1;
+
+	ksim_trace(TRACE_QUEUE, "queue get %d\n", entry);
+
+	q->ready_mask &= ~(1 << entry);
+	struct payload *p = &q->entries[entry];
+
+	pthread_mutex_unlock(&q->m);
+
+	return p;
+}
+
+static void
+queue_release(struct queue *q, struct payload *p)
+{
+	pthread_mutex_lock(&q->m);
+	int entry = p - q->entries;
+
+	ksim_trace(TRACE_QUEUE, "queue release %d\n", entry);
+
+	q->idle_mask |= (1 << entry);
+	pthread_cond_signal(&q->idle_cond);
+	pthread_mutex_unlock(&q->m);
+}
+
+static void
+queue_stall(struct queue *q)
+{
+	pthread_mutex_lock(&q->m);
+
+	ksim_trace(TRACE_QUEUE, "queue stall ----------------------\n");
+
+	while (q->idle_mask != ((1 << 16) - 1))
+		pthread_cond_wait(&q->idle_cond, &q->m);
+
+	pthread_mutex_unlock(&q->m);
+}
 
 /* Decode this at jit time and put in constant pool. */
 struct rt {
@@ -393,6 +484,22 @@ rasterize_tile(struct payload *p)
 	}
 }
 
+static bool queue_initialized;
+static struct queue queue = { .idle_mask = 0xffff };
+static pthread_t threads[4];
+
+static void *
+do_work(void *arg)
+{
+	while (true) {
+		struct payload *p = queue_get(&queue);
+		rasterize_tile(p);
+		queue_release(&queue, p);
+	}
+
+	return NULL;
+}
+
 void
 rasterize_primitive(struct primitive *prim)
 {
@@ -402,6 +509,18 @@ rasterize_primitive(struct primitive *prim)
 	const int y1 = prim->v[1].y;
 	const int x2 = prim->v[2].x;
 	const int y2 = prim->v[2].y;
+
+	if (use_threads && !queue_initialized) {
+		queue_init(&queue);
+		queue_initialized = true;
+		for (int i = 0; i < 4; i++) {
+			cpu_set_t set;
+			CPU_ZERO(&set);
+			CPU_SET(i, &set);
+			pthread_create(&threads[i], NULL, do_work, NULL);
+			pthread_setaffinity_np(threads[i], sizeof(set), &set);
+		}
+	}
 
 	struct payload p;
 
@@ -537,8 +656,12 @@ rasterize_primitive(struct primitive *prim)
 			int max_w0 = p.start_w0 + max_w0_delta;
 			int max_w1 = p.start_w1 + max_w1_delta;
 
-			if ((max_w2 | max_w0 | max_w1) >= 0)
-				rasterize_tile(&p);
+			if ((max_w2 | max_w0 | max_w1) >= 0) {
+				if (use_threads)
+					queue_put(&queue, &p);
+				else
+					rasterize_tile(&p);
+			}
 
 			p.start_w2 += tile_width * p.a01;
 			p.start_w0 += tile_width * p.a12;
@@ -552,9 +675,17 @@ rasterize_primitive(struct primitive *prim)
 }
 
 void
+wm_stall(void)
+{
+	queue_stall(&queue);
+}
+
+void
 wm_flush(void)
 {
 	struct rt rt;
+
+	wm_stall();
 
 	if (framebuffer_filename &&
 	    get_render_target(gt.ps.binding_table_address, 0, &rt))

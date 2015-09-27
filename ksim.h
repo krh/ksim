@@ -83,11 +83,13 @@ enum {
 	TRACE_EU = 1 << 8,		/* trace eu details */
 	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
 	TRACE_URB = 1 << 10,		/* urb traffic */
+	TRACE_QUEUE = 1 << 11,		/* thread queue */
 };
 
 extern uint32_t trace_mask;
 extern FILE *trace_file;
 extern char *framebuffer_filename;
+extern bool use_threads;
 
 static inline void
 ksim_trace(uint32_t tag, const char *fmt, ...)
@@ -462,6 +464,7 @@ urb_handle_to_entry(uint32_t handle)
 	return entry;
 }
 
+void wm_stall(void);
 void wm_flush(void);
 void wm_clear(void);
 

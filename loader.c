@@ -233,6 +233,7 @@ print_help(FILE *file)
 		"                                Default value is 'stub,warn'.  With no argument,\n"
 		"                                turn on all tags.\n"
 		"  -q, --quiet                 Disable all trace messages.\n"
+		"  -t                          Use threads.\n"
 		"      --help                  Display this help message and exit.\n"
 		"\n");
 }
@@ -240,6 +241,7 @@ print_help(FILE *file)
 uint32_t trace_mask = TRACE_WARN | TRACE_STUB;
 FILE *trace_file;
 char *framebuffer_filename;
+bool use_threads;
 
 static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "debug",	TRACE_DEBUG },
@@ -253,6 +255,7 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "eu",		TRACE_EU },
 	{ "stub",	TRACE_STUB },
 	{ "urb",	TRACE_URB },
+	{ "queue",	TRACE_QUEUE },
 	{ "all",	~0 },
 };
 
@@ -317,6 +320,8 @@ main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--quiet") == 0 ||
 			   strcmp(argv[i], "-q") == 0) {
 			trace_mask = 0;
+		} else if (strcmp(argv[i], "-t") == 0) {
+			use_threads = true;
 		} else if (strcmp(argv[i], "--help") == 0) {
 			print_help(stdout);
 			exit(EXIT_SUCCESS);
