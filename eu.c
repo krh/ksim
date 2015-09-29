@@ -1474,8 +1474,9 @@ compile_shader(void *kernel, struct shader *shader)
 	void *insn;
 	bool eot;
 
-	shader->sfid[BRW_SFID_URB] = sfid_urb;
+	shader->sfid[BRW_SFID_SAMPLER] = sfid_sampler;
 	shader->sfid[GEN6_SFID_DATAPORT_RENDER_CACHE] = sfid_render_cache;
+	shader->sfid[BRW_SFID_URB] = sfid_urb;
 
 	bld.shader = shader;
 	bld.p = shader->code;

@@ -517,6 +517,7 @@ struct shader {
 	uint8_t code[1024] __attribute__ ((aligned (64)));
 };
 
+void sfid_sampler(struct thread *t, const struct send_args *args);
 void sfid_urb(struct thread *t, const struct send_args *args);
 void sfid_render_cache(struct thread *t, const struct send_args *args);
 

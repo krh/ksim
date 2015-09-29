@@ -108,7 +108,104 @@ prepare_shaders(void)
 	ksim_assert(end - pool < size);
 }
 
+#define GEN5_SAMPLER_MESSAGE_SAMPLE              0
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_BIAS         1
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_LOD          2
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_COMPARE      3
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_DERIVS       4
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_BIAS_COMPARE 5
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_LOD_COMPARE  6
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_LD           7
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_GATHER4      8
+#define GEN5_SAMPLER_MESSAGE_LOD                 9
+#define GEN5_SAMPLER_MESSAGE_SAMPLE_RESINFO      10
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_GATHER4_C    16
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_GATHER4_PO   17
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_GATHER4_PO_C 18
+#define HSW_SAMPLER_MESSAGE_SAMPLE_DERIV_COMPARE 20
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS       29
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DMS       30
+#define GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DSS       31
+
+/* for GEN5 only */
+#define BRW_SAMPLER_SIMD_MODE_SIMD4X2                   0
+#define BRW_SAMPLER_SIMD_MODE_SIMD8                     1
+#define BRW_SAMPLER_SIMD_MODE_SIMD16                    2
+#define BRW_SAMPLER_SIMD_MODE_SIMD32_64                 3
+
 void
+sfid_sampler(struct thread *t, const struct send_args *args)
+{
+	uint32_t msg = field(args->function_control, 12, 16);
+	uint32_t simd_mode = field(args->function_control, 17, 17);
+	uint32_t sampler = field(args->function_control, 8, 11);
+	uint32_t surface = field(args->function_control, 0, 7);
+	uint32_t format = field(args->function_control, 12, 13);
+	uint32_t binding_table_offset;
+	struct surface tex;
+	bool tex_valid;
+
+	binding_table_offset = t->grf[0].ud[4];
+	tex_valid = get_surface(binding_table_offset, surface, &tex);
+	ksim_assert(tex_valid);
+	if (!tex_valid)
+		return;
+
+	ksim_assert(tex.format == R8G8B8X8_UNORM);
+
+	/*  sampler_table_offset = t->grf[0].ud[3] & ~((1<<5) - 1); */
+
+	spam("sfid sampler: msg %d, simd_mode %d, "
+	     "sampler %d, surface %d, format %d\n",
+	     msg, simd_mode, sampler, surface, format);
+
+#if 0
+	/* Clamp */
+	struct reg u;
+	u.reg = _mm256_min_ps(t->grf[args->src].reg, _mm256_set1_ps(1.0f));
+	u.reg = _mm256_max_ps(u.reg, _mm256_setzero_ps());
+
+	struct reg v;
+	v.reg = _mm256_min_ps(t->grf[args->src + 1].reg, _mm256_set1_ps(1.0f));
+	v.reg = _mm256_max_ps(v.reg, _mm256_setzero_ps());
+#endif
+
+	/* Wrap */
+	struct reg u;
+	u.reg = _mm256_floor_ps(t->grf[args->src].reg);
+	u.reg = _mm256_sub_ps(t->grf[args->src].reg, u.reg);
+
+	struct reg v;
+	v.reg = _mm256_floor_ps(t->grf[args->src + 1].reg);
+	v.reg = _mm256_sub_ps(t->grf[args->src + 1].reg, v.reg);
+
+	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(tex.width - 1));
+	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(tex.height - 1));
+
+	u.ireg = _mm256_cvttps_epi32(u.reg);
+	v.ireg = _mm256_cvttps_epi32(v.reg);
+
+	struct reg offsets;
+	offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(tex.stride)));
+	struct reg argb32;
+	argb32.ireg =
+		_mm256_i32gather_epi32(tex.pixels, offsets.ireg, 1);
+
+	/* Unpack RGBX */
+	__m256i mask = _mm256_set1_epi32(0xff);
+	__m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+	t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+	argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+	t->grf[args->dst + 1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+	argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+	t->grf[args->dst + 2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+
+	t->grf[args->dst + 3].reg = _mm256_set1_ps(1.0f);
+}
+
+static void
 sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
 {
 	if (trace_mask & TRACE_URB) {
