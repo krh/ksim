@@ -464,6 +464,18 @@ urb_handle_to_entry(uint32_t handle)
 	return entry;
 }
 
+struct surface {
+	void *pixels;
+	int format;
+	int width;
+	int height;
+	int stride;
+	int cpp;
+};
+
+bool
+get_surface(uint32_t binding_table_offset, int i, struct surface *s);
+
 void wm_stall(void);
 void wm_flush(void);
 void wm_clear(void);

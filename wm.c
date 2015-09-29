@@ -135,39 +135,33 @@ queue_stall(struct queue *q)
 }
 
 /* Decode this at jit time and put in constant pool. */
-struct rt {
-	const uint32_t *state;
-	void *pixels;
-	int width;
-	int height;
-	int stride;
-	int cpp;
-};
 
-static bool
-get_render_target(uint32_t binding_table_offset, int i, struct rt *rt)
+bool
+get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 {
 	uint64_t offset, range;
 	const uint32_t *binding_table;
+	const uint32_t *state;
 
 	binding_table = map_gtt_offset(binding_table_offset +
 				       gt.surface_state_base_address, &range);
 	if (range < 4)
 		return false;
 
-	rt->state = map_gtt_offset(binding_table[i] +
-				   gt.surface_state_base_address, &range);
+	state = map_gtt_offset(binding_table[i] +
+			       gt.surface_state_base_address, &range);
 	if (range < 16 * 4)
 		return false;
 
-	rt->width = field(rt->state[2], 0, 13) + 1;
-	rt->height = field(rt->state[2], 16, 29) + 1;
-	rt->stride = field(rt->state[3], 0, 17) + 1;
-	rt->cpp = format_size(field(rt->state[0], 18, 26));
+	s->width = field(state[2], 0, 13) + 1;
+	s->height = field(state[2], 16, 29) + 1;
+	s->stride = field(state[3], 0, 17) + 1;
+	s->format = field(state[0], 18, 26);
+	s->cpp = format_size(s->format);
 
-	offset = get_u64(&rt->state[8]);
-	rt->pixels = map_gtt_offset(offset, &range);
-	if (range < rt->height * rt->stride)
+	offset = get_u64(&state[8]);
+	s->pixels = map_gtt_offset(offset, &range);
+	if (range < s->height * s->stride)
 		return false;
 
 	return true;
@@ -180,14 +174,16 @@ sfid_render_cache(struct thread *t, const struct send_args *args)
 	uint32_t type = field(args->function_control, 8, 10);
 	uint32_t surface = field(args->function_control, 0, 7);
 	uint32_t binding_table_offset;
-	struct rt rt;
+	struct surface rt;
 	bool rt_valid;
 	uint32_t *p;
 	int src = args->src;
 
 	binding_table_offset = t->grf[0].ud[4];
-	rt_valid = get_render_target(binding_table_offset, surface, &rt);
+	rt_valid = get_surface(binding_table_offset, surface, &rt);
 	ksim_assert(rt_valid);
+	if (!rt_valid)
+		return;
 
 	int x = t->grf[1].ud[2] & 0xffff;
 	int y = t->grf[1].ud[2] >> 16;
@@ -683,12 +679,12 @@ wm_stall(void)
 void
 wm_flush(void)
 {
-	struct rt rt;
+	struct surface rt;
 
 	wm_stall();
 
 	if (framebuffer_filename &&
-	    get_render_target(gt.ps.binding_table_address, 0, &rt))
+	    get_surface(gt.ps.binding_table_address, 0, &rt))
 		write_png(framebuffer_filename,
 			  rt.width, rt.height, rt.stride, rt.pixels);
 }
@@ -696,12 +692,12 @@ wm_flush(void)
 void
 wm_clear(void)
 {
-	struct rt rt;
+	struct surface rt;
 	void *depth;
 	uint64_t range;
 
 	if (!gt.ps.resolve &&
-	    get_render_target(gt.ps.binding_table_address, 0, &rt)) {
+	    get_surface(gt.ps.binding_table_address, 0, &rt)) {
 		memset(rt.pixels, 0, rt.height * rt.stride);
 		depth = map_gtt_offset(gt.depth.address, &range);
 		memset(depth, 0, gt.depth.stride * gt.depth.height);
