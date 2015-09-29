@@ -1246,12 +1246,15 @@ compile_inst(struct builder *bld, struct inst *inst)
 		 * to our caller when it's done (tail-call
 		 * optimization).
 		 */
-		if (eot)
+		if (eot) {
 			builder_emit_jmp_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
 						      (void *) bld->p);
-		else
+		} else {
+			emit(bld, 0x57);
 			builder_emit_call_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
 						       (void *) bld->p);
+			emit(bld, 0x5f);
+		}
 		break;
 	}
 	case BRW_OPCODE_MATH:
