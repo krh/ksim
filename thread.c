@@ -63,6 +63,12 @@ get_disasm(void)
 }
 
 void
+print_inst(void *p)
+{
+	gen_disasm_disassemble_insn(get_disasm(), p, stdout);
+}
+
+void
 prepare_shaders(void)
 {
 	int offset = 0;

@@ -1434,8 +1434,11 @@ compile_shader(void *kernel, struct shader *shader)
 	bld.cp_index = 1;
 	bld.next_send_arg = 0;
 
-	for (insn = kernel, eot = false; !eot; insn += 16)
+	for (insn = kernel, eot = false; !eot; insn += 16) {
+		if (trace_mask & TRACE_EU)
+			print_inst(insn);
 		eot = compile_inst(&bld, insn);
+	}
 
 	return bld.p;
 }

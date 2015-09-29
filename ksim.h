@@ -510,6 +510,7 @@ void sfid_render_cache(struct thread *t, const struct send_args *args);
 
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
+void print_inst(void *p);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
 void *compile_shader(void *insn, struct shader *s);
