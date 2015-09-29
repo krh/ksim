@@ -857,6 +857,12 @@ builder_emit_vrsqrtps(struct builder *bld, int dst, int src0)
 }
 
 static void
+builder_emit_vsqrtps(struct builder *bld, int dst, int src0)
+{
+	emit(bld, 0xc5, 0xfc, 0x5, 0xc0 + dst * 8 + src0);
+}
+
+static void
 builder_emit_vrcpps(struct builder *bld, int dst, int src0)
 {
 	emit(bld, 0xc5, 0xfc, 0x53, 0xc0 + dst * 8 + src0);
@@ -1372,7 +1378,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			stub("BRW_MATH_FUNCTION_EXP");
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
-			stub("BRW_MATH_FUNCTION_SQRT");
+			builder_emit_vsqrtps(bld, 0, 0);
 			break;
 		case BRW_MATH_FUNCTION_RSQ:
 			builder_emit_vrsqrtps(bld, 0, 0);
