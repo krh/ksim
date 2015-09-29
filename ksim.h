@@ -66,10 +66,22 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 	if (!cond) {
 		printf("%s:%d: assert failed: %s\n", file, line, msg);
 		raise(SIGTRAP);
+		__builtin_unreachable();
 	}
 }
 
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
+
+static inline void
+__ksim_unreachable(const char *file, int line, const char *msg)
+{
+	printf("%s:%d: unreachable: %s\n", file, line, msg);
+	raise(SIGTRAP);
+	__builtin_unreachable();
+}
+
+#define ksim_unreachable(cond) __ksim_unreachable(__FILE__, __LINE__, #cond)
+
 
 enum {
 	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */

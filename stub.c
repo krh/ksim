@@ -289,6 +289,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER2:\n");
 
+	ksim_assert(execbuffer2->buffer_count > 0);
 	ksim_assert((execbuffer2->batch_len & 7) == 0);
 	ksim_assert(execbuffer2->num_cliprects == 0);
 	ksim_assert(execbuffer2->DR1 == 0);

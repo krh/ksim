@@ -1247,6 +1247,8 @@ start_batch_buffer(uint64_t address)
 			}
 			break;
 		}
+		default:
+			ksim_unreachable("command type");
 		}
 
 		ksim_assert(p + length < base + range);
