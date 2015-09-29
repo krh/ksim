@@ -769,6 +769,12 @@ builder_emit_vmulps(struct builder *bld, int dst, int src0, int src1)
 }
 
 static void
+builder_emit_vdivps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5e, 0xc0 + src0 + dst * 8);
+}
+
+static void
 builder_emit_vsubps(struct builder *bld, int dst, int src0, int src1)
 {
 	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5c, 0xc0 + src0 + dst * 8);
@@ -849,6 +855,12 @@ static void
 builder_emit_vrsqrtps(struct builder *bld, int dst, int src0)
 {
 	emit(bld, 0xc5, 0xfc, 0x52, 0xc0 + dst * 8 + src0);
+}
+
+static void
+builder_emit_vrcpps(struct builder *bld, int dst, int src0)
+{
+	emit(bld, 0xc5, 0xfc, 0x53, 0xc0 + dst * 8 + src0);
 }
 
 static void
@@ -1245,7 +1257,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_MATH:
 		switch (unpack_inst_common(inst).math_function) {
 		case BRW_MATH_FUNCTION_INV:
-			stub("BRW_MATH_FUNCTION_INV");
+			builder_emit_vrcpps(bld, 0, 0);
 			break;
 		case BRW_MATH_FUNCTION_LOG:
 			stub("BRW_MATH_FUNCTION_LOG");
@@ -1269,7 +1281,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			stub("BRW_MATH_FUNCTION_SINCOS");
 			break;
 		case BRW_MATH_FUNCTION_FDIV:
-			stub("BRW_MATH_FUNCTION_FDIV");
+			builder_emit_vdivps(bld, 0, 0, 1);
 			break;
 		case BRW_MATH_FUNCTION_POW:
 			stub("BRW_MATH_FUNCTION_POW");
