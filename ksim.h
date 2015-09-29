@@ -485,8 +485,8 @@ struct reg {
 };
 
 struct thread {
-        struct reg grf[128];
-        uint32_t mask;
+	struct reg grf[128];
+	uint32_t mask;
 };
 
 struct send_args {
