@@ -252,6 +252,7 @@ sfid_urb(struct thread *t, const struct send_args *args)
 	case 6: /* atomic add */
 		break;
 	case 7: /* SIMD8 write */
+		ksim_assert(!per_slot_offset);
 		sfid_urb_simd8_write(t, args->src, global_offset, args->mlen);
 		break;
 	}
