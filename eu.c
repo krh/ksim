@@ -1123,7 +1123,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	ksim_assert(tex_valid);
 	ksim_assert(args->tex.format == R8G8B8X8_UNORM);
 
-	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
 	return sfid_sampler;
 }
@@ -1177,7 +1177,7 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 	uint32_t opcode = field(send.function_control, 0, 3);
 	bool per_slot_offset = field(send.function_control, 17, 17);
 
-	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
 	switch (opcode) {
 	case 0: /* write HWord */
