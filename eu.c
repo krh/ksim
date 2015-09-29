@@ -1202,7 +1202,7 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 		ksim_assert(!per_slot_offset);
 		return sfid_urb_simd8_write;
 	default:
-		ksim_assert(!"out of range urb opcode");
+		ksim_unreachable("out of range urb opcode: %d", opcode);
 		return NULL;
 	}
 }

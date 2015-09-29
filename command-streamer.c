@@ -1222,7 +1222,7 @@ start_batch_buffer(uint64_t address)
 
 		case 1:
 		case 2: /* ? */
-			ksim_assert(!"unknown command type");
+			ksim_unreachable("unknown command type: %d", type);
 			break;
 
 		case 3: /* Render */ {
@@ -1237,7 +1237,7 @@ start_batch_buffer(uint64_t address)
 				length = 1;
 				break;
 			case 2:
-				ksim_assert(!"unknown render command subtype");
+				ksim_unreachable("unknown render command subtype: %d", subtype);
 				length = 2;
 				break;
 			case 3:
