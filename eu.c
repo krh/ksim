@@ -899,11 +899,12 @@ builder_offset(struct builder *bld, void *p)
 }
 
 static void *
-builder_get_const_data(struct builder *bld, size_t size)
+builder_get_const_data(struct builder *bld, size_t size, size_t align)
 {
-	int offset = bld->pool_index;
+	int offset = align_u64(bld->pool_index, align);
 
-	bld->pool_index += align_u64(size, 8);
+	bld->pool_index += size;
+	ksim_assert(bld->pool_index <= sizeof(bld->shader->constant_pool));
 
 	return bld->shader->constant_pool + offset;
 }
@@ -913,7 +914,7 @@ builder_get_const_ud(struct builder *bld, uint32_t ud)
 {
 	uint32_t *p;
 
-	p = builder_get_const_data(bld, sizeof *p);
+	p = builder_get_const_data(bld, sizeof *p, 4);
 
 	*p = ud;
 
@@ -1091,7 +1092,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	struct inst_send send = unpack_inst_send(inst);
 	struct sfid_sampler_args *args;
 
-	args = builder_get_const_data(bld, sizeof *args);
+	args = builder_get_const_data(bld, sizeof *args, 8);
 
 	args->dst = unpack_inst_2src_dst(inst).num;
 	args->src = unpack_inst_2src_src0(inst).num;
@@ -1119,6 +1120,75 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
 
 	return sfid_sampler;
+}
+
+static void *
+builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	uint32_t opcode = field(send.function_control, 14, 17);
+	uint32_t type = field(send.function_control, 8, 10);
+	uint32_t surface = field(send.function_control, 0, 7);
+	struct sfid_render_cache_args *args;
+	bool rt_valid;
+
+	args = builder_get_const_data(bld, sizeof *args, 8);
+	args->src = unpack_inst_2src_src0(inst).num;
+
+	rt_valid = get_surface(bld->binding_table_address, surface, &args->rt);
+	ksim_assert(rt_valid);
+	if (!rt_valid)
+		return NULL;
+
+	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+
+	switch (opcode) {
+	case 12: /* rt write */
+		switch (type) {
+		case 4: /* simd8 */
+			return sfid_render_cache_rt_write_simd8;
+		default:
+			stub("rt write type");
+			return NULL;
+		}
+	default:
+		stub("render cache message type");
+		return NULL;
+	}
+}
+
+static void *
+builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	struct sfid_urb_args *args;
+	args = builder_get_const_data(bld, sizeof *args, 8);
+
+	args->src = unpack_inst_2src_src0(inst).num;
+	args->len = send.mlen;
+	args->offset = field(send.function_control, 4, 14);
+
+	uint32_t opcode = field(send.function_control, 0, 3);
+	bool per_slot_offset = field(send.function_control, 17, 17);
+
+	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+
+	switch (opcode) {
+	case 0: /* write HWord */
+	case 1: /* write OWord */
+	case 2: /* read HWord */
+	case 3: /* read OWord */
+	case 4: /* atomic mov */
+	case 5: /* atomic inc */
+	case 6: /* atomic add */
+		stub("sfid urb opcode");
+		return NULL;
+	case 7: /* SIMD8 write */
+		ksim_assert(send.header_present);
+		ksim_assert(send.rlen == 0);
+		ksim_assert(!per_slot_offset);
+		return sfid_urb_simd8_write;
+	}
 }
 
 bool
@@ -1260,28 +1330,16 @@ compile_inst(struct builder *bld, struct inst *inst)
 		struct inst_send send = unpack_inst_send(inst);
 		eot = send.eot;
 
-		struct send_args *args;
-		args = builder_get_const_data(bld, sizeof *args);
-
-		args->dst = unpack_inst_2src_dst(inst).num;
-		args->src = unpack_inst_2src_src0(inst).num;
-		args->function_control = send.function_control;
-		args->header_present = send.header_present;
-		args->mlen = send.mlen;
-		args->rlen = send.rlen;
-
-		builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
-
-		void **p = builder_get_const_data(bld, sizeof(void*));
+		void **p = builder_get_const_data(bld, sizeof(void*), 8);
 		switch (send.sfid) {
 		case BRW_SFID_SAMPLER:
 			*p = builder_emit_sfid_sampler(bld, inst);
 			break;
 		case GEN6_SFID_DATAPORT_RENDER_CACHE:
-			*p = sfid_render_cache;
+			*p = builder_emit_sfid_render_cache(bld, inst);
 			break;
 		case BRW_SFID_URB:
-			*p = sfid_urb;
+			*p = builder_emit_sfid_urb(bld, inst);
 			break;
 		default:
 			stub("sfid");

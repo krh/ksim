@@ -173,67 +173,39 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 }
 
 void
-sfid_render_cache(struct thread *t, const struct send_args *args)
+sfid_render_cache_rt_write_simd8(struct thread *t,
+				 const struct sfid_render_cache_args *args)
 {
-	uint32_t opcode = field(args->function_control, 14, 17);
-	uint32_t type = field(args->function_control, 8, 10);
-	uint32_t surface = field(args->function_control, 0, 7);
-	uint32_t binding_table_offset;
-	struct surface rt;
-	bool rt_valid;
-	uint32_t *p;
-	int src = args->src;
-
-	binding_table_offset = t->grf[0].ud[4];
-	rt_valid = get_surface(binding_table_offset, surface, &rt);
-	ksim_assert(rt_valid);
-	if (!rt_valid)
-		return;
-
 	int x = t->grf[1].ud[2] & 0xffff;
 	int y = t->grf[1].ud[2] >> 16;
 	int sx, sy;
+	uint32_t *p;
+	__m256i r, g, b, a, shift;
+	struct reg argb;
+	__m256 scale;
+	scale = _mm256_set1_ps(255.0f);
+	struct reg *src = &t->grf[args->src];
 
-	switch (opcode) {
-	case 12: /* rt write */
-		switch (type) {
-		case 4: /* simd8 */ {
-			__m256i r, g, b, a, shift;
-			struct reg argb;
-			__m256 scale;
-			scale = _mm256_set1_ps(255.0f);
+	r = _mm256_cvtps_epi32(_mm256_mul_ps(src[0].reg, scale));
+	g = _mm256_cvtps_epi32(_mm256_mul_ps(src[1].reg, scale));
+	b = _mm256_cvtps_epi32(_mm256_mul_ps(src[2].reg, scale));
+	a = _mm256_cvtps_epi32(_mm256_mul_ps(src[3].reg, scale));
 
-			r = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 0].reg, scale));
-			g = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 1].reg, scale));
-			b = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 2].reg, scale));
-			a = _mm256_cvtps_epi32(_mm256_mul_ps(t->grf[src + 3].reg, scale));
+	shift = _mm256_set1_epi32(8);
+	argb.ireg = _mm256_sllv_epi32(a, shift);
+	argb.ireg = _mm256_or_si256(argb.ireg, r);
+	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
+	argb.ireg = _mm256_or_si256(argb.ireg, g);
+	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
+	argb.ireg = _mm256_or_si256(argb.ireg, b);
 
-			shift = _mm256_set1_epi32(8);
-			argb.ireg = _mm256_sllv_epi32(a, shift);
-			argb.ireg = _mm256_or_si256(argb.ireg, r);
-			argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
-			argb.ireg = _mm256_or_si256(argb.ireg, g);
-			argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
-			argb.ireg = _mm256_or_si256(argb.ireg, b);
-
-			for (int i = 0; i < 8; i++) {
-				if ((t->mask & (1 << i)) == 0)
-					continue;
-				sx = x + (i & 1) + (i / 2 & 2);
-				sy = y + (i / 2 & 1);
-				p = rt.pixels + sy * rt.stride + sx * rt.cpp;
-				*p = argb.ud[i];
-			}
-			break;
-		}
-		default:
-			stub("rt write type");
-			break;
-		}
-		break;
-	default:
-		stub("render cache message type");
-		break;
+	for (int i = 0; i < 8; i++) {
+		if ((t->mask & (1 << i)) == 0)
+			continue;
+		sx = x + (i & 1) + (i / 2 & 2);
+		sy = y + (i / 2 & 1);
+		p = args->rt.pixels + sy * args->rt.stride + sx * args->rt.cpp;
+		*p = argb.ud[i];
 	}
 }
 

@@ -523,8 +523,24 @@ struct sfid_sampler_args {
 };
 
 void sfid_sampler(struct thread *t, const struct sfid_sampler_args *args);
-void sfid_urb(struct thread *t, const struct send_args *args);
-void sfid_render_cache(struct thread *t, const struct send_args *args);
+
+struct sfid_urb_args {
+	int src;
+	int offset;
+	int len;
+};
+
+void sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args);
+
+
+struct sfid_render_cache_args {
+	int src;
+	struct surface rt;
+};
+
+void sfid_render_cache_rt_write_simd8(struct thread *t,
+				      const struct sfid_render_cache_args *args);
+
 
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);

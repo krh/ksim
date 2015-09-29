@@ -186,55 +186,33 @@ sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 	t->grf[args->dst + 3].reg = _mm256_set1_ps(1.0f);
 }
 
-static void
-sfid_urb_simd8_write(struct thread *t, int reg, int offset, int mlen)
+void
+sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args)
 {
 	if (trace_mask & TRACE_URB) {
 		ksim_trace(TRACE_URB,
 			   "urb simd8 write, src g%d, global offset %d, mlen %lu, mask %02x\n",
-			   reg, offset, mlen, t->mask);
+			   args->src, args->offset, args->len, t->mask);
 
-		ksim_trace(TRACE_URB, "  grf%d:", reg);
+		ksim_trace(TRACE_URB, "  grf%d:", args->src);
 		for (int c = 0; c < 8; c++)
-			ksim_trace(TRACE_URB, "  %6d", t->grf[reg].d[c]);
+			ksim_trace(TRACE_URB, "  %6d", t->grf[args->src].d[c]);
 		ksim_trace(TRACE_URB, "\n");
 
-		for (int i = 1; i < mlen; i++) {
-			ksim_trace(TRACE_URB, "  grf%d:", reg + i);
+		for (int i = 1; i < args->len; i++) {
+			ksim_trace(TRACE_URB, "  grf%d:", args->src + i);
 			for (int c = 0; c < 8; c++)
 				ksim_trace(TRACE_URB,
-					   "  %6.1f", t->grf[reg + i].f[c]);
+					   "  %6.1f", t->grf[args->src + i].f[c]);
 			ksim_trace(TRACE_URB, "\n");
 		}
 	}
 
 	uint32_t c;
 	for_each_bit (c, t->mask) {
-		struct value *vue = urb_handle_to_entry(t->grf[reg].ud[c]);
-		for (int i = 0; i < mlen - 1; i++)
-			vue[offset + i / 4].v[i % 4] = t->grf[reg + 1 + i].ud[c];
-	}
-}
-
-void
-sfid_urb(struct thread *t, const struct send_args *args)
-{
-	uint32_t opcode = field(args->function_control, 0, 3);
-	uint32_t global_offset = field(args->function_control, 4, 14);
-	bool per_slot_offset = field(args->function_control, 17, 17);
-
-	switch (opcode) {
-	case 0: /* write HWord */
-	case 1: /* write OWord */
-	case 2: /* read HWord */
-	case 3: /* read OWord */
-	case 4: /* atomic mov */
-	case 5: /* atomic inc */
-	case 6: /* atomic add */
-		break;
-	case 7: /* SIMD8 write */
-		ksim_assert(!per_slot_offset);
-		sfid_urb_simd8_write(t, args->src, global_offset, args->mlen);
-		break;
+		struct value *vue = urb_handle_to_entry(t->grf[args->src].ud[c]);
+		for (int i = 0; i < args->len - 1; i++)
+			vue[args->offset + i / 4].v[i % 4] =
+				t->grf[args->src + 1 + i].ud[c];
 	}
 }
