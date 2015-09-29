@@ -926,8 +926,13 @@ builder_emit_src_load(struct builder *bld, int avx_reg,
 	struct inst_common common = unpack_inst_common(inst);
 
 	if (src->file == BRW_ARCHITECTURE_REGISTER_FILE) {
-		stub("architecture register file load");
-		return;
+		switch (src->num & 0xf0) {
+		case BRW_ARF_NULL:
+			return;
+		default:
+			stub("architecture register file load");
+			return;
+		}
 	}
 
 	if (src->file == BRW_IMMEDIATE_VALUE) {
