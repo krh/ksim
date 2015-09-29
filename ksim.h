@@ -130,7 +130,7 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 	ksim_trace(TRACE_WARN, format, ##__VA_ARGS__)
 
 #define stub(format, ...)						\
-	ksim_trace(TRACE_STUB, "%s:%d: unimplemented: " format,		\
+	ksim_trace(TRACE_STUB, "%s:%d: unimplemented: " format "\n",	\
 		   __FILE__, __LINE__, ##__VA_ARGS__)
 
 static inline uint32_t
