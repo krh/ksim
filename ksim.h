@@ -512,9 +512,7 @@ struct send_args {
 };
 
 struct shader {
-	void (*sfid[16])(struct thread *t, const struct send_args *args);
-	struct send_args send_args[16];
-	struct reg constant_pool[16] __attribute__ ((aligned (64)));
+	uint8_t constant_pool[1024];
 	uint8_t code[1024] __attribute__ ((aligned (64)));
 };
 

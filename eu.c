@@ -686,10 +686,7 @@ static const struct {
 struct builder {
 	struct shader *shader;
 	uint8_t *p;
-	int cp_index;
-	int scalar_reg;
-	int scalar_index;
-	int next_send_arg;
+	int pool_index;
 };
 
 #define emit(bld, ...)							\
@@ -899,25 +896,22 @@ builder_offset(struct builder *bld, void *p)
 	return p - (void *) bld->p;
 }
 
+static void *
+builder_get_const_data(struct builder *bld, size_t size)
+{
+	int offset = bld->pool_index;
+
+	bld->pool_index += align_u64(size, 8);
+
+	return bld->shader->constant_pool + offset;
+}
+
 static uint32_t *
 builder_get_const_ud(struct builder *bld, uint32_t ud)
 {
 	uint32_t *p;
 
-	for (int i = 0; i < bld->cp_index; i++) {
-		for (int j = 0; j < 8; j++) {
-			if (i == bld->scalar_reg && j == bld->scalar_index)
-				break;
-			if (bld->shader->constant_pool[i].ud[j] == ud)
-				return &bld->shader->constant_pool[i].ud[j];
-		}
-	}
-
-	p = &bld->shader->constant_pool[bld->scalar_reg].ud[bld->scalar_index++];
-	if (bld->scalar_index == 8) {
-		bld->scalar_reg = bld->cp_index++;
-		bld->scalar_index = 0;
-	}
+	p = builder_get_const_data(bld, sizeof *p);
 
 	*p = ud;
 
@@ -1092,7 +1086,6 @@ reg_offset(int num, int subnum)
 bool
 compile_inst(struct builder *bld, struct inst *inst)
 {
-	struct shader *shader = bld->shader;
 	struct inst_src src0, src1, src2;
 	uint32_t opcode = unpack_inst_common(inst).opcode;
 	bool eot = false;
@@ -1229,8 +1222,9 @@ compile_inst(struct builder *bld, struct inst *inst)
 		struct inst_send send = unpack_inst_send(inst);
 		eot = send.eot;
 
-		struct send_args *args = &shader->send_args[bld->next_send_arg++];
-		assert(bld->next_send_arg <= ARRAY_LENGTH(shader->send_args));
+		struct send_args *args;
+		args = builder_get_const_data(bld, sizeof *args);
+
 		args->dst = unpack_inst_2src_dst(inst).num;
 		args->src = unpack_inst_2src_src0(inst).num;
 		args->function_control = send.function_control;
@@ -1240,6 +1234,21 @@ compile_inst(struct builder *bld, struct inst *inst)
 
 		builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
 
+		void **p = builder_get_const_data(bld, sizeof(void*));
+		switch (send.sfid) {
+		case BRW_SFID_SAMPLER:
+			*p = sfid_sampler;
+			break;
+		case GEN6_SFID_DATAPORT_RENDER_CACHE:
+			*p = sfid_render_cache;
+			break;
+		case BRW_SFID_URB:
+			*p = sfid_urb;
+			break;
+		default:
+			stub("sfid");
+			break;
+		}
 		/* In case of eot, we end the thread by jumping
 		 * (instead of calling) to the sfid implementation.
 		 * When the sfid implementation returns it will return
@@ -1247,12 +1256,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 		 * optimization).
 		 */
 		if (eot) {
-			builder_emit_jmp_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
-						      (void *) bld->p);
+			builder_emit_jmp_rip_relative(bld, (uint8_t *) p - bld->p);
 		} else {
 			emit(bld, 0x57);
-			builder_emit_call_rip_relative(bld, (void *) &shader->sfid[send.sfid] -
-						       (void *) bld->p);
+			builder_emit_call_rip_relative(bld, (uint8_t *) p - bld->p);
 			emit(bld, 0x5f);
 		}
 		break;
@@ -1474,16 +1481,9 @@ compile_shader(void *kernel, struct shader *shader)
 	void *insn;
 	bool eot;
 
-	shader->sfid[BRW_SFID_SAMPLER] = sfid_sampler;
-	shader->sfid[GEN6_SFID_DATAPORT_RENDER_CACHE] = sfid_render_cache;
-	shader->sfid[BRW_SFID_URB] = sfid_urb;
-
 	bld.shader = shader;
 	bld.p = shader->code;
-	bld.scalar_reg = 0;
-	bld.scalar_index = 0;
-	bld.cp_index = 1;
-	bld.next_send_arg = 0;
+	bld.pool_index = 0;
 
 	for (insn = kernel, eot = false; !eot; insn += 16) {
 		if (trace_mask & TRACE_EU)
