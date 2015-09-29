@@ -561,6 +561,12 @@ u32_to_float(uint32_t ud)
    return ((union { float f; uint32_t ud; }) { .ud = ud }).f;
 }
 
+static inline uint32_t
+float_to_u32(float f)
+{
+   return ((union { float f; uint32_t ud; }) { .f = f }).ud;
+}
+
 static inline float
 vf_to_float(unsigned char vf)
 {
@@ -851,6 +857,17 @@ builder_emit_vcmpps(struct builder *bld, int op, int dst, int src0, int src1)
 	emit(bld, 0xc5, 0xfc - src1 * 8, 0xc2, 0xc0 + dst * 8 + src0, op);
 }
 
+static void
+builder_emit_vmaxps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5f, 0xc0 + dst * 8 + src0);
+}
+
+static void
+builder_emit_vminps(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5d, 0xc0 + dst * 8 + src0);
+}
 
 static void
 builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src1)
@@ -1032,8 +1049,21 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 
 	/* FIXME: write masks */
 
-	if (common.saturate)
-		stub("eu: dest saturate");
+	if (common.saturate) {
+		ksim_assert(!is_integer(dst->type));
+		uint32_t *zero = builder_get_const_ud(bld, 0);
+		builder_emit_vpbroadcastd_rip_relative(bld, 5,
+						       builder_offset(bld, zero));
+
+		builder_emit_vmaxps(bld, avx_reg, avx_reg, 5);
+
+
+		uint32_t *one = builder_get_const_ud(bld, float_to_u32(1.0f));
+		builder_emit_vpbroadcastd_rip_relative(bld, 5,
+						       builder_offset(bld, one));
+		builder_emit_vminps(bld, avx_reg, avx_reg, 5);
+	}
+
 	if (type_size(dst->type) != 4)
 		stub("eu: type size !=4 in dest store");
 
