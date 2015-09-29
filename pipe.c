@@ -431,7 +431,7 @@ assemble_primitives(struct value **vue, int count)
 		break;
 
 	default:
-		stub("topology");
+		stub("topology %d", gt.ia.topology);
 		tail = gt.ia.queue.head;
 		break;
 	}

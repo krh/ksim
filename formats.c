@@ -289,7 +289,7 @@ fetch_format(uint64_t offset, uint32_t format)
 	case R32G32B32A32_FLOAT:
 		return vec4(f[0], f[1], f[2], f[3]);
 	default:
-		stub("vertex format fetch");
+		stub("vertex fetch format %d", format);
 		assert(0);
 	}
 }

@@ -936,7 +936,7 @@ builder_emit_da_src_load(struct builder *bld, int avx_reg,
 	int subnum = subnum_bytes / type_size(src->type);
 
 	if (exec_size != 8)
-		stub("non-8 exec size");
+		stub("non-8 exec size: %d", exec_size);
 
 	if (subnum == 0 &&
 	    src->hstride == 1 && src->width == src->vstride)
@@ -1080,7 +1080,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 	}
 
 	if (type_size(dst->type) != 4)
-		stub("eu: type size !=4 in dest store");
+		stub("eu: type size %d (!=4) in dest store", type_size(dst->type));
 
 	builder_emit_m256i_store(bld, avx_reg,
 				 offsetof(struct thread, grf[dst->num]));
@@ -1161,11 +1161,11 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 		case 4: /* simd8 */
 			return sfid_render_cache_rt_write_simd8;
 		default:
-			stub("rt write type");
+			stub("rt write type %d", type);
 			return NULL;
 		}
 	default:
-		stub("render cache message type");
+		stub("render cache message opcode %d", opcode);
 		return NULL;
 	}
 }
@@ -1194,7 +1194,7 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 	case 4: /* atomic mov */
 	case 5: /* atomic inc */
 	case 6: /* atomic add */
-		stub("sfid urb opcode");
+		stub("sfid urb opcode %d", opcode);
 		return NULL;
 	case 7: /* SIMD8 write */
 		ksim_assert(send.header_present);
@@ -1555,7 +1555,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		if (opcode_info[opcode].store_dst) {
 			struct inst_dst _dst = unpack_inst_3src_dst(inst);
 			if (_dst.hstride > 1)
-				stub("eu: 3src dst hstride > 1");
+				stub("eu: 3src dst hstride %d is > 1", _dst.hstride);
 #if 0
 			struct inst_src _src = unpack_inst_3src_src0(inst);
 			dump_reg("dst", dst, _dst.type);
@@ -1570,7 +1570,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		if (opcode_info[opcode].store_dst) {
 			struct inst_dst _dst = unpack_inst_2src_dst(inst);
 			if (_dst.hstride > 1)
-				stub("eu: 2src dst hstride > 1");
+				stub("eu: 2src dst hstride %d is > 1", _dst.hstride);
 #if 0
 			struct inst_src _src = unpack_inst_2src_src0(inst);
 			dump_reg("dst", dst, _dst.type);
