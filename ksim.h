@@ -516,7 +516,13 @@ struct shader {
 	uint8_t code[1024] __attribute__ ((aligned (64)));
 };
 
-void sfid_sampler(struct thread *t, const struct send_args *args);
+struct sfid_sampler_args {
+	int src;
+	int dst;
+	struct surface tex;
+};
+
+void sfid_sampler(struct thread *t, const struct sfid_sampler_args *args);
 void sfid_urb(struct thread *t, const struct send_args *args);
 void sfid_render_cache(struct thread *t, const struct send_args *args);
 
@@ -525,7 +531,9 @@ bool execute_inst(void *inst, struct thread *t);
 void print_inst(void *p);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
-void *compile_shader(void *insn, struct shader *s);
+void *compile_shader(void *kernel, struct shader *shader,
+		     uint64_t surfaces, uint64_t samplers);
+
 
 #define __gen_address_type uint64_t
 #define __gen_combine_address(data, dst, address, delta) delta

@@ -100,11 +100,16 @@ prepare_shaders(void)
 
 	offset = 0;
 	gt.vs.avx_shader = pool + offset;
-	end = compile_shader(gt.vs.shader, gt.vs.avx_shader);
+	end = compile_shader(gt.vs.shader, gt.vs.avx_shader,
+			     gt.vs.binding_table_address,
+			     gt.vs.sampler_state_address);
 
 	offset = end - (void *) gt.vs.avx_shader;
 	gt.ps.avx_shader = pool + align_u64(offset, 64);
-	end = compile_shader(gt.ps.shader, gt.ps.avx_shader);
+	end = compile_shader(gt.ps.shader, gt.ps.avx_shader,
+			     gt.ps.binding_table_address,
+			     gt.ps.sampler_state_address);
+
 	ksim_assert(end - pool < size);
 }
 
@@ -134,31 +139,8 @@ prepare_shaders(void)
 #define BRW_SAMPLER_SIMD_MODE_SIMD32_64                 3
 
 void
-sfid_sampler(struct thread *t, const struct send_args *args)
+sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 {
-	uint32_t msg = field(args->function_control, 12, 16);
-	uint32_t simd_mode = field(args->function_control, 17, 17);
-	uint32_t sampler = field(args->function_control, 8, 11);
-	uint32_t surface = field(args->function_control, 0, 7);
-	uint32_t format = field(args->function_control, 12, 13);
-	uint32_t binding_table_offset;
-	struct surface tex;
-	bool tex_valid;
-
-	binding_table_offset = t->grf[0].ud[4];
-	tex_valid = get_surface(binding_table_offset, surface, &tex);
-	ksim_assert(tex_valid);
-	if (!tex_valid)
-		return;
-
-	ksim_assert(tex.format == R8G8B8X8_UNORM);
-
-	/*  sampler_table_offset = t->grf[0].ud[3] & ~((1<<5) - 1); */
-
-	spam("sfid sampler: msg %d, simd_mode %d, "
-	     "sampler %d, surface %d, format %d\n",
-	     msg, simd_mode, sampler, surface, format);
-
 #if 0
 	/* Clamp */
 	struct reg u;
@@ -179,19 +161,18 @@ sfid_sampler(struct thread *t, const struct send_args *args)
 	v.reg = _mm256_floor_ps(t->grf[args->src + 1].reg);
 	v.reg = _mm256_sub_ps(t->grf[args->src + 1].reg, v.reg);
 
-	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(tex.width - 1));
-	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(tex.height - 1));
+	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width - 1));
+	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height - 1));
 
 	u.ireg = _mm256_cvttps_epi32(u.reg);
 	v.ireg = _mm256_cvttps_epi32(v.reg);
 
 	struct reg offsets;
 	offsets.ireg =
-		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(tex.cpp)),
-				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(tex.stride)));
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 	struct reg argb32;
-	argb32.ireg =
-		_mm256_i32gather_epi32(tex.pixels, offsets.ireg, 1);
+	argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
 
 	/* Unpack RGBX */
 	__m256i mask = _mm256_set1_epi32(0xff);

@@ -687,6 +687,8 @@ struct builder {
 	struct shader *shader;
 	uint8_t *p;
 	int pool_index;
+	uint64_t binding_table_address;
+	uint64_t sampler_state_address;
 };
 
 #define emit(bld, ...)							\
@@ -1083,6 +1085,42 @@ reg_offset(int num, int subnum)
 	return offsetof(struct thread, grf[num].ud[subnum]);
 }
 
+static void *
+builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	struct sfid_sampler_args *args;
+
+	args = builder_get_const_data(bld, sizeof *args);
+
+	args->dst = unpack_inst_2src_dst(inst).num;
+	args->src = unpack_inst_2src_src0(inst).num;
+
+	uint32_t msg = field(send.function_control, 12, 16);
+	uint32_t simd_mode = field(send.function_control, 17, 17);
+	uint32_t sampler = field(send.function_control, 8, 11);
+	uint32_t surface = field(send.function_control, 0, 7);
+	uint32_t format = field(send.function_control, 12, 13);
+
+	/*  sampler_table_offset = t->grf[0].ud[3] & ~((1<<5) - 1); */
+
+	spam("sfid sampler: msg %d, simd_mode %d, "
+	     "sampler %d, surface %d, format %d\n",
+	     msg, simd_mode, sampler, surface, format);
+
+	/* FIXME: We can't do this optimization for any kind of
+	 * dynamically indexed surface state or sampler state. Also
+	 * need to watch out for shaders writing the sampler state
+	 * offset in g0.3. */
+	bool tex_valid = get_surface(bld->binding_table_address, surface, &args->tex);
+	ksim_assert(tex_valid);
+	ksim_assert(args->tex.format == R8G8B8X8_UNORM);
+
+	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+
+	return sfid_sampler;
+}
+
 bool
 compile_inst(struct builder *bld, struct inst *inst)
 {
@@ -1237,7 +1275,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		void **p = builder_get_const_data(bld, sizeof(void*));
 		switch (send.sfid) {
 		case BRW_SFID_SAMPLER:
-			*p = sfid_sampler;
+			*p = builder_emit_sfid_sampler(bld, inst);
 			break;
 		case GEN6_SFID_DATAPORT_RENDER_CACHE:
 			*p = sfid_render_cache;
@@ -1475,7 +1513,8 @@ compile_inst(struct builder *bld, struct inst *inst)
 }
 
 void *
-compile_shader(void *kernel, struct shader *shader)
+compile_shader(void *kernel, struct shader *shader,
+	       uint64_t surfaces, uint64_t samplers)
 {
 	struct builder bld;
 	void *insn;
@@ -1484,6 +1523,8 @@ compile_shader(void *kernel, struct shader *shader)
 	bld.shader = shader;
 	bld.p = shader->code;
 	bld.pool_index = 0;
+	bld.binding_table_address = surfaces;
+	bld.sampler_state_address = samplers;
 
 	for (insn = kernel, eot = false; !eot; insn += 16) {
 		if (trace_mask & TRACE_EU)
