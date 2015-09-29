@@ -178,7 +178,6 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 {
 	int x = t->grf[1].ud[2] & 0xffff;
 	int y = t->grf[1].ud[2] >> 16;
-	int sx, sy;
 	uint32_t *p;
 	__m256i r, g, b, a, shift;
 	struct reg argb;
@@ -199,12 +198,11 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
 	argb.ireg = _mm256_or_si256(argb.ireg, b);
 
+	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 	for (int i = 0; i < 8; i++) {
 		if ((t->mask & (1 << i)) == 0)
 			continue;
-		sx = x + (i & 1) + (i / 2 & 2);
-		sy = y + (i / 2 & 1);
-		p = args->rt.pixels + sy * args->rt.stride + sx * args->rt.cpp;
+		p = base + args->offsets.ud[i];
 		*p = argb.ud[i];
 	}
 }

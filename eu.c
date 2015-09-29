@@ -1138,7 +1138,7 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 	struct sfid_render_cache_args *args;
 	bool rt_valid;
 
-	args = builder_get_const_data(bld, sizeof *args, 8);
+	args = builder_get_const_data(bld, sizeof *args, 32);
 	args->src = unpack_inst_2src_src0(inst).num;
 
 	rt_valid = get_surface(bld->binding_table_address, surface, &args->rt);
@@ -1146,7 +1146,14 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 	if (!rt_valid)
 		return NULL;
 
-	builder_emit_load_rsi_rip_relative(bld, (void *) args - (void *) bld->p);
+	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
+	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+
+	args->offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(sx.ireg, _mm256_set1_epi32(args->rt.cpp)),
+				 _mm256_mullo_epi32(sy.ireg, _mm256_set1_epi32(args->rt.stride)));
+
+	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
 	switch (opcode) {
 	case 12: /* rt write */

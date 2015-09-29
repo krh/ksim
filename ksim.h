@@ -534,6 +534,7 @@ void sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args);
 
 
 struct sfid_render_cache_args {
+	struct reg offsets;
 	int src;
 	struct surface rt;
 };
