@@ -41,6 +41,11 @@ struct payload {
 	int a12, b12, c12;
 	int a20, b20, c20;
 
+	struct {
+		struct reg offsets;
+		void *buffer;
+	} depth;
+
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
 	struct thread t;
@@ -237,33 +242,31 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 {
 	void *buffer;
 	uint32_t *d;
-	uint64_t range;
-	uint32_t stride;
 	uint32_t cpp = depth_format_size(gt.depth.format);
-	int sx, sy;
-
-	ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
-
-	buffer = map_gtt_offset(gt.depth.address, &range);
-	stride = gt.depth.stride;
 
 	/* early depth test */
 	struct reg w, w_unorm;
 	w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), p->w1.reg,
 				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), p->w2.reg,
 						_mm256_set1_ps(p->w_deltas[3])));
-	w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
-	for (int i = 0; i < 8; i++) {
-		if ((mask & (1 << i)) == 0)
-			continue;
-		sx = x + (i & 1) + (i / 2 & 2);
-		sy = y + (i / 2 & 1);
-		d = buffer + sy * stride + sx * cpp;
 
-		if (gt.depth.test_enable && *d > w_unorm.ud[i])
-			mask &= ~(1 << i);
-		if (gt.depth.write_enable && (mask & (1 << i)))
-			*d = w_unorm.ud[i];
+	struct reg d24x8, cmp, d_f;
+	buffer = p->depth.buffer + x * cpp + y * gt.depth.stride;
+	d24x8.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
+	d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
+				_mm256_set1_ps(1.0f / 16777216.0f));
+	cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, 13);
+
+	if (gt.depth.test_enable)
+		mask = mask & ~_mm256_movemask_ps(cmp.reg);
+
+	if (gt.depth.write_enable) {
+		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
+		for (int i = 0; i < 8; i++) {
+			d = buffer + p->depth.offsets.ud[i];
+			if (mask & (1 << i))
+				*d = w_unorm.ud[i];
+		}
 	}
 
 	return mask;
@@ -578,6 +581,18 @@ rasterize_primitive(struct primitive *prim)
 			}
 		};
 	}
+
+	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
+	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+
+	ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
+	uint64_t range;
+	uint32_t cpp = depth_format_size(gt.depth.format);
+
+	p.depth.offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(sx.ireg, _mm256_set1_epi32(cpp)),
+				 _mm256_mullo_epi32(sy.ireg, _mm256_set1_epi32(gt.depth.stride)));
+	p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
 
 	const int tile_max_x = 128 / 4 - 1;
 	const int tile_max_y = 31;
