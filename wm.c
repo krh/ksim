@@ -585,14 +585,16 @@ rasterize_primitive(struct primitive *prim)
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
-	ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
-	uint64_t range;
-	uint32_t cpp = depth_format_size(gt.depth.format);
+	if (gt.depth.write_enable || gt.depth.test_enable) {
+		ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
+		uint64_t range;
+		uint32_t cpp = depth_format_size(gt.depth.format);
 
-	p.depth.offsets.ireg =
-		_mm256_add_epi32(_mm256_mullo_epi32(sx.ireg, _mm256_set1_epi32(cpp)),
-				 _mm256_mullo_epi32(sy.ireg, _mm256_set1_epi32(gt.depth.stride)));
-	p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
+		p.depth.offsets.ireg =
+			_mm256_add_epi32(_mm256_mullo_epi32(sx.ireg, _mm256_set1_epi32(cpp)),
+					 _mm256_mullo_epi32(sy.ireg, _mm256_set1_epi32(gt.depth.stride)));
+		p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
+	}
 
 	const int tile_max_x = 128 / 4 - 1;
 	const int tile_max_y = 31;
@@ -726,6 +728,9 @@ hiz_clear(void)
 {
 	uint64_t range;
 	void *depth;
+
+	if (!gt.depth.write_enable)
+		return;
 
 	depth = map_gtt_offset(gt.depth.address, &range);
 	memset(depth, 0, gt.depth.stride * gt.depth.height);
