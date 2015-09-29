@@ -515,15 +515,6 @@ struct thread {
 	uint32_t mask;
 };
 
-struct send_args {
-	uint32_t dst;
-	uint32_t src;
-	uint32_t function_control;
-	bool header_present;
-	uint32_t mlen;
-	uint32_t rlen;
-};
-
 struct shader {
 	uint8_t constant_pool[1024];
 	uint8_t code[1024] __attribute__ ((aligned (64)));
