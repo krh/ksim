@@ -705,3 +705,13 @@ wm_clear(void)
 		}
 	}
 }
+
+void
+hiz_clear(void)
+{
+	uint64_t range;
+	void *depth;
+
+	depth = map_gtt_offset(gt.depth.address, &range);
+	memset(depth, 0, gt.depth.stride * gt.depth.height);
+}

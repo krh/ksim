@@ -887,6 +887,8 @@ static void
 handle_3dstate_wm_hz_op(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM_HZ_OP\n");
+
+	hiz_clear();
 }
 
 static const command_handler_t pipelined_3dstate_commands[] = {

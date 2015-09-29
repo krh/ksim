@@ -479,6 +479,7 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s);
 void wm_stall(void);
 void wm_flush(void);
 void wm_clear(void);
+void hiz_clear(void);
 
 struct reg {
 	union {
