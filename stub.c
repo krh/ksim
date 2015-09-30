@@ -680,6 +680,9 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_GET_MAGIC:
 		return libc_ioctl(fd, request, argp);
 
+	case DRM_IOCTL_VERSION:
+		return libc_ioctl(fd, request, argp);
+
 	default:
 		trace(TRACE_WARN,
 		      "gem: unhandled ioctl 0x%x\n", _IOC_NR(request));
