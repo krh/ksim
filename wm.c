@@ -504,19 +504,51 @@ rasterize_primitive(struct primitive *prim)
 
 	struct payload p;
 
-	p.a01 = (y1 - y0);
-	p.b01 = (x0 - x1);
-	p.c01 = (x1 * y0 - y1 * x0);
+	if ((gt.wm.front_winding == CounterClockwise &&
+	     gt.wm.cull_mode == CULLMODE_BACK) ||
+	    (gt.wm.front_winding == Clockwise &&
+	     gt.wm.cull_mode == CULLMODE_FRONT)) {
+		p.a01 = (y1 - y0);
+		p.b01 = (x0 - x1);
+		p.c01 = (x1 * y0 - y1 * x0);
 
-	p.a12 = (y2 - y1);
-	p.b12 = (x1 - x2);
-	p.c12 = (x2 * y1 - y2 * x1);
+		p.a12 = (y2 - y1);
+		p.b12 = (x1 - x2);
+		p.c12 = (x2 * y1 - y2 * x1);
 
-	p.a20 = (y0 - y2);
-	p.b20 = (x2 - x0);
-	p.c20 = (x0 * y2 - y0 * x2);
+		p.a20 = (y0 - y2);
+		p.b20 = (x2 - x0);
+		p.c20 = (x0 * y2 - y0 * x2);
+	} else {
+		p.a01 = (y0 - y1);
+		p.b01 = (x1 - x0);
+		p.c01 = (y1 * x0 - x1 * y0);
+
+		p.a12 = (y1 - y2);
+		p.b12 = (x2 - x1);
+		p.c12 = (y2 * x1 - x2 * y1);
+
+		p.a20 = (y2 - y0);
+		p.b20 = (x0 - x2);
+		p.c20 = (y0 * x2 - x0 * y2);
+	}
 
 	int area = p.a01 * x2 + p.b01 * y2 + p.c01;
+
+	if ((gt.wm.cull_mode == CULLMODE_NONE && area < 0)) {
+		p.a01 = -p.a01;
+		p.b01 = -p.b01;
+		p.c01 = -p.c01;
+
+		p.a12 = -p.a12;
+		p.b12 = -p.b12;
+		p.c12 = -p.c12;
+
+		p.a20 = -p.a20;
+		p.b20 = -p.b20;
+		p.c20 = -p.c20;
+		area = -area;
+	}
 
 	if (area <= 0)
 		return;

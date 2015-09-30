@@ -309,6 +309,8 @@ struct gt {
 
 	struct {
 		uint32_t barycentric_mode;
+		uint32_t front_winding;
+		uint32_t cull_mode;
 	} wm;
 
 	struct {

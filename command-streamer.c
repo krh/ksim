@@ -875,6 +875,12 @@ static void
 handle_3dstate_raster(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_RASTER\n");
+
+	struct GEN8_3DSTATE_RASTER v;
+	GEN8_3DSTATE_RASTER_unpack(NULL, p, &v);
+
+	gt.wm.front_winding = v.FrontWinding;
+	gt.wm.cull_mode = v.CullMode;
 }
 
 static void
