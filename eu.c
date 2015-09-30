@@ -1121,7 +1121,13 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	 * offset in g0.3. */
 	bool tex_valid = get_surface(bld->binding_table_address, surface, &args->tex);
 	ksim_assert(tex_valid);
-	ksim_assert(args->tex.format == R8G8B8X8_UNORM);
+	switch (args->tex.format) {
+	case R8G8B8X8_UNORM:
+	case R8G8B8A8_UNORM:
+		break;
+	default:
+		stub("sampler format");
+	}
 
 	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
