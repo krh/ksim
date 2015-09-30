@@ -1213,6 +1213,17 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 	}
 }
 
+static __m256
+math_function_pow(struct thread *t, __m256 v, __m256 e)
+{
+	__m256 r;
+
+	for (int i = 0; i < 8; i++)
+		r[i] = powf(v[i], e[i]);
+
+	return r;
+}
+
 bool
 compile_inst(struct builder *bld, struct inst *inst)
 {
@@ -1411,9 +1422,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 		case BRW_MATH_FUNCTION_FDIV:
 			builder_emit_vdivps(bld, 0, 0, 1);
 			break;
-		case BRW_MATH_FUNCTION_POW:
-			stub("BRW_MATH_FUNCTION_POW");
+		case BRW_MATH_FUNCTION_POW: {
+			void **p = builder_get_const_data(bld, sizeof(void*), 8);
+			*p = math_function_pow;
+			emit(bld, 0x57);
+			builder_emit_call_rip_relative(bld, (uint8_t *) p - bld->p);
+			emit(bld, 0x5f);
 			break;
+		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
 			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER");
 			break;
