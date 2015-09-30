@@ -222,9 +222,20 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 
 	struct reg d24x8, cmp, d_f;
 	buffer = p->depth.buffer + x * cpp + y * gt.depth.stride;
-	d24x8.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
-	d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
-				_mm256_set1_ps(1.0f / 16777216.0f));
+
+	switch (gt.depth.format) {
+	case D32_FLOAT:
+		d_f.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
+		break;
+	case D24_UNORM_X8_UINT:
+		d24x8.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
+		d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
+					_mm256_set1_ps(1.0f / 16777216.0f));
+		break;
+	case D16_UNORM:
+		stub("D16_UNORM");
+	}
+
 	cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, 13);
 
 	if (gt.depth.test_enable)
@@ -556,7 +567,6 @@ rasterize_primitive(struct primitive *prim)
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
 	if (gt.depth.write_enable || gt.depth.test_enable) {
-		ksim_assert(gt.depth.format == D24_UNORM_X8_UINT);
 		uint64_t range;
 		uint32_t cpp = depth_format_size(gt.depth.format);
 
