@@ -37,9 +37,9 @@ struct payload {
 	int start_w2, start_w0, start_w1;
 	float inv_area;
 	struct reg w2, w0, w1;
-	int a01, b01, c01;
-	int a12, b12, c12;
-	int a20, b20, c20;
+	int a01, b01, c01, adjust01;
+	int a12, b12, c12, adjust12;
+	int a20, b20, c20, adjust20;
 
 	struct {
 		struct reg offsets;
@@ -429,23 +429,27 @@ rasterize_tile(struct payload *p)
 				_mm256_or_si256(_mm256_or_si256(w1.ireg,
 								w0.ireg), w2.ireg);
 
-			/* FIXME: This is a e >= 0 test, which
-			 * over-rasterizes lower-right edge pixels.
-			 * We can subtract one for those edge
-			 * functions - instead of adding one for top
-			 * left edge. */
+			/* Determine coverage: this is an e >= 0 test,
+			 * which over-rasterizes edge pixels.  We
+			 * subtract one for bottom right edge
+			 * functions to disambiguate pixel
+			 * ownership in those cases. */
 			uint32_t mask = _mm256_movemask_ps(det.reg) ^ 0xff;
 			if (mask == 0)
 				goto next;
 
+			/* Some pixels are covered and we have to
+			 * calculate barycentric coordinates. We add
+			 * back the tie-breaker adjustment so as to
+			 * not distort the barycentric coordinates.*/
 			p->w2.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(w2.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->adjust01))),
 					      _mm256_set1_ps(p->inv_area));
 			p->w0.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(w0.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->adjust12))),
 					      _mm256_set1_ps(p->inv_area));
 			p->w1.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(w1.ireg),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->adjust20))),
 					      _mm256_set1_ps(p->inv_area));
 
 			if (gt.depth.test_enable || gt.depth.write_enable)
@@ -553,6 +557,11 @@ rasterize_primitive(struct primitive *prim)
 	if (area <= 0)
 		return;
 	p.inv_area = 1.0f / area;
+
+	/* Tie breaker adjustments for pixels on edges. */
+	p.adjust01 = p.a01 < 0 || (p.a01 == 0 && p.b01 <= 0);
+	p.adjust12 = p.a12 < 0 || (p.a12 == 0 && p.b12 <= 0);
+	p.adjust20 = p.a20 < 0 || (p.a20 == 0 && p.b20 <= 0);
 
 	float w[3] = {
 		1.0f / prim->v[0].z,
@@ -688,9 +697,9 @@ rasterize_primitive(struct primitive *prim)
 					rasterize_tile(&p);
 			}
 
-			p.start_w2 += tile_width * p.a01;
-			p.start_w0 += tile_width * p.a12;
-			p.start_w1 += tile_width * p.a20;
+			p.start_w2 += tile_width * p.a01 - p.adjust01;
+			p.start_w0 += tile_width * p.a12 - p.adjust12;
+			p.start_w1 += tile_width * p.a20 - p.adjust20;
 		}
 
 		row_w2 += tile_height * p.b01;
