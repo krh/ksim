@@ -52,7 +52,7 @@ trace(uint32_t tag, const char *fmt, ...)
 		return;
 
 	va_start(va, fmt);
-	fprintf(stdout, fmt, va);
+	vfprintf(stdout, fmt, va);
 	va_end(va);
 }
 
