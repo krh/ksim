@@ -68,6 +68,8 @@ static int memfd = -1;
 static int memfd_size = MEMFD_INITIAL_SIZE;
 static int socket_fd = -1;
 
+#define STUB_BO_USERPTR 1
+
 struct stub_bo {
 	union {
 		/* Offset into memfd when in use */
@@ -497,6 +499,8 @@ dispatch_mmap(int fd, unsigned long request,
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP\n");
 
+	ksim_assert(bo->offset != STUB_BO_USERPTR);
+
 	ksim_assert(gem_mmap->flags == 0);
 	ksim_assert(gem_mmap->offset + gem_mmap->size > gem_mmap->offset);
 	ksim_assert(gem_mmap->offset + gem_mmap->size <= bo->size);
@@ -538,6 +542,43 @@ dispatch_set_domain(int fd, unsigned long request,
 	receive_message(&m);
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_DOMAIN\n");
+	return 0;
+}
+
+static int
+dispatch_userptr(int fd, unsigned long request,
+		 struct drm_i915_gem_userptr *userptr)
+{
+	struct stub_bo *bo = create_bo(userptr->user_size);
+	struct drm_prime_handle p;
+	int ret;
+
+	ret = libc_ioctl(fd, request, userptr);
+	if (ret == -1)
+		return ret;
+
+	bo->offset = STUB_BO_USERPTR;
+	bo->map = (void *) (uintptr_t) userptr->user_ptr;
+	bo->kernel_handle = userptr->handle;
+
+	p.handle = bo->kernel_handle;
+	p.flags = DRM_CLOEXEC;
+	ret = libc_ioctl(fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &p);
+	ksim_assert(ret != -1);
+
+	userptr->handle = get_handle(bo);
+	struct message m = {
+		.type = MSG_GEM_PRIME,
+		.handle = userptr->handle,
+		.size = bo->size
+	};
+
+	send_message_with_fd(&m, p.fd);
+	close(p.fd);
+
+	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_USERPTR size=%llu -> handle=%u\n",
+	      userptr->user_size, userptr->handle);
+
 	return 0;
 }
 
@@ -698,8 +739,7 @@ ioctl(int fd, unsigned long request, ...)
 		trace(TRACE_GEM, "DRM_IOCTL_I915_GET_RESET_STATS\n");
 		return 0;
 	case DRM_IOCTL_I915_GEM_USERPTR:
-		trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_USERPTR\n");
-		return 0;
+		return dispatch_userptr(fd, request, argp);
 
 	case DRM_IOCTL_GEM_CLOSE:
 		return dispatch_close(fd, request, argp);
