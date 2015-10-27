@@ -182,6 +182,22 @@ handle_gem_set_domain(struct message *m)
 	send_message(&r);
 }
 
+static void
+handle_gem_prime(struct message *m, int fd)
+{
+	struct gem_bo *bo = &bos[m->handle];
+
+	bo->size = m->size;
+	bo->map = mmap(NULL, bo->size, PROT_READ | PROT_WRITE,
+		       MAP_SHARED, fd, 0);
+	bo->offset = NOT_BOUND;
+
+	printf("prime mmap, errno %m\n");
+	ksim_assert(bo->map != MAP_FAILED);
+
+	/* FIXME: We never destroy the kernel bo */
+}
+
 static int
 handle_requests(void)
 {
@@ -241,6 +257,10 @@ handle_requests(void)
 		break;
 	case MSG_GEM_SET_DOMAIN:
 		handle_gem_set_domain(&u.m);
+		break;
+	case MSG_GEM_PRIME:
+		ksim_assert(fd >= 0);
+		handle_gem_prime(&u.m, fd);
 		break;
 	}
 

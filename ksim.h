@@ -49,7 +49,8 @@ enum {
 	MSG_GEM_BIND,
 	MSG_GEM_EXEC,
 	MSG_GEM_SET_DOMAIN,
-	MSG_GEM_REPLY
+	MSG_GEM_REPLY,
+	MSG_GEM_PRIME
 };
 
 struct message {
