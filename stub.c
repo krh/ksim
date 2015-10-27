@@ -285,7 +285,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		     struct drm_i915_gem_execbuffer2 *execbuffer2)
 {
 	struct drm_i915_gem_exec_object2 *buffers =
-		(void *) execbuffer2->buffers_ptr;
+		(void *) (uintptr_t) execbuffer2->buffers_ptr;
 	struct stub_bo *bo;
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER2:\n");
@@ -346,7 +346,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		struct drm_i915_gem_relocation_entry *relocs;
 
 		bo = get_bo(buffers[i].handle);
-		relocs = (void *) buffers[i].relocs_ptr;
+		relocs = (void *) (uintptr_t) buffers[i].relocs_ptr;
 
 		for (uint32_t j = 0; j < buffers[i].relocation_count; j++) {
 			uint32_t handle;
@@ -425,7 +425,7 @@ dispatch_pread(int fd, unsigned long request,
 	ksim_assert(gem_pread->offset + gem_pread->size > gem_pread->offset);
 	ksim_assert(gem_pread->offset + gem_pread->size <= bo->size);
 
-	return pread(memfd, (void *) gem_pread->data_ptr,
+	return pread(memfd, (void *) (uintptr_t) gem_pread->data_ptr,
 		     gem_pread->size, bo->offset + gem_pread->offset);
 }
 
@@ -443,7 +443,7 @@ dispatch_pwrite(int fd, unsigned long request,
 	ksim_assert(gem_pwrite->offset + gem_pwrite->size > gem_pwrite->offset);
 	ksim_assert(gem_pwrite->offset + gem_pwrite->size <= bo->size);
 
-	return pwrite(memfd, (void *) gem_pwrite->data_ptr,
+	return pwrite(memfd, (void *) (uintptr_t) gem_pwrite->data_ptr,
 		      gem_pwrite->size, bo->offset + gem_pwrite->offset);
 }
 
