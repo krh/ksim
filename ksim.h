@@ -58,7 +58,6 @@ struct message {
 	int handle;
 	uint64_t offset;
 	uint64_t size;
-	int buffer_count;
 };
 
 static inline void
