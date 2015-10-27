@@ -93,8 +93,8 @@ alloc_range(size_t size)
 {
 	uint64_t offset;
 
-	offset = align_u64(memfd_size, 4096);
-	memfd_size += size;
+	offset = memfd_size;
+	memfd_size += align_u64(size, 4096);
 	ftruncate(memfd, memfd_size);
 
 	return offset;
