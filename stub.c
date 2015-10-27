@@ -117,7 +117,6 @@ create_bo(uint64_t size)
 		bo = &bos[next_handle++];
 	}
 
-	bo->offset = alloc_range(size);
 	bo->gtt_offset = NOT_BOUND;
 	bo->size = size;
 
@@ -431,6 +430,8 @@ dispatch_create(int fd, unsigned long request,
 {
 	struct stub_bo *bo = create_bo(create->size);
 	int handle = bo - bos;
+
+	bo->offset = alloc_range(create->size);
 	struct message m = {
 		.type = MSG_GEM_CREATE,
 		.handle = handle,
