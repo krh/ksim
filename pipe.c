@@ -474,7 +474,8 @@ dispatch_primitive(void)
 
 	validate_urb_state();
 
-	dump_sf_clip_viewport();
+	if (gt.sf.viewport_transform_enable)
+		dump_sf_clip_viewport();
 
 	prepare_shaders();
 
