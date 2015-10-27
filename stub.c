@@ -69,6 +69,7 @@ static int memfd_size = MEMFD_INITIAL_SIZE;
 static int socket_fd = -1;
 
 #define STUB_BO_USERPTR 1
+#define STUB_BO_PRIME 2
 
 struct stub_bo {
 	union {
@@ -501,6 +502,11 @@ dispatch_mmap(int fd, unsigned long request,
 
 	ksim_assert(bo->offset != STUB_BO_USERPTR);
 
+	if (bo->offset == STUB_BO_PRIME) {
+		ksim_assert(bo->kernel_handle);
+		return libc_ioctl(fd, request, gem_mmap);
+	}
+
 	ksim_assert(gem_mmap->flags == 0);
 	ksim_assert(gem_mmap->offset + gem_mmap->size > gem_mmap->offset);
 	ksim_assert(gem_mmap->offset + gem_mmap->size <= bo->size);
@@ -595,6 +601,38 @@ dispatch_close(int fd, unsigned long request,
 		.handle = gem_close->handle
 	};
 	send_message(&m);
+
+	return 0;
+}
+
+static int
+dispatch_prime_fd_to_handle(int fd, unsigned long request,
+			    struct drm_prime_handle *prime)
+{
+	struct stub_bo *bo;
+	int ret, size;
+
+	size = lseek(fd, 0, SEEK_END);
+	bo = create_bo(size);
+
+	ret = libc_ioctl(fd, DRM_IOCTL_PRIME_FD_TO_HANDLE, prime);
+	if (ret == -1)
+		return -1;
+
+	bo->offset = STUB_BO_PRIME;
+	bo->kernel_handle = prime->handle;
+
+	prime->handle = get_handle(bo);
+	struct message m = {
+		.type = MSG_GEM_PRIME,
+		.handle = prime->handle,
+		.size = bo->size
+	};
+
+	send_message_with_fd(&m, prime->fd);
+
+	trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE size=%llu -> handle=%u\n",
+	      bo->size, get_handle(bo));
 
 	return 0;
 }
@@ -753,9 +791,7 @@ ioctl(int fd, unsigned long request, ...)
 		return -1;
 
 	case DRM_IOCTL_PRIME_FD_TO_HANDLE:
-		trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE\n");
-		errno = EINVAL;
-		return -1;
+		return dispatch_prime_fd_to_handle(fd, request, argp);
 
 	case DRM_IOCTL_PRIME_HANDLE_TO_FD:
 		return dispatch_prime_handle_to_fd(fd, request, argp);
