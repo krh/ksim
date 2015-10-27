@@ -185,17 +185,46 @@ handle_gem_set_domain(struct message *m)
 static int
 handle_requests(void)
 {
+	struct iovec iov[1];
+	int len, fd;
+	struct msghdr msg;
+	struct cmsghdr *cmsg;
+	char cmsg_buffer[CMSG_LEN(sizeof(fd))];
+
 	union {
 		struct message m;
 		char buffer[1024];
 	} u;
-	int len;
 
-	len = read(socket_fd, u.buffer, sizeof(u.buffer));
+	iov[0].iov_base = &u.buffer;
+	iov[0].iov_len = sizeof(u.buffer);
+
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = cmsg_buffer;
+	msg.msg_controllen = sizeof(cmsg_buffer);
+	msg.msg_flags = 0;
+
+	do {
+		len = recvmsg(socket_fd, &msg, MSG_CMSG_CLOEXEC);
+	} while (len < 0 && errno == EINTR);
 	if (len == 0)
 		return 0;
 	if (len == -1)
 		error(EXIT_FAILURE, errno, "read error from client");
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	if (cmsg &&
+	    cmsg->cmsg_level == SOL_SOCKET &&
+	    cmsg->cmsg_type == SCM_RIGHTS) {
+		ksim_assert(cmsg->cmsg_len - CMSG_LEN(0) == sizeof(fd));
+		fd = *(int *) CMSG_DATA(cmsg);
+	} else {
+		fd = -1;
+	}
+
 	ksim_assert(len >= sizeof(u.m));
 	switch (u.m.type) {
 	case MSG_GEM_CREATE:

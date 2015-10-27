@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -193,13 +194,46 @@ close(int fd)
 }
 
 static void
-send_message(struct message *m)
+send_message_with_fd(struct message *m, int fd)
 {
+	struct iovec iov[2];
+	struct msghdr msg;
+	union {
+		struct cmsghdr cmsg;
+		char buffer[CMSG_LEN(sizeof(fd))];
+	} u;
 	int len;
 
-	len = write(socket_fd, m, sizeof(*m));
-	if (len != sizeof(*m))
-		error(EXIT_FAILURE, errno, "lost connection to ksim");
+	iov[0].iov_base = m;
+	iov[0].iov_len = sizeof(*m);
+
+	if (fd >= 0) {
+		u.cmsg.cmsg_level = SOL_SOCKET;
+		u.cmsg.cmsg_type = SCM_RIGHTS;
+		u.cmsg.cmsg_len = CMSG_LEN(sizeof(fd));
+		*(int*)CMSG_DATA(&u.cmsg) = fd;
+	} else {
+		u.cmsg.cmsg_len = 0;
+	}
+
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+	msg.msg_flags = 0;
+	msg.msg_control = &u.cmsg;
+	msg.msg_controllen = u.cmsg.cmsg_len;
+
+	len = sendmsg(socket_fd, &msg,
+		      MSG_NOSIGNAL | MSG_DONTWAIT);
+
+	ksim_assert(len == sizeof(*m));
+}
+
+static void
+send_message(struct message *m)
+{
+	send_message_with_fd(m, -1);
 }
 
 static void
