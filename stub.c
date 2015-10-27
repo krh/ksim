@@ -44,19 +44,6 @@
 
 #include "ksim.h"
 
-static inline void
-trace(uint32_t tag, const char *fmt, ...)
-{
-	va_list va;
-
-	if ((tag & trace_mask) == 0)
-		return;
-
-	va_start(va, fmt);
-	vfprintf(stdout, fmt, va);
-	va_end(va);
-}
-
 #define DRM_MAJOR 226
 
 static int (*libc_close)(int fd);

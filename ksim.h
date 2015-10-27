@@ -124,6 +124,9 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 	va_end(va);
 }
 
+#define trace(tag, format, ...)			\
+	ksim_trace(tag, format, ##__VA_ARGS__)
+
 #define spam(format, ...) \
 	ksim_trace(TRACE_SPAM, format, ##__VA_ARGS__)
 
