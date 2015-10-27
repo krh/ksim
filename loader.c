@@ -86,7 +86,7 @@ static const uint64_t gtt_size = 4096ul << gtt_order;
 static struct gtt_entry gtt[1 << gtt_order];
 
 static struct gem_bo *
-get_bo(int handle)
+get_bo(uint32_t handle)
 {
 	struct gem_bo *bo = &bos[handle];
 

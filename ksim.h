@@ -55,7 +55,7 @@ enum {
 
 struct message {
 	uint32_t type;
-	int handle;
+	uint32_t handle;
 	uint64_t offset;
 	uint64_t size;
 };

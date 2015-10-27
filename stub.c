@@ -69,7 +69,7 @@ struct stub_bo {
 	uint64_t gtt_offset;
 	uint32_t size;
 	void *map;
-	int kernel_handle;
+	uint32_t kernel_handle;
 };
 
 static struct stub_bo bos[1024], *bo_free_list;
@@ -124,7 +124,7 @@ get_bo(int handle)
 	return bo;
 }
 
-static inline int
+static inline uint32_t
 get_handle(struct stub_bo *bo)
 {
 	return bo - bos;
@@ -155,7 +155,7 @@ close_bo(struct stub_bo *bo)
 	bo_free_list = bo;
 }
 
-static int
+static uint32_t
 get_kernel_handle(struct stub_bo *bo)
 {
 	struct drm_i915_gem_userptr userptr;
