@@ -134,6 +134,12 @@ get_bo(int handle)
 	return bo;
 }
 
+static inline int
+get_handle(struct stub_bo *bo)
+{
+	return bo - bos;
+}
+
 static void
 close_bo(struct stub_bo *bo)
 {
@@ -429,21 +435,21 @@ dispatch_create(int fd, unsigned long request,
 		struct drm_i915_gem_create *create)
 {
 	struct stub_bo *bo = create_bo(create->size);
-	int handle = bo - bos;
 
 	bo->offset = alloc_range(create->size);
+	create->handle = get_handle(bo);
+
 	struct message m = {
 		.type = MSG_GEM_CREATE,
-		.handle = handle,
+		.handle = create->handle,
 		.offset = bo->offset,
 		.size = bo->size
 	};
 
 	send_message(&m);
-	create->handle = handle;
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CREATE: "
-	      "new bo %d, size %ld\n", handle, bo->size);
+	      "new bo %d, size %ld\n", create->handle, bo->size);
 
 	return 0;
 }
