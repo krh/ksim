@@ -85,7 +85,7 @@ static struct stub_bo bos[1024], *bo_free_list;
 static int next_handle = 1;
 #define gtt_order 20
 static const uint64_t gtt_size = 4096ul << gtt_order;
-static uint64_t next_offset = 4096ul;
+static uint64_t next_offset = 0ul;
 
 static uint64_t
 alloc_range(size_t size)
@@ -117,6 +117,7 @@ create_bo(uint64_t size)
 	}
 
 	bo->offset = alloc_range(size);
+	bo->gtt_offset = NOT_BOUND;
 	bo->size = size;
 
 	return bo;
@@ -307,7 +308,8 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		trace(TRACE_GEM, "    bo %d, size %ld, ",
 		      buffers[i].handle, bo->size);
 
-		if (bo->gtt_offset == 0 && next_offset + bo->size <= gtt_size) {
+		if (bo->gtt_offset == NOT_BOUND &&
+		    next_offset + bo->size <= gtt_size) {
 			uint64_t alignment = max_u64(buffers[i].alignment, 4096);
 
 			bo->gtt_offset = align_u64(next_offset, alignment);
@@ -325,7 +327,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 			trace(TRACE_GEM, "keeping at %08x\n", bo->gtt_offset);
 		}
 
-		if (bo->gtt_offset == 0)
+		if (bo->gtt_offset == NOT_BOUND)
 			all_bound = false;
 
 		if (bo->gtt_offset != buffers[i].offset)

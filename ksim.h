@@ -414,6 +414,7 @@ struct gt {
 
 extern struct gt gt;
 
+#define NOT_BOUND 1
 void *map_gtt_offset(uint64_t offset, uint64_t *range);
 
 #define for_each_bit(b, dword)                          \

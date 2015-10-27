@@ -90,7 +90,6 @@ get_bo(int handle)
 {
 	struct gem_bo *bo = &bos[handle];
 
-	ksim_assert(bo->offset > 0);
 	ksim_assert(bo->size > 0);
 	ksim_assert(bo->map != NULL);
 
@@ -103,6 +102,7 @@ bind_bo(struct gem_bo *bo, uint64_t offset)
 	uint32_t num_pages = (bo->size + 4095) >> 12;
 	uint32_t start_page = offset >> 12;
 
+	ksim_assert(bo->size > 0);
 	ksim_assert(offset < gtt_size);
 	ksim_assert(offset + bo->size < gtt_size);
 
@@ -121,6 +121,7 @@ map_gtt_offset(uint64_t offset, uint64_t *range)
 	entry = gtt[offset >> 12];
 	bo = get_bo(entry.handle);
 
+	ksim_assert(bo->offset != NOT_BOUND && bo->size > 0);
 	ksim_assert(bo->offset <= offset);
 	ksim_assert(offset < bo->offset + bo->size);
 
@@ -140,10 +141,10 @@ handle_gem_create(struct message *m)
 {
 	struct gem_bo *bo = &bos[m->handle];
 
-	bo->offset = m->offset;
+	bo->offset = NOT_BOUND;
 	bo->size = m->size;
 	bo->map = mmap(NULL, bo->size, PROT_READ | PROT_WRITE,
-		       MAP_SHARED, memfd, bo->offset);
+		       MAP_SHARED, memfd, m->offset);
 	ksim_assert(bo->map != MAP_FAILED);
 }
 
@@ -153,7 +154,7 @@ handle_gem_close(struct message *m)
 	struct gem_bo *bo = get_bo(m->handle);
 
 	munmap(bo->map, bo->size);
-	bo->offset = 0;
+	bo->offset = NOT_BOUND;
 	bo->size = 0;
 }
 
