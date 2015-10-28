@@ -271,7 +271,6 @@ struct gt {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
-		void *shader;
 		struct shader *avx_shader;
 	} vs;
 
@@ -347,7 +346,6 @@ struct gt {
 		bool attribute_enable;
 		bool fast_clear;
 		bool resolve;
-		void *shader;
 		struct shader *avx_shader;
 	} ps;
 
