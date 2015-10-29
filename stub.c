@@ -832,4 +832,6 @@ ksim_stub_init(void)
 	libc_mmap = dlsym(RTLD_NEXT, "mmap");
 	if (libc_close == NULL || libc_ioctl == NULL || libc_mmap == NULL)
 		error(-1, 0, "ksim: failed to get libc ioctl or close\n");
+
+	trace_file = stdout;
 }
