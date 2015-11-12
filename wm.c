@@ -772,10 +772,12 @@ wm_clear(void)
 
 	if (!gt.ps.resolve &&
 	    get_surface(gt.ps.binding_table_address, 0, &rt)) {
-		memset(rt.pixels, 0, rt.height * rt.stride);
+		int height = (rt.height + 7) & ~7;
+		memset(rt.pixels, 0, height * rt.stride);
 		if (gt.depth.write_enable) {
 			depth = map_gtt_offset(gt.depth.address, &range);
-			memset(depth, 0, gt.depth.stride * gt.depth.height);
+			height = (gt.depth.height + 31) & ~31;
+			memset(depth, 0, gt.depth.stride * height);
 		}
 	}
 }
@@ -790,5 +792,7 @@ hiz_clear(void)
 		return;
 
 	depth = map_gtt_offset(gt.depth.address, &range);
-	memset(depth, 0, gt.depth.stride * gt.depth.height);
+	int height = (gt.depth.height + 31) & ~31;
+
+	memset(depth, 0, gt.depth.stride * height);
 }
