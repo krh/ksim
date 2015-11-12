@@ -516,6 +516,7 @@ struct reg {
 
 struct thread {
 	struct reg grf[128];
+	__m256i mask_full;
 	uint32_t mask;
 };
 

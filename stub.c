@@ -68,6 +68,7 @@ struct stub_bo {
 
 	uint64_t gtt_offset;
 	uint32_t size;
+	uint32_t stride; /* tiling in lower 2 bits */
 	void *map;
 	uint32_t kernel_handle;
 };
@@ -155,6 +156,21 @@ close_bo(struct stub_bo *bo)
 	bo_free_list = bo;
 }
 
+static void
+set_kernel_tiling(struct stub_bo *bo)
+{
+	int ret;
+	struct drm_i915_gem_set_tiling set_tiling = {
+		.handle = bo->kernel_handle,
+		.tiling_mode = bo->stride & 3,
+		.stride = bo->stride & ~3u,
+		.swizzle_mode = 0,
+	};
+
+	ret = libc_ioctl(drm_fd, DRM_IOCTL_I915_GEM_SET_TILING, &set_tiling);
+	ksim_assert(ret != -1);
+}
+
 static uint32_t
 get_kernel_handle(struct stub_bo *bo)
 {
@@ -176,7 +192,10 @@ get_kernel_handle(struct stub_bo *bo)
 
 	ksim_assert(ret != -1);
 
-	return bo->kernel_handle = userptr.handle;
+	bo->kernel_handle = userptr.handle;
+	set_kernel_tiling(bo);
+
+	return bo->kernel_handle;
 }
 
 __attribute__ ((visibility ("default"))) int
@@ -539,6 +558,23 @@ dispatch_set_domain(int fd, unsigned long request,
 }
 
 static int
+dispatch_set_tiling(int fd, unsigned long request,
+		    struct drm_i915_gem_set_tiling *set_tiling)
+{
+	struct stub_bo *bo = get_bo(set_tiling->handle);
+
+	ksim_assert((set_tiling->stride & 3u) == 0);
+	ksim_assert((set_tiling->tiling_mode & ~3u) == 0);
+	bo->stride = set_tiling->stride | set_tiling->tiling_mode;
+	if (bo->kernel_handle)
+		set_kernel_tiling(bo);
+
+	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_TILING\n");
+	return 0;
+}
+
+
+static int
 dispatch_userptr(int fd, unsigned long request,
 		 struct drm_i915_gem_userptr *userptr)
 {
@@ -724,8 +760,7 @@ ioctl(int fd, unsigned long request, ...)
 		return 0;
 
 	case DRM_IOCTL_I915_GEM_SET_TILING:
-		trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_TILING\n");
-		return 0;
+		return dispatch_set_tiling(fd, request, argp);
 
 	case DRM_IOCTL_I915_GEM_GET_TILING:
 		trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING\n");

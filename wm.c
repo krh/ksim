@@ -178,7 +178,6 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 {
 	int x = t->grf[1].ud[2] & 0xffff;
 	int y = t->grf[1].ud[2] >> 16;
-	uint32_t *p;
 	__m256i r, g, b, a, shift;
 	struct reg argb;
 	__m256 scale;
@@ -198,13 +197,30 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
 	argb.ireg = _mm256_or_si256(argb.ireg, b);
 
-	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
-	for (int i = 0; i < 8; i++) {
-		if ((t->mask & (1 << i)) == 0)
-			continue;
-		p = base + args->offsets.ud[i];
-		*p = argb.ud[i];
-	}
+#define SWIZZLE(x, y, z, w) \
+	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
+
+	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	argb.ireg = _mm256_permute4x64_epi64(argb.ireg, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_full, SWIZZLE(0, 2, 1, 3));
+
+	const int tile_x = x * args->rt.cpp / 512;
+	const int tile_y = y / 8;
+	const int tile_stride = args->rt.stride / 512;
+	void *tile_base =
+		args->rt.pixels + (tile_x + tile_y * tile_stride) * 4096;
+
+	const int ix = x & (512 / args->rt.cpp - 1);
+	const int iy = y & 7;
+	void *base = tile_base + ix * args->rt.cpp + iy * 512;
+
+	_mm_maskstore_epi32(base,
+			    _mm256_extractf128_si256(mask, 0),
+			    _mm256_extractf128_si256(argb.ireg, 0));
+	_mm_maskstore_epi32(base + 512,
+			    _mm256_extractf128_si256(mask, 1),
+			    _mm256_extractf128_si256(argb.ireg, 1));
 }
 
 static uint32_t
@@ -236,12 +252,15 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 		stub("D16_UNORM");
 	}
 
-	cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, 13);
-
-	if (gt.depth.test_enable)
-		mask = mask & ~_mm256_movemask_ps(cmp.reg);
+	cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
+	if (gt.depth.test_enable) {
+		cmp.ireg = _mm256_and_si256(cmp.ireg, p->t.mask_full);
+		p->t.mask_full = cmp.ireg;
+		mask = _mm256_movemask_ps(cmp.reg);
+	}
 
 	if (gt.depth.write_enable) {
+
 		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
 		for (int i = 0; i < 8; i++) {
 			d = buffer + p->depth.offsets.ud[i];
@@ -450,8 +469,10 @@ rasterize_tile(struct payload *p)
 				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->adjust20))),
 					      _mm256_set1_ps(p->inv_area));
 
+			p->t.mask_full = det.ireg;
 			if (gt.depth.test_enable || gt.depth.write_enable)
 				mask = depth_test(p, mask, p->x0 + x, p->y0 + y);
+
 			if (mask)
 				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
 
