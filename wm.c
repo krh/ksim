@@ -675,9 +675,9 @@ rasterize_primitive(struct primitive *prim)
 	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
 	max_y = (max_y + tile_height - 1) & ~(tile_height - 1);
 
-	int row_w2 = p.a01 * min_x + p.b01 * min_y + p.c01;
-	int row_w0 = p.a12 * min_x + p.b12 * min_y + p.c12;
-	int row_w1 = p.a20 * min_x + p.b20 * min_y + p.c20;
+	int row_w2 = p.a01 * min_x + p.b01 * min_y + p.c01 - p.adjust01;
+	int row_w0 = p.a12 * min_x + p.b12 * min_y + p.c12 - p.adjust12;
+	int row_w1 = p.a20 * min_x + p.b20 * min_y + p.c20 - p.adjust20;
 	for (p.y0 = min_y; p.y0 < max_y; p.y0 += tile_height) {
 		p.start_w2 = row_w2;
 		p.start_w0 = row_w0;
@@ -695,9 +695,9 @@ rasterize_primitive(struct primitive *prim)
 					rasterize_tile(&p);
 			}
 
-			p.start_w2 += tile_width * p.a01 - p.adjust01;
-			p.start_w0 += tile_width * p.a12 - p.adjust12;
-			p.start_w1 += tile_width * p.a20 - p.adjust20;
+			p.start_w2 += tile_width * p.a01;
+			p.start_w0 += tile_width * p.a12;
+			p.start_w1 += tile_width * p.a20;
 		}
 
 		row_w2 += tile_height * p.b01;
