@@ -426,15 +426,13 @@ rasterize_tile(struct payload *p)
 		for (int x = 0; x < tile_width; x += 4) {
 			struct reg det;
 			det.ireg =
-				_mm256_or_si256(_mm256_or_si256(w1.ireg,
-								w0.ireg), w2.ireg);
+				_mm256_and_si256(_mm256_and_si256(w1.ireg,
+								  w0.ireg), w2.ireg);
 
-			/* Determine coverage: this is an e >= 0 test,
-			 * which over-rasterizes edge pixels.  We
-			 * subtract one for bottom right edge
-			 * functions to disambiguate pixel
-			 * ownership in those cases. */
-			uint32_t mask = _mm256_movemask_ps(det.reg) ^ 0xff;
+			/* Determine coverage: this is an e < 0 test,
+			 * where we've subtracted 1 from top-left
+			 * edges to include pixels on those edges. */
+			uint32_t mask = _mm256_movemask_ps(det.reg);
 			if (mask == 0)
 				goto next;
 
@@ -512,18 +510,6 @@ rasterize_primitive(struct primitive *prim)
 	     gt.wm.cull_mode == CULLMODE_BACK) ||
 	    (gt.wm.front_winding == Clockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT)) {
-		p.a01 = (y1 - y0);
-		p.b01 = (x0 - x1);
-		p.c01 = (x1 * y0 - y1 * x0);
-
-		p.a12 = (y2 - y1);
-		p.b12 = (x1 - x2);
-		p.c12 = (x2 * y1 - y2 * x1);
-
-		p.a20 = (y0 - y2);
-		p.b20 = (x2 - x0);
-		p.c20 = (x0 * y2 - y0 * x2);
-	} else {
 		p.a01 = (y0 - y1);
 		p.b01 = (x1 - x0);
 		p.c01 = (y1 * x0 - x1 * y0);
@@ -535,11 +521,23 @@ rasterize_primitive(struct primitive *prim)
 		p.a20 = (y2 - y0);
 		p.b20 = (x0 - x2);
 		p.c20 = (y0 * x2 - x0 * y2);
+	} else {
+		p.a01 = (y1 - y0);
+		p.b01 = (x0 - x1);
+		p.c01 = (x1 * y0 - y1 * x0);
+
+		p.a12 = (y2 - y1);
+		p.b12 = (x1 - x2);
+		p.c12 = (x2 * y1 - y2 * x1);
+
+		p.a20 = (y0 - y2);
+		p.b20 = (x2 - x0);
+		p.c20 = (x0 * y2 - y0 * x2);
 	}
 
 	int area = p.a01 * x2 + p.b01 * y2 + p.c01;
 
-	if ((gt.wm.cull_mode == CULLMODE_NONE && area < 0)) {
+	if ((gt.wm.cull_mode == CULLMODE_NONE && area > 0)) {
 		p.a01 = -p.a01;
 		p.b01 = -p.b01;
 		p.c01 = -p.c01;
@@ -554,7 +552,7 @@ rasterize_primitive(struct primitive *prim)
 		area = -area;
 	}
 
-	if (area <= 0)
+	if (area >= 0)
 		return;
 	p.inv_area = 1.0f / area;
 
@@ -620,24 +618,24 @@ rasterize_primitive(struct primitive *prim)
 	const int tile_max_x = 128 / 4 - 1;
 	const int tile_max_y = 31;
 
-	int w2_max_x = p.a01 > 0 ? 1 : 0;
-	int w2_max_y = p.b01 > 0 ? 1 : 0;
-	int max_w0_delta, max_w1_delta, max_w2_delta;
+	int w2_min_x = p.a01 > 0 ? 0 : 1;
+	int w2_min_y = p.b01 > 0 ? 0 : 1;
+	int min_w0_delta, min_w1_delta, min_w2_delta;
 
-	/* delta from w2 in top-left corner to maximum w2 in tile */
-	max_w2_delta = p.a01 * w2_max_x * tile_max_x + p.b01 * w2_max_y * tile_max_y;
+	/* delta from w2 in top-left corner to minimum w2 in tile */
+	min_w2_delta = p.a01 * w2_min_x * tile_max_x + p.b01 * w2_min_y * tile_max_y;
 
-	int w0_max_x = p.a12 > 0 ? 1: 0;
-	int w0_max_y = p.b12 > 0 ? 1 : 0;
+	int w0_min_x = p.a12 > 0 ? 0 : 1;
+	int w0_min_y = p.b12 > 0 ? 0 : 1;
 
-	/* delta from w2 in top-left corner to maximum w2 in tile */
-	max_w0_delta = p.a12 * w0_max_x * tile_max_x + p.b12 * w0_max_y * tile_max_y;
+	/* delta from w0 in top-left corner to minimum w0 in tile */
+	min_w0_delta = p.a12 * w0_min_x * tile_max_x + p.b12 * w0_min_y * tile_max_y;
 
-	int w1_max_x = p.a20 > 0 ? 1 : 0;
-	int w1_max_y = p.b20 > 0 ? 1 : 0;
+	int w1_min_x = p.a20 > 0 ? 0 : 1;
+	int w1_min_y = p.b20 > 0 ? 0 : 1;
 
-	/* delta from w2 in top-left corner to maximum w2 in tile */
-	max_w1_delta = p.a20 * w1_max_x * tile_max_x + p.b20 * w1_max_y * tile_max_y;
+	/* delta from w1 in top-left corner to minumum w1 in tile */
+	min_w1_delta = p.a20 * w1_min_x * tile_max_x + p.b20 * w1_min_y * tile_max_y;
 
 	int min_x, min_y, max_x, max_y;
 
@@ -686,11 +684,11 @@ rasterize_primitive(struct primitive *prim)
 		p.start_w1 = row_w1;
 
 		for (p.x0 = min_x; p.x0 < max_x; p.x0 += tile_width) {
-			int max_w2 = p.start_w2 + max_w2_delta;
-			int max_w0 = p.start_w0 + max_w0_delta;
-			int max_w1 = p.start_w1 + max_w1_delta;
+			int min_w2 = p.start_w2 + min_w2_delta;
+			int min_w0 = p.start_w0 + min_w0_delta;
+			int min_w1 = p.start_w1 + min_w1_delta;
 
-			if ((max_w2 | max_w0 | max_w1) >= 0) {
+			if ((min_w2 & min_w0 & min_w1) < 0) {
 				if (use_threads)
 					queue_put(&queue, &p);
 				else
