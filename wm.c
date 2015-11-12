@@ -229,8 +229,6 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 static uint32_t
 depth_test(struct payload *p, uint32_t mask, int x, int y)
 {
-	void *buffer;
-	uint32_t *d;
 	uint32_t cpp = depth_format_size(gt.depth.format);
 
 	if (x >= gt.depth.width || y >= gt.depth.height + 1)
@@ -243,14 +241,24 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 						_mm256_set1_ps(p->w_deltas[3])));
 
 	struct reg d24x8, cmp, d_f;
-	buffer = p->depth.buffer + x * cpp + y * gt.depth.stride;
+
+	/* Y-tiled depth buffer */
+	const int tile_x = x * cpp / 128;
+	const int tile_y = y / 32;
+	const int tile_stride = gt.depth.stride / 128;
+	void *tile_base =
+		p->depth.buffer + (tile_x + tile_y * tile_stride) * 4096;
+
+	const int ix = x & (128 / cpp - 1);
+	const int iy = y & 31;
+	void *base = tile_base + ix * cpp * 32 + iy * 16;
 
 	switch (gt.depth.format) {
 	case D32_FLOAT:
-		d_f.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
+		d_f.reg = _mm256_load_ps(base);
 		break;
 	case D24_UNORM_X8_UINT:
-		d24x8.ireg = _mm256_i32gather_epi32(buffer, p->depth.offsets.ireg, 1);
+		d24x8.ireg = _mm256_load_si256(base);
 		d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
 					_mm256_set1_ps(1.0f / 16777216.0f));
 		break;
@@ -258,21 +266,24 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 		stub("D16_UNORM");
 	}
 
-	cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
+	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
+
 	if (gt.depth.test_enable) {
+		cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
 		cmp.ireg = _mm256_and_si256(cmp.ireg, p->t.mask_full);
 		p->t.mask_full = cmp.ireg;
 		mask = _mm256_movemask_ps(cmp.reg);
 	}
 
 	if (gt.depth.write_enable) {
-
 		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
-		for (int i = 0; i < 8; i++) {
-			d = buffer + p->depth.offsets.ud[i];
-			if (mask & (1 << i))
-				*d = w_unorm.ud[i];
-		}
+		w_unorm.ireg = _mm256_permute4x64_epi64(w_unorm.ireg,
+							SWIZZLE(0, 2, 1, 3));
+		__m256i mask = _mm256_permute4x64_epi64(p->t.mask_full,
+							SWIZZLE(0, 2, 1, 3));
+		_mm256_maskstore_epi32(base, mask, w_unorm.ireg);
 	}
 
 	return mask;
