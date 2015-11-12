@@ -409,8 +409,8 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	f(&p->t);
 }
 
-const int tile_width = 128 / 4;
-const int tile_height = 32;
+const int tile_width = 512 / 4;
+const int tile_height = 8;
 
 static void
 rasterize_tile(struct payload *p)
@@ -642,8 +642,8 @@ rasterize_primitive(struct primitive *prim)
 		p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
 	}
 
-	const int tile_max_x = 128 / 4 - 1;
-	const int tile_max_y = 31;
+	const int tile_max_x = tile_width - 1;
+	const int tile_max_y = tile_height - 1;
 
 	int w2_min_x = p.a01 > 0 ? 0 : 1;
 	int w2_min_y = p.b01 > 0 ? 0 : 1;
