@@ -184,6 +184,9 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 	scale = _mm256_set1_ps(255.0f);
 	struct reg *src = &t->grf[args->src];
 
+	if (x >= args->rt.width || y >= args->rt.height)
+		return;
+
 	r = _mm256_cvtps_epi32(_mm256_mul_ps(src[0].reg, scale));
 	g = _mm256_cvtps_epi32(_mm256_mul_ps(src[1].reg, scale));
 	b = _mm256_cvtps_epi32(_mm256_mul_ps(src[2].reg, scale));
@@ -229,6 +232,9 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 	void *buffer;
 	uint32_t *d;
 	uint32_t cpp = depth_format_size(gt.depth.format);
+
+	if (x >= gt.depth.width || y >= gt.depth.height + 1)
+		return 0;
 
 	/* early depth test */
 	struct reg w, w_unorm;
