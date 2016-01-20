@@ -870,7 +870,7 @@ set_urb_allocation(struct urb *urb, uint32_t *p)
 	urb->size = (field(p[1], 16, 24) + 1) * 64;
 	urb->total = field(p[1], 0, 15);
 
-	urb->free_list = 1;
+	urb->free_list = URB_EMPTY;
 	urb->count = 0;
 }
 

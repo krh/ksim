@@ -187,6 +187,8 @@ enum {
 /* bdw gt3 */
 #define URB_SIZE (384 * 1024)
 
+#define URB_EMPTY 1
+
 /* Per stage urb allocation info and entry pool. All sizes in bytes */
 struct urb {
 	uint32_t size;

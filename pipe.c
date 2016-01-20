@@ -27,15 +27,13 @@ struct free_urb {
 	uint32_t next;
 };
 
-#define EMPTY 1
-
 static void *
 alloc_urb_entry(struct urb *urb)
 {
 	struct free_urb *f;
 	void *p;
 
-	if (urb->free_list != EMPTY) {
+	if (urb->free_list != URB_EMPTY) {
 		f = p = urb->data + urb->free_list;
 		urb->free_list = f->next;
 	} else {
