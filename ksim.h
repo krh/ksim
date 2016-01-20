@@ -73,11 +73,10 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
 
 static inline void
-__ksim_unreachable(const char *file, int line, const char *fmt, ...)
+__ksim_unreachable(const char *fmt, ...)
 {
 	va_list va;
 
-	printf("%s:%d: unreachable: \n", file, line);
 	va_start(va, fmt);
 	vprintf(fmt, va);
 	va_end(va);
@@ -86,9 +85,9 @@ __ksim_unreachable(const char *file, int line, const char *fmt, ...)
 	__builtin_unreachable();
 }
 
-#define ksim_unreachable(format, ...) \
-	__ksim_unreachable(__FILE__, __LINE__, format, ##__VA_ARGS__)
-
+#define ksim_unreachable(format, ...)				\
+	__ksim_unreachable("%s:%d: unreachable: " format "\n",	\
+			   __FILE__, __LINE__, ##__VA_ARGS__)
 
 enum {
 	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
