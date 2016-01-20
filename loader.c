@@ -33,8 +33,8 @@
 
 #include "ksim.h"
 
-#define KSIM_STUB_PATH ".libs/ksim-stub.so"
-
+static const char default_stub_filename[] = ".libs/ksim-stub.so";
+static const char *stub_filename = default_stub_filename;
 static int socket_fd;
 
 static void
@@ -46,10 +46,10 @@ load_client(int argc, char *argv[], int mfd, int s)
 
 	if (current) {
 		snprintf(preload, sizeof(preload),
-			 KSIM_STUB_PATH ":%s", current);
+			 "%s:%s", stub_filename, current);
 		setenv("LD_PRELOAD", preload, 1);
 	} else {
-		setenv("LD_PRELOAD", KSIM_STUB_PATH, 1);
+		setenv("LD_PRELOAD", stub_filename, 1);
 	}
 
 	/* dup the to get non-CLOEXEC ones we can pass to the client. */
@@ -367,6 +367,11 @@ main(int argc, char *argv[])
 				framebuffer_filename = strdup(value);
 			else
 				framebuffer_filename = strdup("fb.png");
+		} else if (is_prefix(argv[i], "--stub", &value)) {
+			if (value == NULL)
+				error(EXIT_FAILURE, 0,
+				      "ksim: Option --stub requires an argument\n");
+			stub_filename = strdup(value);
 		} else if (strcmp(argv[i], "--quiet") == 0 ||
 			   strcmp(argv[i], "-q") == 0) {
 			trace_mask = 0;
