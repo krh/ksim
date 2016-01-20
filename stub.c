@@ -343,7 +343,6 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	ksim_assert(execbuffer2->num_cliprects == 0);
 	ksim_assert(execbuffer2->DR1 == 0);
 	ksim_assert(execbuffer2->DR4 == 0);
-	ksim_assert((execbuffer2->flags & I915_EXEC_RING_MASK) == I915_EXEC_RENDER);
 
 	/* FIXME: Do relocs and send bo handle and offset for batch
 	 * start.  Maybe add a bind message to bind a bo at a given
@@ -423,8 +422,20 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		}
 	}
 
+	uint32_t type;
+	switch (execbuffer2->flags & I915_EXEC_RING_MASK) {
+	case I915_EXEC_RENDER:
+		type = MSG_GEM_EXEC_RENDER;
+		break;
+	case I915_EXEC_BLT:
+		type = MSG_GEM_EXEC_BLIT;
+		break;
+	default:
+		ksim_unreachable("unhandled ring");
+	}
+
 	struct message m = {
-		.type = MSG_GEM_EXEC,
+		.type = type,
 		.offset = bo->gtt_offset + execbuffer2->batch_start_offset
 	};
 	send_message(&m);

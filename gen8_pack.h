@@ -208,7 +208,7 @@ struct GEN8_3DSTATE_VS {
    uint32_t                                     SingleVertexDispatch;
 #define     Dmask                                              0
 #define     Vmask                                              1
-   uint32_t                                     VectorMaskEnable;
+   bool                                         VectorMaskEnable;
 #define     NoSamplers                                         0
 #define     _14Samplers                                        1
 #define     _58Samplers                                        2
@@ -3845,7 +3845,7 @@ struct GEN8_3DSTATE_GS {
    uint32_t                                     SingleProgramFlow;
 #define     Dmask                                              0
 #define     Vmask                                              1
-   uint32_t                                     VectorMaskEnable;
+   bool                                         VectorMaskEnable;
 #define     NoSamplers                                         0
 #define     _14Samplers                                        1
 #define     _58Samplers                                        2
@@ -4527,7 +4527,7 @@ struct GEN8_3DSTATE_MULTISAMPLE {
    uint32_t                                     _3DCommandOpcode;
    uint32_t                                     _3DCommandSubOpcode;
    uint32_t                                     DwordLength;
-   uint32_t                                     PixelPositionOffsetEnable;
+   bool                                         PixelPositionOffsetEnable;
 #define     CENTER                                             0
 #define     UL_CORNER                                          1
    uint32_t                                     PixelLocation;
@@ -4715,7 +4715,7 @@ struct GEN8_3DSTATE_PS {
    uint32_t                                     SingleProgramFlow;
 #define     Dmask                                              0
 #define     Vmask                                              1
-   uint32_t                                     VectorMaskEnable;
+   bool                                         VectorMaskEnable;
 #define     NoSamplers                                         0
 #define     _14Samplers                                        1
 #define     _58Samplers                                        2
@@ -5001,7 +5001,6 @@ struct GEN8_3DSTATE_PS_EXTRA {
    bool                                         ForceComputedDepth;
    bool                                         PixelShaderUsesSourceDepth;
    bool                                         PixelShaderUsesSourceW;
-   uint32_t                                     Removed;
    bool                                         AttributeEnable;
    bool                                         PixelShaderDisablesAlphaToCoverage;
    bool                                         PixelShaderIsPerSample;
@@ -5032,7 +5031,6 @@ GEN8_3DSTATE_PS_EXTRA_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->ForceComputedDepth, 25, 25) |
       __gen_field(values->PixelShaderUsesSourceDepth, 24, 24) |
       __gen_field(values->PixelShaderUsesSourceW, 23, 23) |
-      __gen_field(values->Removed, 17, 17) |
       __gen_field(values->AttributeEnable, 8, 8) |
       __gen_field(values->PixelShaderDisablesAlphaToCoverage, 7, 7) |
       __gen_field(values->PixelShaderIsPerSample, 6, 6) |
@@ -5064,7 +5062,6 @@ GEN8_3DSTATE_PS_EXTRA_unpack(__gen_user_data *data, const void * restrict src,
    values->ForceComputedDepth = __gen_unpack_field(dw1, 25, 25);
    values->PixelShaderUsesSourceDepth = __gen_unpack_field(dw1, 24, 24);
    values->PixelShaderUsesSourceW = __gen_unpack_field(dw1, 23, 23);
-   values->Removed = __gen_unpack_field(dw1, 17, 17);
    values->AttributeEnable = __gen_unpack_field(dw1, 8, 8);
    values->PixelShaderDisablesAlphaToCoverage = __gen_unpack_field(dw1, 7, 7);
    values->PixelShaderIsPerSample = __gen_unpack_field(dw1, 6, 6);
@@ -8231,8 +8228,8 @@ struct GEN8_3DSTATE_WM_HZ_OP {
    bool                                         ScissorRectangleEnable;
    bool                                         DepthBufferResolveEnable;
    bool                                         HierarchicalDepthBufferResolveEnable;
-   uint32_t                                     PixelPositionOffsetEnable;
-   bool                                         FullSurfaceDepthClear;
+   bool                                         PixelPositionOffsetEnable;
+   bool                                         FullSurfaceDepthandStencilClear;
    uint32_t                                     StencilClearValue;
    uint32_t                                     NumberofMultisamples;
    uint32_t                                     ClearRectangleYMin;
@@ -8263,7 +8260,7 @@ GEN8_3DSTATE_WM_HZ_OP_pack(__gen_user_data *data, void * restrict dst,
       __gen_field(values->DepthBufferResolveEnable, 28, 28) |
       __gen_field(values->HierarchicalDepthBufferResolveEnable, 27, 27) |
       __gen_field(values->PixelPositionOffsetEnable, 26, 26) |
-      __gen_field(values->FullSurfaceDepthClear, 25, 25) |
+      __gen_field(values->FullSurfaceDepthandStencilClear, 25, 25) |
       __gen_field(values->StencilClearValue, 16, 23) |
       __gen_field(values->NumberofMultisamples, 13, 15) |
       0;
@@ -8304,7 +8301,7 @@ GEN8_3DSTATE_WM_HZ_OP_unpack(__gen_user_data *data, const void * restrict src,
    values->DepthBufferResolveEnable = __gen_unpack_field(dw1, 28, 28);
    values->HierarchicalDepthBufferResolveEnable = __gen_unpack_field(dw1, 27, 27);
    values->PixelPositionOffsetEnable = __gen_unpack_field(dw1, 26, 26);
-   values->FullSurfaceDepthClear = __gen_unpack_field(dw1, 25, 25);
+   values->FullSurfaceDepthandStencilClear = __gen_unpack_field(dw1, 25, 25);
    values->StencilClearValue = __gen_unpack_field(dw1, 16, 23);
    values->NumberofMultisamples = __gen_unpack_field(dw1, 13, 15);
 
@@ -9293,12 +9290,15 @@ struct GEN8_MEDIA_VFE_STATE {
 #define     MaintainingOpenGatewayForwardMsgCloseGatewayprotocollegacymode       0
 #define     BypassingOpenGatewayCloseGatewayprotocol           1
    uint32_t                                     BypassGatewayControl;
+#define     AllSubslicesEnabled                                0
+#define     OnlySlice0Enabled                                  1
+#define     OnlySlice0Subslice0Enabled                         3
    uint32_t                                     SliceDisable;
    uint32_t                                     URBEntryAllocationSize;
    uint32_t                                     CURBEAllocationSize;
 #define     Scoreboarddisabled                                 0
 #define     Scoreboardenabled                                  1
-   uint32_t                                     ScoreboardEnable;
+   bool                                         ScoreboardEnable;
 #define     StallingScoreboard                                 0
 #define     NonStallingScoreboard                              1
    uint32_t                                     ScoreboardType;
@@ -9882,7 +9882,7 @@ struct GEN8_MI_LOAD_REGISTER_MEM {
    uint32_t                                     CommandType;
    uint32_t                                     MICommandOpcode;
    bool                                         UseGlobalGTT;
-   uint32_t                                     AsyncModeEnable;
+   bool                                         AsyncModeEnable;
    uint32_t                                     DwordLength;
    uint32_t                                     RegisterAddress;
    __gen_address_type                           MemoryAddress;
@@ -10313,6 +10313,74 @@ GEN8_MI_REPORT_HEAD_unpack(__gen_user_data *data, const void * restrict src,
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->CommandType = __gen_unpack_field(dw0, 29, 31);
    values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+
+}
+
+#define GEN8_MI_REPORT_PERF_COUNT_length_bias 0x00000002
+#define GEN8_MI_REPORT_PERF_COUNT_header        \
+   .CommandType          =  0,                  \
+   .MICommandOpcode      = 40,                  \
+   .DwordLength          =  2
+
+#define GEN8_MI_REPORT_PERF_COUNT_length 0x00000004
+
+struct GEN8_MI_REPORT_PERF_COUNT {
+   uint32_t                                     CommandType;
+   uint32_t                                     MICommandOpcode;
+   uint32_t                                     DwordLength;
+   __gen_address_type                           MemoryAddress;
+   uint32_t                                     CoreModeEnable;
+   bool                                         UseGlobalGTT;
+   uint32_t                                     ReportID;
+};
+
+static inline void
+GEN8_MI_REPORT_PERF_COUNT_pack(__gen_user_data *data, void * restrict dst,
+                               const struct GEN8_MI_REPORT_PERF_COUNT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->CommandType, 29, 31) |
+      __gen_field(values->MICommandOpcode, 23, 28) |
+      __gen_field(values->DwordLength, 0, 5) |
+      0;
+
+   uint32_t dw1 =
+      __gen_field(values->CoreModeEnable, 4, 4) |
+      __gen_field(values->UseGlobalGTT, 0, 0) |
+      0;
+
+   uint64_t qw1 =
+      __gen_combine_address(data, &dw[1], values->MemoryAddress, dw1);
+
+   dw[1] = qw1;
+   dw[2] = qw1 >> 32;
+
+   dw[3] =
+      __gen_field(values->ReportID, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_MI_REPORT_PERF_COUNT_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_MI_REPORT_PERF_COUNT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 5);
+
+   const uint64_t qw1 __attribute__((unused)) = dw[1] | ((uint64_t ) dw[2] << 32);
+   values->MemoryAddress = __gen_unpack_address(qw1, 6, 63);
+   values->CoreModeEnable = __gen_unpack_field(qw1, 4, 4);
+   values->UseGlobalGTT = __gen_unpack_field(qw1, 0, 0);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ReportID = __gen_unpack_field(dw3, 0, 31);
 
 }
 
@@ -11232,6 +11300,3593 @@ GEN8_PIPE_CONTROL_unpack(__gen_user_data *data, const void * restrict src,
 
 }
 
+#define GEN8_MI_ARB_ON_OFF_length_bias 0x00000001
+#define GEN8_MI_ARB_ON_OFF_header               \
+   .CommandType          =  0,                  \
+   .MICommandOpcode      =  8
+
+#define GEN8_MI_ARB_ON_OFF_length 0x00000001
+
+struct GEN8_MI_ARB_ON_OFF {
+   uint32_t                                     CommandType;
+   uint32_t                                     MICommandOpcode;
+   bool                                         ArbitrationEnable;
+};
+
+static inline void
+GEN8_MI_ARB_ON_OFF_pack(__gen_user_data *data, void * restrict dst,
+                        const struct GEN8_MI_ARB_ON_OFF * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->CommandType, 29, 31) |
+      __gen_field(values->MICommandOpcode, 23, 28) |
+      __gen_field(values->ArbitrationEnable, 0, 0) |
+      0;
+
+}
+
+static inline void
+GEN8_MI_ARB_ON_OFF_unpack(__gen_user_data *data, const void * restrict src,
+                        struct GEN8_MI_ARB_ON_OFF * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->ArbitrationEnable = __gen_unpack_field(dw0, 0, 0);
+
+}
+
+#define GEN8_MI_DISPLAY_FLIP_length_bias 0x00000002
+#define GEN8_MI_DISPLAY_FLIP_header             \
+   .CommandType          =  0,                  \
+   .MICommandOpcode      = 20
+
+#define GEN8_MI_DISPLAY_FLIP_length 0x00000002
+
+struct GEN8_MI_DISPLAY_FLIP {
+   uint32_t                                     CommandType;
+   uint32_t                                     MICommandOpcode;
+   bool                                         AsyncFlipIndicator;
+#define     DisplayPlaneA                                      0
+#define     DisplayPlaneB                                      1
+#define     DisplaySpriteA                                     2
+#define     DisplaySpriteB                                     3
+#define     DisplayPlaneC                                      4
+#define     DisplaySpriteC                                     5
+   uint32_t                                     DisplayPlaneSelect;
+   uint32_t                                     DwordLength;
+#define     Linear                                             0
+#define     TiledX                                             1
+   bool                                         TileParameter;
+   __gen_address_type                           DisplayBufferBaseAddress;
+#define     SyncFlip                                           0
+#define     AsyncFlip                                          1
+   uint32_t                                     FlipType;
+#define     SyncFlip                                           0
+#define     AsyncFlip                                          1
+   uint32_t                                     FlipType0;
+};
+
+static inline void
+GEN8_MI_DISPLAY_FLIP_pack(__gen_user_data *data, void * restrict dst,
+                          const struct GEN8_MI_DISPLAY_FLIP * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->CommandType, 29, 31) |
+      __gen_field(values->MICommandOpcode, 23, 28) |
+      __gen_field(values->AsyncFlipIndicator, 22, 22) |
+      __gen_field(values->DisplayPlaneSelect, 19, 21) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->TileParameter, 0, 0) |
+      0;
+
+   uint32_t dw2 =
+      __gen_field(values->FlipType, 0, 1) |
+      0;
+
+   dw[2] =
+      __gen_combine_address(data, &dw[2], values->DisplayBufferBaseAddress, dw2);
+
+   dw[3] =
+      __gen_field(values->FlipType, 0, 1) |
+      0;
+
+}
+
+static inline void
+GEN8_MI_DISPLAY_FLIP_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_MI_DISPLAY_FLIP * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->AsyncFlipIndicator = __gen_unpack_field(dw0, 22, 22);
+   values->DisplayPlaneSelect = __gen_unpack_field(dw0, 19, 21);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->TileParameter = __gen_unpack_field(dw1, 0, 0);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DisplayBufferBaseAddress = __gen_unpack_address(dw2, 12, 31);
+   values->FlipType = __gen_unpack_field(dw2, 0, 1);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->FlipType = __gen_unpack_field(dw3, 0, 1);
+
+}
+
+#define GEN8_MI_FLUSH_DW_length_bias 0x00000002
+#define GEN8_MI_FLUSH_DW_header                 \
+   .CommandType          =  0,                  \
+   .MICommandOpcode      = 38,                  \
+   .DwordLength          =  3
+
+#define GEN8_MI_FLUSH_DW_length 0x00000005
+
+struct GEN8_MI_FLUSH_DW {
+   uint32_t                                     CommandType;
+   uint32_t                                     MICommandOpcode;
+   uint32_t                                     StoreDataIndex;
+   uint32_t                                     TLBInvalidate;
+   uint32_t                                     PostSyncOperation;
+   uint32_t                                     NotifyEnable;
+   uint32_t                                     DwordLength;
+   __gen_address_type                           Address;
+#define     DAT_PPGTT                                          0
+#define     DAT_GGTT                                           1
+   uint32_t                                     DestinationAddressType;
+   __gen_address_type                           AddressHigh;
+   uint32_t                                     ImmediateData[2];
+};
+
+static inline void
+GEN8_MI_FLUSH_DW_pack(__gen_user_data *data, void * restrict dst,
+                      const struct GEN8_MI_FLUSH_DW * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->CommandType, 29, 31) |
+      __gen_field(values->MICommandOpcode, 23, 28) |
+      __gen_field(values->StoreDataIndex, 21, 21) |
+      __gen_field(values->TLBInvalidate, 18, 18) |
+      __gen_field(values->PostSyncOperation, 14, 15) |
+      __gen_field(values->NotifyEnable, 8, 8) |
+      __gen_field(values->DwordLength, 0, 5) |
+      0;
+
+   uint32_t dw1 =
+      __gen_field(values->DestinationAddressType, 2, 2) |
+      0;
+
+   dw[1] =
+      __gen_combine_address(data, &dw[1], values->Address, dw1);
+
+   uint32_t dw2 =
+      0;
+
+   dw[2] =
+      __gen_combine_address(data, &dw[2], values->AddressHigh, dw2);
+
+   for (uint32_t i = 0, j = 3; i < 2; i += 1, j++) {
+      dw[j] =
+         __gen_field(values->ImmediateData[i + 0], 0, 31) |
+         0;
+   }
+
+}
+
+static inline void
+GEN8_MI_FLUSH_DW_unpack(__gen_user_data *data, const void * restrict src,
+                      struct GEN8_MI_FLUSH_DW * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->CommandType = __gen_unpack_field(dw0, 29, 31);
+   values->MICommandOpcode = __gen_unpack_field(dw0, 23, 28);
+   values->StoreDataIndex = __gen_unpack_field(dw0, 21, 21);
+   values->TLBInvalidate = __gen_unpack_field(dw0, 18, 18);
+   values->PostSyncOperation = __gen_unpack_field(dw0, 14, 15);
+   values->NotifyEnable = __gen_unpack_field(dw0, 8, 8);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 5);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->Address = __gen_unpack_address(dw1, 3, 31);
+   values->DestinationAddressType = __gen_unpack_field(dw1, 2, 2);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->AddressHigh = __gen_unpack_address(dw2, 0, 15);
+
+   /* skipping instancing 3..3 */
+}
+
+#define GEN8_XY_COLOR_BLT_length_bias 0x00000002
+#define GEN8_XY_COLOR_BLT_header                \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 80,                  \
+   .DwordLength          =  5
+
+#define GEN8_XY_COLOR_BLT_length 0x00000007
+
+struct GEN8_XY_COLOR_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SolidPatternColor;
+};
+
+static inline void
+GEN8_XY_COLOR_BLT_pack(__gen_user_data *data, void * restrict dst,
+                       const struct GEN8_XY_COLOR_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SolidPatternColor, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_COLOR_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_XY_COLOR_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SolidPatternColor = __gen_unpack_field(dw6, 0, 31);
+
+}
+
+#define GEN8_XY_FULL_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_BLT_header                 \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 85,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          = 10
+
+#define GEN8_XY_FULL_BLT_length 0x0000000c
+
+struct GEN8_XY_FULL_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     SrcTilingEnable;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     DestTilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourcePitchdoublewordalignedandsignedandinDWords;
+   uint32_t                                     SourceY1CoordinateTop;
+   uint32_t                                     SourceX1CoordinateLeft;
+   __gen_address_type                           SourceAddress;
+   __gen_address_type                           SourceAddressHigh;
+   __gen_address_type                           PatternBaseAddress;
+   __gen_address_type                           PatternBaseAddressHigh;
+};
+
+static inline void
+GEN8_XY_FULL_BLT_pack(__gen_user_data *data, void * restrict dst,
+                      const struct GEN8_XY_FULL_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->SrcTilingEnable, 15, 15) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->DestTilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourcePitchdoublewordalignedandsignedandinDWords, 0, 15) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourceY1CoordinateTop, 16, 31) |
+      __gen_field(values->SourceX1CoordinateLeft, 0, 15) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SourceAddress, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SourceAddressHigh, dw9);
+
+   uint32_t dw10 =
+      0;
+
+   dw[10] =
+      __gen_combine_address(data, &dw[10], values->PatternBaseAddress, dw10);
+
+   uint32_t dw11 =
+      0;
+
+   dw[11] =
+      __gen_combine_address(data, &dw[11], values->PatternBaseAddressHigh, dw11);
+
+}
+
+static inline void
+GEN8_XY_FULL_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                      struct GEN8_XY_FULL_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->SrcTilingEnable = __gen_unpack_field(dw0, 15, 15);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->DestTilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourcePitchdoublewordalignedandsignedandinDWords = __gen_unpack_field(dw6, 0, 15);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourceY1CoordinateTop = __gen_unpack_field(dw7, 16, 31);
+   values->SourceX1CoordinateLeft = __gen_unpack_field(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceAddress = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceAddressHigh = __gen_unpack_address(dw9, 0, 15);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->PatternBaseAddress = __gen_unpack_address(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->PatternBaseAddressHigh = __gen_unpack_address(dw11, 0, 15);
+
+}
+
+#define GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT_header\
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 116,                  \
+   ._32bppByteMask       =  0
+
+#define GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT_length 0x00000000
+
+struct GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinear                               0
+#define     TilingEnabled                                      1
+   uint32_t                                     SrcTilingEnable;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     DestTilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourcePitchdoublewordalignedandsignedandinDWords;
+   uint32_t                                     SourceY1CoordinateTop;
+   uint32_t                                     SourceX1CoordinateLeft;
+   __gen_address_type                           SourceAddress;
+   __gen_address_type                           SourceAddressHigh;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                        const struct GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->SrcTilingEnable, 15, 15) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->DestTilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourcePitchdoublewordalignedandsignedandinDWords, 0, 15) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourceY1CoordinateTop, 16, 31) |
+      __gen_field(values->SourceX1CoordinateLeft, 0, 15) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SourceAddress, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SourceAddressHigh, dw9);
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                        struct GEN8_XY_FULL_IMMEDIATE_PATTERN_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->SrcTilingEnable = __gen_unpack_field(dw0, 15, 15);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->DestTilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourcePitchdoublewordalignedandsignedandinDWords = __gen_unpack_field(dw6, 0, 15);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourceY1CoordinateTop = __gen_unpack_field(dw7, 16, 31);
+   values->SourceX1CoordinateLeft = __gen_unpack_field(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceAddress = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceAddressHigh = __gen_unpack_address(dw9, 0, 15);
+
+   /* variable length fields follow */
+}
+
+#define GEN8_XY_FULL_MONO_PATTERN_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_MONO_PATTERN_BLT_header    \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 87,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          = 12
+
+#define GEN8_XY_FULL_MONO_PATTERN_BLT_length 0x0000000e
+
+struct GEN8_XY_FULL_MONO_PATTERN_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     SrcTilingEnable;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     DestTilingEnable;
+   uint32_t                                     PatternVecticalSeed;
+   uint32_t                                     DwordLength;
+#define     NoSolidPattern                                     0
+#define     SolidPattern                                       1
+   uint32_t                                     SolidPatternSelect;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourcePitchdoublewordalignedandsignedandinDWords;
+   uint32_t                                     SourceY1CoordinateTop;
+   uint32_t                                     SourceX1CoordinateLeft;
+   __gen_address_type                           SourceAddress;
+   __gen_address_type                           SourceAddressHigh;
+   uint32_t                                     PatternBackgroundColor;
+   uint32_t                                     PatternForegroundColor;
+   uint32_t                                     PatternData0;
+   uint32_t                                     PatternData1;
+};
+
+static inline void
+GEN8_XY_FULL_MONO_PATTERN_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                   const struct GEN8_XY_FULL_MONO_PATTERN_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->SrcTilingEnable, 15, 15) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->DestTilingEnable, 11, 11) |
+      __gen_field(values->PatternVecticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->SolidPatternSelect, 31, 31) |
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 27, 28) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourcePitchdoublewordalignedandsignedandinDWords, 0, 15) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourceY1CoordinateTop, 16, 31) |
+      __gen_field(values->SourceX1CoordinateLeft, 0, 15) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SourceAddress, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SourceAddressHigh, dw9);
+
+   dw[10] =
+      __gen_field(values->PatternBackgroundColor, 0, 31) |
+      0;
+
+   dw[11] =
+      __gen_field(values->PatternForegroundColor, 0, 31) |
+      0;
+
+   dw[12] =
+      __gen_field(values->PatternData0, 0, 31) |
+      0;
+
+   dw[13] =
+      __gen_field(values->PatternData1, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_FULL_MONO_PATTERN_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                   struct GEN8_XY_FULL_MONO_PATTERN_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->SrcTilingEnable = __gen_unpack_field(dw0, 15, 15);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->DestTilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVecticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SolidPatternSelect = __gen_unpack_field(dw1, 31, 31);
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 27, 28);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourcePitchdoublewordalignedandsignedandinDWords = __gen_unpack_field(dw6, 0, 15);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourceY1CoordinateTop = __gen_unpack_field(dw7, 16, 31);
+   values->SourceX1CoordinateLeft = __gen_unpack_field(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceAddress = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceAddressHigh = __gen_unpack_address(dw9, 0, 15);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->PatternBackgroundColor = __gen_unpack_field(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->PatternForegroundColor = __gen_unpack_field(dw11, 0, 31);
+
+   const uint32_t dw12 __attribute__((unused)) = dw[12];
+   values->PatternData0 = __gen_unpack_field(dw12, 0, 31);
+
+   const uint32_t dw13 __attribute__((unused)) = dw[13];
+   values->PatternData1 = __gen_unpack_field(dw13, 0, 31);
+
+}
+
+#define GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT_header\
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 88,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          = 12
+
+#define GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT_length 0x0000000e
+
+struct GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+#define     NoSolidPattern                                     0
+#define     SolidPattern                                       1
+   uint32_t                                     SolidPatternSelect;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+   uint32_t                                     MonoPatternTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           MonoSourceAddress;
+   __gen_address_type                           MonoSourceAddressHigh;
+   uint32_t                                     SourceBackgroundColor;
+   uint32_t                                     SourceForegroundColor;
+   uint32_t                                     PatternBackgroundColor;
+   uint32_t                                     PatternForegroundColor;
+   uint32_t                                     PatternData0;
+   uint32_t                                     PatternData1;
+};
+
+static inline void
+GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                            const struct GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline, 17, 19) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->SolidPatternSelect, 31, 31) |
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->MonoPatternTransparencyMode, 28, 28) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->MonoSourceAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->MonoSourceAddressHigh, dw7);
+
+   dw[8] =
+      __gen_field(values->SourceBackgroundColor, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->SourceForegroundColor, 0, 31) |
+      0;
+
+   dw[10] =
+      __gen_field(values->PatternBackgroundColor, 0, 31) |
+      0;
+
+   dw[11] =
+      __gen_field(values->PatternForegroundColor, 0, 31) |
+      0;
+
+   dw[12] =
+      __gen_field(values->PatternData0, 0, 31) |
+      0;
+
+   dw[13] =
+      __gen_field(values->PatternData1, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                            struct GEN8_XY_FULL_MONO_PATTERN_MONO_SRC_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline = __gen_unpack_field(dw0, 17, 19);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SolidPatternSelect = __gen_unpack_field(dw1, 31, 31);
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->MonoPatternTransparencyMode = __gen_unpack_field(dw1, 28, 28);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->MonoSourceAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MonoSourceAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBackgroundColor = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceForegroundColor = __gen_unpack_field(dw9, 0, 31);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->PatternBackgroundColor = __gen_unpack_field(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->PatternForegroundColor = __gen_unpack_field(dw11, 0, 31);
+
+   const uint32_t dw12 __attribute__((unused)) = dw[12];
+   values->PatternData0 = __gen_unpack_field(dw12, 0, 31);
+
+   const uint32_t dw13 __attribute__((unused)) = dw[13];
+   values->PatternData1 = __gen_unpack_field(dw13, 0, 31);
+
+}
+
+#define GEN8_XY_FULL_MONO_SRC_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_MONO_SRC_BLT_header        \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 86,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          = 10
+
+#define GEN8_XY_FULL_MONO_SRC_BLT_length 0x0000000c
+
+struct GEN8_XY_FULL_MONO_SRC_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           MonoSourceAddress;
+   __gen_address_type                           MonoSourceAddressHigh;
+   uint32_t                                     SourceBackgroundColor;
+   uint32_t                                     SourceForegroundColor;
+   __gen_address_type                           PatternBaseAddress;
+   __gen_address_type                           PatternBaseAddressHigh;
+};
+
+static inline void
+GEN8_XY_FULL_MONO_SRC_BLT_pack(__gen_user_data *data, void * restrict dst,
+                               const struct GEN8_XY_FULL_MONO_SRC_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline, 17, 19) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->MonoSourceAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->MonoSourceAddressHigh, dw7);
+
+   dw[8] =
+      __gen_field(values->SourceBackgroundColor, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->SourceForegroundColor, 0, 31) |
+      0;
+
+   uint32_t dw10 =
+      0;
+
+   dw[10] =
+      __gen_combine_address(data, &dw[10], values->PatternBaseAddress, dw10);
+
+   uint32_t dw11 =
+      0;
+
+   dw[11] =
+      __gen_combine_address(data, &dw[11], values->PatternBaseAddressHigh, dw11);
+
+}
+
+static inline void
+GEN8_XY_FULL_MONO_SRC_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_XY_FULL_MONO_SRC_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline = __gen_unpack_field(dw0, 17, 19);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->MonoSourceAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MonoSourceAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBackgroundColor = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceForegroundColor = __gen_unpack_field(dw9, 0, 31);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->PatternBaseAddress = __gen_unpack_address(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->PatternBaseAddressHigh = __gen_unpack_address(dw11, 0, 15);
+
+}
+
+#define GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT_length_bias 0x00000002
+#define GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT_header\
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 117,                  \
+   ._32bppByteMask       =  0
+
+#define GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT_length 0x00000000
+
+struct GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           MonoSourceAddress;
+   __gen_address_type                           MonoSourceAddressHigh;
+   uint32_t                                     SourceBackgroundColor;
+   uint32_t                                     SourceForegroundColor;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                                 const struct GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline, 17, 19) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->MonoSourceAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->MonoSourceAddressHigh, dw7);
+
+   dw[8] =
+      __gen_field(values->SourceBackgroundColor, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->SourceForegroundColor, 0, 31) |
+      0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                                 struct GEN8_XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline = __gen_unpack_field(dw0, 17, 19);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->MonoSourceAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MonoSourceAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBackgroundColor = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceForegroundColor = __gen_unpack_field(dw9, 0, 31);
+
+   /* variable length fields follow */
+}
+
+#define GEN8_XY_MONO_PAT_BLT_length_bias 0x00000002
+#define GEN8_XY_MONO_PAT_BLT_header             \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 82,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_MONO_PAT_BLT_length 0x0000000a
+
+struct GEN8_XY_MONO_PAT_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoPatternTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     PatternBackgroundColor;
+   uint32_t                                     PatternForegroundColor;
+   uint32_t                                     PatternData0;
+   uint32_t                                     PatternData1;
+};
+
+static inline void
+GEN8_XY_MONO_PAT_BLT_pack(__gen_user_data *data, void * restrict dst,
+                          const struct GEN8_XY_MONO_PAT_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoPatternTransparencyMode, 28, 28) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->PatternBackgroundColor, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->PatternForegroundColor, 0, 31) |
+      0;
+
+   dw[8] =
+      __gen_field(values->PatternData0, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->PatternData1, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_MONO_PAT_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_XY_MONO_PAT_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoPatternTransparencyMode = __gen_unpack_field(dw1, 28, 28);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->PatternBackgroundColor = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->PatternForegroundColor = __gen_unpack_field(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->PatternData0 = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->PatternData1 = __gen_unpack_field(dw9, 0, 31);
+
+}
+
+#define GEN8_XY_MONO_PAT_FIXED_BLT_length_bias 0x00000002
+#define GEN8_XY_MONO_PAT_FIXED_BLT_header       \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 89,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  6
+
+#define GEN8_XY_MONO_PAT_FIXED_BLT_length 0x00000008
+
+struct GEN8_XY_MONO_PAT_FIXED_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     HS_HORIZONTAL                                      0
+#define     HS_VERTICAL                                        1
+#define     HS_FDIAGONAL                                       2
+#define     HS_BDIAGONAL                                       3
+#define     HS_CROSS                                           4
+#define     HS_DIAGCROSS                                       5
+#define     ScreenDoor                                         8
+#define     SDWide                                             9
+#define     WalkingBitone                                     10
+#define     WalkingZero                                       11
+   uint32_t                                     FixedPattern;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoPatternTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     PatternBackgroundColor;
+   uint32_t                                     PatternForegroundColor;
+};
+
+static inline void
+GEN8_XY_MONO_PAT_FIXED_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                const struct GEN8_XY_MONO_PAT_FIXED_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->FixedPattern, 15, 18) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoPatternTransparencyMode, 28, 28) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->PatternBackgroundColor, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->PatternForegroundColor, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_MONO_PAT_FIXED_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_XY_MONO_PAT_FIXED_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->FixedPattern = __gen_unpack_field(dw0, 15, 18);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoPatternTransparencyMode = __gen_unpack_field(dw1, 28, 28);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->PatternBackgroundColor = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->PatternForegroundColor = __gen_unpack_field(dw7, 0, 31);
+
+}
+
+#define GEN8_XY_MONO_SRC_COPY_BLT_length_bias 0x00000002
+#define GEN8_XY_MONO_SRC_COPY_BLT_header        \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 84,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_MONO_SRC_COPY_BLT_length 0x0000000a
+
+struct GEN8_XY_MONO_SRC_COPY_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           MonoSourceAddress;
+   __gen_address_type                           MonoSourceAddressHigh;
+   uint32_t                                     SourceBackgroundColor;
+   uint32_t                                     SourceForegroundColor;
+};
+
+static inline void
+GEN8_XY_MONO_SRC_COPY_BLT_pack(__gen_user_data *data, void * restrict dst,
+                               const struct GEN8_XY_MONO_SRC_COPY_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline, 17, 19) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->MonoSourceAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->MonoSourceAddressHigh, dw7);
+
+   dw[8] =
+      __gen_field(values->SourceBackgroundColor, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->SourceForegroundColor, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_MONO_SRC_COPY_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_XY_MONO_SRC_COPY_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline = __gen_unpack_field(dw0, 17, 19);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->MonoSourceAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->MonoSourceAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBackgroundColor = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceForegroundColor = __gen_unpack_field(dw9, 0, 31);
+
+}
+
+#define GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT_length_bias 0x00000002
+#define GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT_header\
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 113,                  \
+   ._32bppByteMask       =  0
+
+#define GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT_length 0x00000000
+
+struct GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline;
+#define     TilingDisabledLinear                               0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourceBackgroundColor;
+   uint32_t                                     SourceForegroundColor;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                         const struct GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline, 17, 19) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourceBackgroundColor, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourceForegroundColor, 0, 31) |
+      0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                         struct GEN8_XY_MONO_SRC_COPY_IMMEDIATE_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->Monochromesourcedatabitpositionofthefirstpixelwithinabyteperscanline = __gen_unpack_field(dw0, 17, 19);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourceBackgroundColor = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourceForegroundColor = __gen_unpack_field(dw7, 0, 31);
+
+   /* variable length fields follow */
+}
+
+#define GEN8_XY_PAT_BLT_length_bias 0x00000002
+#define GEN8_XY_PAT_BLT_header                  \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 81,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  6
+
+#define GEN8_XY_PAT_BLT_length 0x00000008
+
+struct GEN8_XY_PAT_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           PatternBaseAddress;
+   __gen_address_type                           PatternBaseAddressHigh;
+};
+
+static inline void
+GEN8_XY_PAT_BLT_pack(__gen_user_data *data, void * restrict dst,
+                     const struct GEN8_XY_PAT_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->PatternBaseAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->PatternBaseAddressHigh, dw7);
+
+}
+
+static inline void
+GEN8_XY_PAT_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                     struct GEN8_XY_PAT_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->PatternBaseAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->PatternBaseAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+}
+
+#define GEN8_XY_PAT_BLT_IMMEDIATE_length_bias 0x00000002
+#define GEN8_XY_PAT_BLT_IMMEDIATE_header        \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 114,                  \
+   ._32bppByteMask       =  0
+
+#define GEN8_XY_PAT_BLT_IMMEDIATE_length 0x00000000
+
+struct GEN8_XY_PAT_BLT_IMMEDIATE {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_PAT_BLT_IMMEDIATE_pack(__gen_user_data *data, void * restrict dst,
+                               const struct GEN8_XY_PAT_BLT_IMMEDIATE * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_PAT_BLT_IMMEDIATE_unpack(__gen_user_data *data, const void * restrict src,
+                               struct GEN8_XY_PAT_BLT_IMMEDIATE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   /* variable length fields follow */
+}
+
+#define GEN8_XY_PAT_CHROMA_BLT_length_bias 0x00000002
+#define GEN8_XY_PAT_CHROMA_BLT_header           \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 118,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_PAT_CHROMA_BLT_length 0x0000000a
+
+struct GEN8_XY_PAT_CHROMA_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     TransparencyRangeMode;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   __gen_address_type                           PatternBaseAddress;
+   __gen_address_type                           PatternBaseAddressHigh;
+   uint32_t                                     TransparencyColorLow;
+   uint32_t                                     TransparencyColorHigh;
+};
+
+static inline void
+GEN8_XY_PAT_CHROMA_BLT_pack(__gen_user_data *data, void * restrict dst,
+                            const struct GEN8_XY_PAT_CHROMA_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TransparencyRangeMode, 17, 19) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   uint32_t dw6 =
+      0;
+
+   dw[6] =
+      __gen_combine_address(data, &dw[6], values->PatternBaseAddress, dw6);
+
+   uint32_t dw7 =
+      0;
+
+   dw[7] =
+      __gen_combine_address(data, &dw[7], values->PatternBaseAddressHigh, dw7);
+
+   dw[8] =
+      __gen_field(values->TransparencyColorLow, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->TransparencyColorHigh, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_PAT_CHROMA_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_XY_PAT_CHROMA_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TransparencyRangeMode = __gen_unpack_field(dw0, 17, 19);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->PatternBaseAddress = __gen_unpack_address(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->PatternBaseAddressHigh = __gen_unpack_address(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->TransparencyColorLow = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->TransparencyColorHigh = __gen_unpack_field(dw9, 0, 31);
+
+}
+
+#define GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE_length_bias 0x00000002
+#define GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE_header \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 119,                  \
+   ._32bppByteMask       =  0
+
+#define GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE_length 0x00000000
+
+struct GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     TransparencyRangeMode;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     TransparencyColorLow;
+   uint32_t                                     TransparencyColorHigh;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE_pack(__gen_user_data *data, void * restrict dst,
+                                      const struct GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TransparencyRangeMode, 17, 19) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->TransparencyColorLow, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->TransparencyColorHigh, 0, 31) |
+      0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE_unpack(__gen_user_data *data, const void * restrict src,
+                                      struct GEN8_XY_PAT_CHROMA_BLT_IMMEDIATE * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TransparencyRangeMode = __gen_unpack_field(dw0, 17, 19);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->TransparencyColorLow = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->TransparencyColorHigh = __gen_unpack_field(dw7, 0, 31);
+
+   /* variable length fields follow */
+}
+
+#define GEN8_XY_PIXEL_BLT_length_bias 0x00000002
+#define GEN8_XY_PIXEL_BLT_header                \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 36,                  \
+   .DwordLength          =  0
+
+#define GEN8_XY_PIXEL_BLT_length 0x00000002
+
+struct GEN8_XY_PIXEL_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+};
+
+static inline void
+GEN8_XY_PIXEL_BLT_pack(__gen_user_data *data, void * restrict dst,
+                       const struct GEN8_XY_PIXEL_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_PIXEL_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_XY_PIXEL_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw1, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw1, 0, 15);
+
+}
+
+#define GEN8_XY_SCANLINES_BLT_length_bias 0x00000002
+#define GEN8_XY_SCANLINES_BLT_header            \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 37,                  \
+   .DwordLength          =  1
+
+#define GEN8_XY_SCANLINES_BLT_length 0x00000003
+
+struct GEN8_XY_SCANLINES_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     PatternHorizontalSeed;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     PatternVerticalSeed;
+   uint32_t                                     DwordLength;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+};
+
+static inline void
+GEN8_XY_SCANLINES_BLT_pack(__gen_user_data *data, void * restrict dst,
+                           const struct GEN8_XY_SCANLINES_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->PatternHorizontalSeed, 12, 14) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->PatternVerticalSeed, 8, 10) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_SCANLINES_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                           struct GEN8_XY_SCANLINES_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->PatternHorizontalSeed = __gen_unpack_field(dw0, 12, 14);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->PatternVerticalSeed = __gen_unpack_field(dw0, 8, 10);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw1, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw2, 0, 15);
+
+}
+
+#define GEN8_XY_SETUP_BLT_length_bias 0x00000002
+#define GEN8_XY_SETUP_BLT_header                \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode =  1,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_SETUP_BLT_length 0x0000000a
+
+struct GEN8_XY_SETUP_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabledTileXorTileY                          1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoSourceTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     ClipRectY1CoordinateTop;
+   uint32_t                                     ClipRectX1CoordinateLeft;
+   uint32_t                                     ClipRectY2CoordinateBottom;
+   uint32_t                                     ClipRectX2CoordinateRight;
+   __gen_address_type                           SetupDestinationBaseAddress;
+   __gen_address_type                           SetupDestinationBaseAddressHigh;
+   uint32_t                                     SetupBackgroundColor;
+   uint32_t                                     SetupForegroundColor;
+   __gen_address_type                           SetupPatternBaseAddressforColorPattern;
+   __gen_address_type                           SetupPatternBaseAddressforColorPatternHigh;
+};
+
+static inline void
+GEN8_XY_SETUP_BLT_pack(__gen_user_data *data, void * restrict dst,
+                       const struct GEN8_XY_SETUP_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoSourceTransparencyMode, 29, 29) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->ClipRectY1CoordinateTop, 16, 31) |
+      __gen_field(values->ClipRectX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->ClipRectY2CoordinateBottom, 16, 31) |
+      __gen_field(values->ClipRectX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->SetupDestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->SetupDestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SetupBackgroundColor, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SetupForegroundColor, 0, 31) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SetupPatternBaseAddressforColorPattern, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SetupPatternBaseAddressforColorPatternHigh, dw9);
+
+}
+
+static inline void
+GEN8_XY_SETUP_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                       struct GEN8_XY_SETUP_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoSourceTransparencyMode = __gen_unpack_field(dw1, 29, 29);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClipRectY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->ClipRectX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ClipRectY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->ClipRectX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SetupDestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->SetupDestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SetupBackgroundColor = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SetupForegroundColor = __gen_unpack_field(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SetupPatternBaseAddressforColorPattern = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SetupPatternBaseAddressforColorPatternHigh = __gen_unpack_address(dw9, 0, 15);
+
+}
+
+#define GEN8_XY_SETUP_CLIP_BLT_length_bias 0x00000002
+#define GEN8_XY_SETUP_CLIP_BLT_header           \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode =  3,                  \
+   .DwordLength          =  1
+
+#define GEN8_XY_SETUP_CLIP_BLT_length 0x00000003
+
+struct GEN8_XY_SETUP_CLIP_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabledTileXorTileY                          1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClipRectY1CoordinateTop;
+   uint32_t                                     ClipRectX1CoordinateLeft;
+   uint32_t                                     ClipRectY2CoordinateBottom;
+   uint32_t                                     ClipRectX2CoordinateRight;
+};
+
+static inline void
+GEN8_XY_SETUP_CLIP_BLT_pack(__gen_user_data *data, void * restrict dst,
+                            const struct GEN8_XY_SETUP_CLIP_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClipRectY1CoordinateTop, 16, 31) |
+      __gen_field(values->ClipRectX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->ClipRectY2CoordinateBottom, 16, 31) |
+      __gen_field(values->ClipRectX2CoordinateRight, 0, 15) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_SETUP_CLIP_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                            struct GEN8_XY_SETUP_CLIP_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClipRectY1CoordinateTop = __gen_unpack_field(dw1, 16, 31);
+   values->ClipRectX1CoordinateLeft = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClipRectY2CoordinateBottom = __gen_unpack_field(dw2, 16, 31);
+   values->ClipRectX2CoordinateRight = __gen_unpack_field(dw2, 0, 15);
+
+}
+
+#define GEN8_XY_SETUP_MONO_PATTERN_SL_BLT_length_bias 0x00000002
+#define GEN8_XY_SETUP_MONO_PATTERN_SL_BLT_header\
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 17,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_SETUP_MONO_PATTERN_SL_BLT_length 0x0000000a
+
+struct GEN8_XY_SETUP_MONO_PATTERN_SL_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabledTileXorTileY                          1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+#define     NoSolidPattern                                     0
+#define     SolidPattern                                       1
+   uint32_t                                     SolidPatternSelect;
+   uint32_t                                     ClippingEnabled;
+   uint32_t                                     MonoPatternTransparencyMode;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     ClipRectY1CoordinateTop;
+   uint32_t                                     ClipRectX1CoordinateLeft;
+   uint32_t                                     ClipRectY2CoordinateBottom;
+   uint32_t                                     ClipRectX2CoordinateRight;
+   __gen_address_type                           SetupDestinationBaseAddress;
+   __gen_address_type                           SetupDestinationBaseAddressHigh;
+   uint32_t                                     SetupBackgroundColor;
+   uint32_t                                     SetupForegroundColor;
+   uint32_t                                     DW0leastsignificantforaMonochromePattern;
+   uint32_t                                     DW1mostsignificantforaMonochromePattern;
+};
+
+static inline void
+GEN8_XY_SETUP_MONO_PATTERN_SL_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                       const struct GEN8_XY_SETUP_MONO_PATTERN_SL_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->SolidPatternSelect, 31, 31) |
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->MonoPatternTransparencyMode, 28, 28) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->ClipRectY1CoordinateTop, 16, 31) |
+      __gen_field(values->ClipRectX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->ClipRectY2CoordinateBottom, 16, 31) |
+      __gen_field(values->ClipRectX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->SetupDestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->SetupDestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SetupBackgroundColor, 0, 31) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SetupForegroundColor, 0, 31) |
+      0;
+
+   dw[8] =
+      __gen_field(values->DW0leastsignificantforaMonochromePattern, 0, 31) |
+      0;
+
+   dw[9] =
+      __gen_field(values->DW1mostsignificantforaMonochromePattern, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_SETUP_MONO_PATTERN_SL_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                       struct GEN8_XY_SETUP_MONO_PATTERN_SL_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->SolidPatternSelect = __gen_unpack_field(dw1, 31, 31);
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->MonoPatternTransparencyMode = __gen_unpack_field(dw1, 28, 28);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->ClipRectY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->ClipRectX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->ClipRectY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->ClipRectX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SetupDestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->SetupDestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SetupBackgroundColor = __gen_unpack_field(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SetupForegroundColor = __gen_unpack_field(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->DW0leastsignificantforaMonochromePattern = __gen_unpack_field(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->DW1mostsignificantforaMonochromePattern = __gen_unpack_field(dw9, 0, 31);
+
+}
+
+#define GEN8_XY_SRC_COPY_BLT_length_bias 0x00000002
+#define GEN8_XY_SRC_COPY_BLT_header             \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 83,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          =  8
+
+#define GEN8_XY_SRC_COPY_BLT_length 0x0000000a
+
+struct GEN8_XY_SRC_COPY_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+#define     TilingDisabledLinear                               0
+#define     TilingEnabled                                      1
+   uint32_t                                     SrcTilingEnable;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     DestTilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourceY1CoordinateTop;
+   uint32_t                                     SourceX1CoordinateLeft;
+   uint32_t                                     SourcePitchdoublewordalignedandinDWords;
+   __gen_address_type                           SourceBaseAddress;
+   __gen_address_type                           SourceBaseAddressHigh;
+};
+
+static inline void
+GEN8_XY_SRC_COPY_BLT_pack(__gen_user_data *data, void * restrict dst,
+                          const struct GEN8_XY_SRC_COPY_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->SrcTilingEnable, 15, 15) |
+      __gen_field(values->DestTilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourceY1CoordinateTop, 16, 31) |
+      __gen_field(values->SourceX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourcePitchdoublewordalignedandinDWords, 0, 15) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SourceBaseAddress, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SourceBaseAddressHigh, dw9);
+
+}
+
+static inline void
+GEN8_XY_SRC_COPY_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                          struct GEN8_XY_SRC_COPY_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->SrcTilingEnable = __gen_unpack_field(dw0, 15, 15);
+   values->DestTilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourceY1CoordinateTop = __gen_unpack_field(dw6, 16, 31);
+   values->SourceX1CoordinateLeft = __gen_unpack_field(dw6, 0, 15);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourcePitchdoublewordalignedandinDWords = __gen_unpack_field(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBaseAddress = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceBaseAddressHigh = __gen_unpack_address(dw9, 0, 15);
+
+}
+
+#define GEN8_XY_SRC_COPY_CHROMA_BLT_length_bias 0x00000002
+#define GEN8_XY_SRC_COPY_CHROMA_BLT_header      \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 115,                  \
+   ._32bppByteMask       =  0,                  \
+   .DwordLength          = 10
+
+#define GEN8_XY_SRC_COPY_CHROMA_BLT_length 0x0000000c
+
+struct GEN8_XY_SRC_COPY_CHROMA_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+   uint32_t                                     _32bppByteMask;
+   uint32_t                                     TransparencyRangeMode;
+#define     TilingDisabledLinear                               0
+#define     TilingEnabled                                      1
+   uint32_t                                     SrcTilingEnable;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     DestTilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     ClippingEnabled;
+#define     _8BitColor                                         0
+#define     _16BitColor565                                     1
+#define     _16BitColor1555                                    2
+#define     _32BitColor                                        3
+   uint32_t                                     ColorDepth;
+   uint32_t                                     RasterOperation;
+   uint32_t                                     DestinationPitchinDWords;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           DestinationBaseAddress;
+   __gen_address_type                           DestinationBaseAddressHigh;
+   uint32_t                                     SourceY1CoordinateTop;
+   uint32_t                                     SourceX1CoordinateLeft;
+   uint32_t                                     SourcePitchdoublewordalignedandinDWords;
+   __gen_address_type                           SourceBaseAddress;
+   __gen_address_type                           SourceBaseAddressHigh;
+   uint32_t                                     TransparencyColorLow;
+   uint32_t                                     TransparencyColorHigh;
+};
+
+static inline void
+GEN8_XY_SRC_COPY_CHROMA_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                 const struct GEN8_XY_SRC_COPY_CHROMA_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->_32bppByteMask, 20, 21) |
+      __gen_field(values->TransparencyRangeMode, 17, 19) |
+      __gen_field(values->SrcTilingEnable, 15, 15) |
+      __gen_field(values->DestTilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->ClippingEnabled, 30, 30) |
+      __gen_field(values->ColorDepth, 24, 25) |
+      __gen_field(values->RasterOperation, 16, 23) |
+      __gen_field(values->DestinationPitchinDWords, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[3] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->DestinationBaseAddress, dw4);
+
+   uint32_t dw5 =
+      0;
+
+   dw[5] =
+      __gen_combine_address(data, &dw[5], values->DestinationBaseAddressHigh, dw5);
+
+   dw[6] =
+      __gen_field(values->SourceY1CoordinateTop, 16, 31) |
+      __gen_field(values->SourceX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[7] =
+      __gen_field(values->SourcePitchdoublewordalignedandinDWords, 0, 15) |
+      0;
+
+   uint32_t dw8 =
+      0;
+
+   dw[8] =
+      __gen_combine_address(data, &dw[8], values->SourceBaseAddress, dw8);
+
+   uint32_t dw9 =
+      0;
+
+   dw[9] =
+      __gen_combine_address(data, &dw[9], values->SourceBaseAddressHigh, dw9);
+
+   dw[10] =
+      __gen_field(values->TransparencyColorLow, 0, 31) |
+      0;
+
+   dw[11] =
+      __gen_field(values->TransparencyColorHigh, 0, 31) |
+      0;
+
+}
+
+static inline void
+GEN8_XY_SRC_COPY_CHROMA_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                 struct GEN8_XY_SRC_COPY_CHROMA_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->_32bppByteMask = __gen_unpack_field(dw0, 20, 21);
+   values->TransparencyRangeMode = __gen_unpack_field(dw0, 17, 19);
+   values->SrcTilingEnable = __gen_unpack_field(dw0, 15, 15);
+   values->DestTilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->ClippingEnabled = __gen_unpack_field(dw1, 30, 30);
+   values->ColorDepth = __gen_unpack_field(dw1, 24, 25);
+   values->RasterOperation = __gen_unpack_field(dw1, 16, 23);
+   values->DestinationPitchinDWords = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw3, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw3, 0, 15);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DestinationBaseAddress = __gen_unpack_address(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->DestinationBaseAddressHigh = __gen_unpack_address(dw5, 0, 15);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->SourceY1CoordinateTop = __gen_unpack_field(dw6, 16, 31);
+   values->SourceX1CoordinateLeft = __gen_unpack_field(dw6, 0, 15);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->SourcePitchdoublewordalignedandinDWords = __gen_unpack_field(dw7, 0, 15);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->SourceBaseAddress = __gen_unpack_address(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->SourceBaseAddressHigh = __gen_unpack_address(dw9, 0, 15);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->TransparencyColorLow = __gen_unpack_field(dw10, 0, 31);
+
+   const uint32_t dw11 __attribute__((unused)) = dw[11];
+   values->TransparencyColorHigh = __gen_unpack_field(dw11, 0, 31);
+
+}
+
+#define GEN8_XY_TEXT_BLT_length_bias 0x00000002
+#define GEN8_XY_TEXT_BLT_header                 \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 38,                  \
+   .DwordLength          =  3
+
+#define GEN8_XY_TEXT_BLT_length 0x00000005
+
+struct GEN8_XY_TEXT_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+#define     Bit                                                0
+#define     Byte                                               1
+   uint32_t                                     BitBytePacked;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   __gen_address_type                           SourceAddress;
+   __gen_address_type                           SourceAddressHigh;
+};
+
+static inline void
+GEN8_XY_TEXT_BLT_pack(__gen_user_data *data, void * restrict dst,
+                      const struct GEN8_XY_TEXT_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->BitBytePacked, 16, 16) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   uint32_t dw3 =
+      0;
+
+   dw[3] =
+      __gen_combine_address(data, &dw[3], values->SourceAddress, dw3);
+
+   uint32_t dw4 =
+      0;
+
+   dw[4] =
+      __gen_combine_address(data, &dw[4], values->SourceAddressHigh, dw4);
+
+}
+
+static inline void
+GEN8_XY_TEXT_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                      struct GEN8_XY_TEXT_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->BitBytePacked = __gen_unpack_field(dw0, 16, 16);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw1, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw2, 0, 15);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->SourceAddress = __gen_unpack_address(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->SourceAddressHigh = __gen_unpack_address(dw4, 0, 15);
+
+}
+
+#define GEN8_XY_TEXT_IMMEDIATE_BLT_length_bias 0x00000002
+#define GEN8_XY_TEXT_IMMEDIATE_BLT_header       \
+   .Client               =  2,                  \
+   .InstructionTargetOpcode = 49
+
+#define GEN8_XY_TEXT_IMMEDIATE_BLT_length 0x00000000
+
+struct GEN8_XY_TEXT_IMMEDIATE_BLT {
+   uint32_t                                     Client;
+   uint32_t                                     InstructionTargetOpcode;
+#define     Bit                                                0
+#define     Byte                                               1
+   uint32_t                                     BitBytePacked;
+#define     TilingDisabledLinearBlit                           0
+#define     TilingEnabled                                      1
+   uint32_t                                     TilingEnable;
+   uint32_t                                     DwordLength;
+   uint32_t                                     DestinationY1CoordinateTop;
+   uint32_t                                     DestinationX1CoordinateLeft;
+   uint32_t                                     DestinationY2CoordinateBottom;
+   uint32_t                                     DestinationX2CoordinateRight;
+   /* variable length fields follow */
+};
+
+static inline void
+GEN8_XY_TEXT_IMMEDIATE_BLT_pack(__gen_user_data *data, void * restrict dst,
+                                const struct GEN8_XY_TEXT_IMMEDIATE_BLT * restrict values)
+{
+   uint32_t *dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_field(values->Client, 29, 31) |
+      __gen_field(values->InstructionTargetOpcode, 22, 28) |
+      __gen_field(values->BitBytePacked, 16, 16) |
+      __gen_field(values->TilingEnable, 11, 11) |
+      __gen_field(values->DwordLength, 0, 7) |
+      0;
+
+   dw[1] =
+      __gen_field(values->DestinationY1CoordinateTop, 16, 31) |
+      __gen_field(values->DestinationX1CoordinateLeft, 0, 15) |
+      0;
+
+   dw[2] =
+      __gen_field(values->DestinationY2CoordinateBottom, 16, 31) |
+      __gen_field(values->DestinationX2CoordinateRight, 0, 15) |
+      0;
+
+   /* variable length fields follow */
+}
+
+static inline void
+GEN8_XY_TEXT_IMMEDIATE_BLT_unpack(__gen_user_data *data, const void * restrict src,
+                                struct GEN8_XY_TEXT_IMMEDIATE_BLT * restrict values)
+{
+   const uint32_t *dw = (uint32_t * restrict) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->Client = __gen_unpack_field(dw0, 29, 31);
+   values->InstructionTargetOpcode = __gen_unpack_field(dw0, 22, 28);
+   values->BitBytePacked = __gen_unpack_field(dw0, 16, 16);
+   values->TilingEnable = __gen_unpack_field(dw0, 11, 11);
+   values->DwordLength = __gen_unpack_field(dw0, 0, 7);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->DestinationY1CoordinateTop = __gen_unpack_field(dw1, 16, 31);
+   values->DestinationX1CoordinateLeft = __gen_unpack_field(dw1, 0, 15);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->DestinationY2CoordinateBottom = __gen_unpack_field(dw2, 16, 31);
+   values->DestinationX2CoordinateRight = __gen_unpack_field(dw2, 0, 15);
+
+   /* variable length fields follow */
+}
+
 #define GEN8_SCISSOR_RECT_length 0x00000002
 
 struct GEN8_SCISSOR_RECT {
@@ -11355,7 +15010,7 @@ GEN8_SF_CLIP_VIEWPORT_pack(__gen_user_data *data, void * restrict dst,
 struct GEN8_BLEND_STATE_ENTRY {
    bool                                         LogicOpEnable;
    uint32_t                                     LogicOpFunction;
-   uint32_t                                     PreBlendSourceOnlyClampEnable;
+   bool                                         PreBlendSourceOnlyClampEnable;
 #define     COLORCLAMP_UNORM                                   0
 #define     COLORCLAMP_SNORM                                   1
 #define     COLORCLAMP_RTFORMAT                                2
@@ -11471,7 +15126,7 @@ struct GEN8_COLOR_CALC_STATE {
    uint32_t                                     BackFaceStencilReferenceValue;
 #define     Cancelled                                          0
 #define     NotCancelled                                       1
-   uint32_t                                     RoundDisableFunctionDisable;
+   bool                                         RoundDisableFunctionDisable;
 #define     ALPHATEST_UNORM8                                   0
 #define     ALPHATEST_FLOAT32                                  1
    uint32_t                                     AlphaTestFormat;

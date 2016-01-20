@@ -107,6 +107,12 @@ handle_mi_load_register_imm(uint32_t *p)
 }
 
 static void
+handle_mi_flush_dw(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MI_FLUSH_DW\n");
+}
+
+static void
 handle_mi_load_register_mem(uint32_t *p)
 {
 	uint64_t address = get_u64(&p[2]);
@@ -138,10 +144,180 @@ static const command_handler_t mi_commands[] = {
 	[10] = handle_mi_batch_buffer_end,
 	[26] = handle_mi_math,
 	[34] = handle_mi_load_register_imm,
+	[38] = handle_mi_flush_dw,
 	[41] = handle_mi_load_register_mem,
 	[47] = handle_mi_atomic,
 	[49] = handle_mi_batch_buffer_start
 };
+
+static void
+handle_xy_setup_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SETUP_BLT\n");
+}
+
+static void
+handle_xy_setup_clip_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SETUP_CLIP_BLT\n");
+}
+
+static void
+handle_xy_setup_mono_pattern_sl_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SETUP_MONO_PATTERN_SL_BLT\n");
+}
+
+static void
+handle_xy_pixel_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_PIXEL_BLT\n");
+}
+
+static void
+handle_xy_scanlines_pixel_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SCANLINES_PIXEL_BLT\n");
+}
+
+static void
+handle_xy_text_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_TEXT_BLT\n");
+}
+
+static void
+handle_xy_text_immediate_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_TEXT_IMMEDIATE_BLT\n");
+}
+
+static void
+handle_xy_color_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_COLOR_BLT\n");
+}
+
+static void
+handle_xy_pat_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_PAT_BLT\n");
+}
+
+static void
+handle_xy_mono_pat_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_MONO_PAT_BLT\n");
+}
+
+static void
+handle_xy_src_copy_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SRC_COPY_BLT\n");
+
+	struct GEN8_XY_SRC_COPY_BLT v;
+	GEN8_XY_SRC_COPY_BLT_unpack(NULL, p, &v);
+}
+
+static void
+handle_xy_mono_src_copy_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_MONO_SRC_COPY_BLT\n");
+}
+
+static void
+handle_xy_full_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_BLT\n");
+}
+
+static void
+handle_xy_full_mono_src_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_MONO_SRC_BLT\n");
+}
+
+static void
+handle_xy_full_mono_pattern_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_MONO_PATTERN_BLT\n");
+}
+
+static void
+handle_xy_full_mono_pattern_src_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_MONO_PATTERN_SRC_BLT\n");
+}
+
+static void
+handle_xy_mono_pat_fixed_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_MONO_PAT_FIXED_BLT\n");
+}
+
+static void
+handle_xy_pat_blt_immediate(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_PAT_BLT_IMMEDIATE\n");
+}
+
+static void
+handle_xy_src_copy_chroma_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_SRC_COPY_CHROMA_BLT\n");
+}
+
+static void
+handle_xy_full_immediate_pattern_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_IMMEDIATE_PATTERN_BLT\n");
+}
+
+static void
+handle_xy_full_mono_src_immediate_pattern_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_FULL_MONO_SRC_IMMEDIATE_PATTERN_BLT\n");
+}
+
+static void
+handle_xy_pat_chroma_blt(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_PAT_CHROMA_BLT\n");
+}
+
+static void
+handle_xy_pat_chroma_blt_immediate(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "XY_PAT_CHROMA_BLT_IMMEDIATE\n");
+}
+
+static const command_handler_t xy_commands[] = {
+	[  1] = handle_xy_setup_blt,
+	[  3] = handle_xy_setup_clip_blt,
+	[ 17] = handle_xy_setup_mono_pattern_sl_blt,
+	[ 36] = handle_xy_pixel_blt,
+	[ 37] = handle_xy_scanlines_pixel_blt,
+	[ 38] = handle_xy_text_blt,
+	[ 49] = handle_xy_text_immediate_blt,
+	[ 80] = handle_xy_color_blt,
+	[ 81] = handle_xy_pat_blt,
+	[ 82] = handle_xy_mono_pat_blt,
+	[ 83] = handle_xy_src_copy_blt,
+	[ 84] = handle_xy_mono_src_copy_blt,
+	[ 85] = handle_xy_full_blt,
+	[ 86] = handle_xy_full_mono_src_blt,
+	[ 87] = handle_xy_full_mono_pattern_blt,
+	[ 88] = handle_xy_full_mono_pattern_src_blt,
+	[ 89] = handle_xy_mono_pat_fixed_blt,
+	[114] = handle_xy_pat_blt_immediate,
+	[115] = handle_xy_src_copy_chroma_blt,
+	[116] = handle_xy_full_immediate_pattern_blt,
+	[117] = handle_xy_full_mono_src_immediate_pattern_blt,
+	[118] = handle_xy_pat_chroma_blt,
+	[119] = handle_xy_pat_chroma_blt_immediate
+};
+
+
 
 static void
 handle_state_base_address(uint32_t *p)
@@ -1227,9 +1403,15 @@ start_batch_buffer(uint64_t address)
 		}
 
 		case 1:
-		case 2: /* ? */
 			ksim_unreachable("unknown command type: %d", type);
 			break;
+
+		case 2: /* Blitter */ {
+			uint32_t opcode = field(h, 22, 28);
+			handler = xy_commands[opcode];
+			length = field(h, 0, 7) + 2;
+			break;
+		}
 
 		case 3: /* Render */ {
 			uint32_t subtype = field(h, 27, 28);
@@ -1254,7 +1436,7 @@ start_batch_buffer(uint64_t address)
 			break;
 		}
 		default:
-			ksim_unreachable("command type");
+			ksim_unreachable("command type %d", type);
 		}
 
 		ksim_assert(p + length < base + range);

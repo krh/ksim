@@ -167,7 +167,13 @@ handle_gem_bind(struct message *m)
 }
 
 static void
-handle_gem_exec(struct message *m)
+handle_gem_exec_render(struct message *m)
+{
+	start_batch_buffer(m->offset);
+}
+
+static void
+handle_gem_exec_blit(struct message *m)
 {
 	start_batch_buffer(m->offset);
 }
@@ -252,8 +258,11 @@ handle_requests(void)
 	case MSG_GEM_BIND:
 		handle_gem_bind(&u.m);
 		break;
-	case MSG_GEM_EXEC:
-		handle_gem_exec(&u.m);
+	case MSG_GEM_EXEC_RENDER:
+		handle_gem_exec_render(&u.m);
+		break;
+	case MSG_GEM_EXEC_BLIT:
+		handle_gem_exec_blit(&u.m);
 		break;
 	case MSG_GEM_SET_DOMAIN:
 		handle_gem_set_domain(&u.m);
