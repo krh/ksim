@@ -1,0 +1,64 @@
+							-*- mode: outline -*-
+
+* GEM/Stub
+
+** Handle userptr
+
+** Handle DRM_IOCTL_VERSION
+
+* Stages
+
+** Geometry
+
+** Tesselation
+
+** Compute
+
+* Fixed function
+
+** Depth buffers
+
+Add various depth tests, support all formats, do HiZ.
+
+** Stencil
+
+** Blending
+
+* Thread pool
+
+* JIT
+
+** JIT in ps thread setup code
+
+We can generate code to copy in the exact payload we'll need. Also
+compile in depth test. Maybe even entire tile level loop to avoid
+function pointer dispatch per SIMD8 group.
+
+** Optimize rt write
+
+* WM
+
+** Use AVX2
+
+** Subpixel precision
+
+** Perspective correct barycentric
+
+** Multi-sample
+
+** Lines, points
+
+* EU
+
+** All the instructions
+
+** Indirect addressing
+
+** Control flow
+
+** Write masks
+
+Can ignore outside control flow, inside control flow we can use avx2
+blend to implement write masking.
+
+** Execution size greater than 8
