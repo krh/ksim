@@ -264,6 +264,8 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 		break;
 	case D16_UNORM:
 		stub("D16_UNORM");
+	default:
+		ksim_unreachable("invalid depth format");
 	}
 
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
