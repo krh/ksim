@@ -166,6 +166,12 @@ align_u64(uint64_t v, uint64_t a)
 	return (v + a - 1) & ~(a - 1);
 }
 
+static inline void *
+align_ptr(void *p, uint64_t a)
+{
+	return (void *) align_u64((uint64_t) p, a);
+}
+
 static inline uint64_t
 max_u64(uint64_t a, uint64_t b)
 {

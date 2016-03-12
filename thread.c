@@ -71,7 +71,6 @@ print_inst(void *p)
 void
 prepare_shaders(void)
 {
-	int offset = 0;
 	uint64_t ksp, range;
 	char cache[64 * 1024];
 	void *kernel, *end;
@@ -85,14 +84,14 @@ prepare_shaders(void)
 		close(fd);
 	}
 
-	offset = 0;
+	end = pool;
 	if (gt.vs.enable) {
 		ksp = gt.vs.ksp + gt.instruction_base_address;
 		kernel = map_gtt_offset(ksp, &range);
 		gen_disasm_uncompact(get_disasm(), kernel,
 				     cache, sizeof(cache));
 
-		gt.vs.avx_shader = pool + offset;
+		gt.vs.avx_shader = end;
 		end = compile_shader(cache, gt.vs.avx_shader,
 				     gt.vs.binding_table_address,
 				     gt.vs.sampler_state_address);
@@ -100,11 +99,10 @@ prepare_shaders(void)
 
 	ksp = gt.ps.ksp0 + gt.instruction_base_address;
 	kernel = map_gtt_offset(ksp, &range);
-	offset = gen_disasm_uncompact(get_disasm(), kernel,
-				      cache, sizeof(cache));
+	gen_disasm_uncompact(get_disasm(), kernel,
+			     cache, sizeof(cache));
 
-	offset = end - (void *) gt.vs.avx_shader;
-	gt.ps.avx_shader = pool + align_u64(offset, 64);
+	gt.ps.avx_shader = align_ptr(end, 64);
 	end = compile_shader(cache, gt.ps.avx_shader,
 			     gt.ps.binding_table_address,
 			     gt.ps.sampler_state_address);
