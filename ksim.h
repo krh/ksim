@@ -435,7 +435,9 @@ struct value {
 	union {
 		struct { float x, y, z, w; } vec4;
 		struct { int32_t x, y, z, w; } ivec4;
+		struct { uint32_t x, y, z, w; } uvec4;
 		int32_t v[4];
+		int32_t u[4];
 		float f[4];
 	};
 };
@@ -450,6 +452,12 @@ static inline struct value
 ivec4(int32_t x, int32_t y, int32_t z, int32_t w)
 {
 	return (struct value) { .ivec4 = { x, y, z, w } };
+}
+
+static inline struct value
+uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
+{
+	return (struct value) { .uvec4 = { x, y, z, w } };
 }
 
 void dispatch_primitive(void);

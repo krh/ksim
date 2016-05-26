@@ -271,23 +271,31 @@ format_size(uint32_t format)
 struct value
 fetch_format(uint64_t offset, uint32_t format)
 {
-	float *f;
+	struct value *v;
 	uint64_t range;
 
-	f = map_gtt_offset(offset, &range);
+	v = map_gtt_offset(offset, &range);
 
 	/* check that we're within the bo */
 	ksim_assert(range > format_size(format));
 
 	switch (format) {
 	case R32_FLOAT:
-		return vec4(f[0], 0.0f, 0.0f, 0.0f);
+		return vec4(v->f[0], 0.0f, 0.0f, 0.0f);
 	case R32G32_FLOAT:
-		return vec4(f[0], f[1], 0.0f, 0.0f);
+		return vec4(v->f[0], v->f[1], 0.0f, 0.0f);
 	case R32G32B32_FLOAT:
-		return vec4(f[0], f[1], f[2], 0.0f);
+		return vec4(v->f[0], v->f[1], v->f[2], 0.0f);
 	case R32G32B32A32_FLOAT:
-		return vec4(f[0], f[1], f[2], f[3]);
+		return vec4(v->f[0], v->f[1], v->f[2], v->f[3]);
+	case R32_UINT:
+		return uvec4(v->u[0], 0, 0, 1);
+	case R32G32_UINT:
+		return uvec4(v->u[0], v->u[1], 0, 1);
+	case R32G32B32_UINT:
+		return uvec4(v->u[0], v->u[1], v->u[2], 1);
+	case R32G32B32A32_UINT:
+		return uvec4(v->u[0], v->u[1], v->u[2], v->u[3]);
 	default:
 		stub("vertex fetch format %d", format);
 		assert(0);
