@@ -580,7 +580,7 @@ void *compile_shader(void *kernel, struct shader *shader,
 #define __gen_address_type uint64_t
 #define __gen_combine_address(data, dst, address, delta) delta
 #define __gen_user_data void
-#define __gen_unpack_address(qw, start, end) __gen_unpack_field(qw, start, end)
+#define __gen_unpack_address(qw, start, end) __gen_unpack_offset(qw, start, end)
 
 #include "gen8_pack.h"
 
