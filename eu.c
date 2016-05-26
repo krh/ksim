@@ -1104,7 +1104,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	args->src = unpack_inst_2src_src0(inst).num;
 
 	uint32_t msg = field(send.function_control, 12, 16);
-	uint32_t simd_mode = field(send.function_control, 17, 17);
+	uint32_t simd_mode = field(send.function_control, 17, 18);
 	uint32_t sampler = field(send.function_control, 8, 11);
 	uint32_t surface = field(send.function_control, 0, 7);
 	uint32_t format = field(send.function_control, 12, 13);
