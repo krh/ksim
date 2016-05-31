@@ -168,19 +168,42 @@ sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 	offsets.ireg =
 		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+
+	const __m256i mask = _mm256_set1_epi32(0xff);
+	const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
 	struct reg argb32;
-	argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
 
-	/* Unpack RGBX */
-	__m256i mask = _mm256_set1_epi32(0xff);
-	__m256 scale = _mm256_set1_ps(1.0f / 255.0f);
-	t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
-	argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
-	t->grf[args->dst + 1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
-	argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
-	t->grf[args->dst + 2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+	switch (args->tex.format) {
+	case R8G8B8X8_UNORM:
+		argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+		t->grf[args->dst + 1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+		t->grf[args->dst + 2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		t->grf[args->dst + 3].reg = _mm256_set1_ps(1.0f);
+		break;
+	case R8G8B8A8_UNORM:
+		argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+		t->grf[args->dst + 1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+		t->grf[args->dst + 2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
+		t->grf[args->dst + 3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
+		break;
 
-	t->grf[args->dst + 3].reg = _mm256_set1_ps(1.0f);
+	case R32G32B32A32_FLOAT:
+		t->grf[args->dst + 0].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		offsets.ireg = _mm256_add_epi32(offsets.ireg, _mm256_set1_epi32(4));
+		t->grf[args->dst + 1].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		offsets.ireg = _mm256_add_epi32(offsets.ireg, _mm256_set1_epi32(4));
+		t->grf[args->dst + 2].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		offsets.ireg = _mm256_add_epi32(offsets.ireg, _mm256_set1_epi32(4));
+		t->grf[args->dst + 3].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		break;
+	}
 }
 
 void
