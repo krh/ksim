@@ -296,6 +296,9 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 {
 	uint32_t g;
 
+	if (!gt.ps.enable_simd8)
+		return;
+
 	assert(gt.ps.enable_simd8);
 
 	/* Not sure what we should make this. */
