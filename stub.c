@@ -53,7 +53,6 @@ static void *(*libc_mmap)(void *addr, size_t length, int prot, int flags, int fd
 static int drm_fd = -1;
 static int memfd = -1;
 static int memfd_size = MEMFD_INITIAL_SIZE;
-static int socket_fd = -1;
 
 #define STUB_BO_USERPTR 1
 #define STUB_BO_PRIME 2
@@ -73,16 +72,26 @@ struct stub_bo {
 	uint32_t kernel_handle;
 };
 
+struct gtt_entry {
+	uint32_t handle;
+};
+
 static struct stub_bo bos[1024], *bo_free_list;
 static int next_handle = 1;
 #define gtt_order 20
 static const uint64_t gtt_size = 4096ul << gtt_order;
+static struct gtt_entry gtt[1 << gtt_order];
 static uint64_t next_offset = 0ul;
 
 static uint64_t
 alloc_range(size_t size)
 {
 	uint64_t offset;
+
+	if (memfd == -1) {
+		memfd = memfd_create("ksim bo", MFD_CLOEXEC);
+		ftruncate(memfd, MEMFD_INITIAL_SIZE);
+	}
 
 	offset = memfd_size;
 	memfd_size += align_u64(size, 4096);
@@ -131,6 +140,43 @@ get_handle(struct stub_bo *bo)
 	return bo - bos;
 }
 
+void
+bind_bo(struct stub_bo *bo, uint64_t offset)
+{
+	uint32_t num_pages = (bo->size + 4095) >> 12;
+	uint32_t start_page = offset >> 12;
+
+	ksim_assert(bo->size > 0);
+	ksim_assert(offset < gtt_size);
+	ksim_assert(offset + bo->size < gtt_size);
+
+	bo->gtt_offset = offset;
+	for (uint32_t p = 0; p < num_pages; p++) {
+		ksim_assert(gtt[start_page + p].handle == 0);
+		gtt[start_page + p].handle = get_handle(bo);
+	}
+}
+
+void *
+map_gtt_offset(uint64_t offset, uint64_t *range)
+{
+	struct gtt_entry entry;
+	struct stub_bo *bo;
+
+	ksim_assert(offset < gtt_size);
+	entry = gtt[offset >> 12];
+	bo = get_bo(entry.handle);
+
+	ksim_assert(bo->gtt_offset != NOT_BOUND && bo->size > 0);
+	ksim_assert(bo->gtt_offset <= offset);
+	ksim_assert(offset < bo->gtt_offset + bo->size);
+
+	*range = bo->gtt_offset + bo->size - offset;
+
+	return bo->map + (offset - bo->gtt_offset);
+}
+
+
 static void
 close_bo(struct stub_bo *bo)
 {
@@ -150,7 +196,8 @@ close_bo(struct stub_bo *bo)
 		bo->kernel_handle = 0;
 	}
 
-	munmap(bo->map, bo->size);
+	if (bo->offset != STUB_BO_USERPTR)
+		munmap(bo->map, bo->size);
 
 	bo->next = bo_free_list;
 	bo_free_list = bo;
@@ -206,60 +253,6 @@ close(int fd)
 
 	return libc_close(fd);
 }
-
-static void
-send_message_with_fd(struct message *m, int fd)
-{
-	struct iovec iov[2];
-	struct msghdr msg;
-	union {
-		struct cmsghdr cmsg;
-		char buffer[CMSG_LEN(sizeof(fd))];
-	} u;
-	int len;
-
-	iov[0].iov_base = m;
-	iov[0].iov_len = sizeof(*m);
-
-	if (fd >= 0) {
-		u.cmsg.cmsg_level = SOL_SOCKET;
-		u.cmsg.cmsg_type = SCM_RIGHTS;
-		u.cmsg.cmsg_len = CMSG_LEN(sizeof(fd));
-		*(int*)CMSG_DATA(&u.cmsg) = fd;
-	} else {
-		u.cmsg.cmsg_len = 0;
-	}
-
-	msg.msg_name = NULL;
-	msg.msg_namelen = 0;
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-	msg.msg_flags = 0;
-	msg.msg_control = &u.cmsg;
-	msg.msg_controllen = u.cmsg.cmsg_len;
-
-	len = sendmsg(socket_fd, &msg,
-		      MSG_NOSIGNAL | MSG_DONTWAIT);
-
-	ksim_assert(len == sizeof(*m));
-}
-
-static void
-send_message(struct message *m)
-{
-	send_message_with_fd(m, -1);
-}
-
-static void
-receive_message(struct message *m)
-{
-	int len;
-
-	len = read(socket_fd, m, sizeof *m);
-	if (len != sizeof(*m))
-		error(EXIT_FAILURE, errno, "lost connection to ksim");
-}
-
 
 static int
 dispatch_getparam(int fd, unsigned long request,
@@ -362,12 +355,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 			bo->gtt_offset = align_u64(next_offset, alignment);
 			next_offset = bo->gtt_offset + bo->size;
 
-			struct message m = {
-				.type = MSG_GEM_BIND,
-				.handle = buffers[i].handle,
-				.offset = bo->gtt_offset,
-			};
-			send_message(&m);
+			bind_bo(bo, bo->gtt_offset);
 
 			trace(TRACE_GEM, "binding to %08x\n", bo->gtt_offset);
 		} else {
@@ -411,34 +399,23 @@ dispatch_execbuffer2(int fd, unsigned long request,
 			target = get_bo(handle);
 			ksim_assert(relocs[j].offset + sizeof(*dst) < bo->size);
 
-			if (bo->map == NULL)
-				bo->map = mmap(NULL, bo->size, PROT_READ | PROT_WRITE,
-					       MAP_SHARED, memfd, bo->offset);
-			ksim_assert(bo->map != NULL);
-
 			dst = bo->map + relocs[j].offset;
 			if (relocs[j].presumed_offset != target->gtt_offset)
 				*dst = target->gtt_offset + relocs[j].delta;
 		}
 	}
 
-	uint32_t type;
-	switch (execbuffer2->flags & I915_EXEC_RING_MASK) {
+	uint32_t ring = execbuffer2->flags & I915_EXEC_RING_MASK;
+	switch (ring) {
 	case I915_EXEC_RENDER:
-		type = MSG_GEM_EXEC_RENDER;
-		break;
 	case I915_EXEC_BLT:
-		type = MSG_GEM_EXEC_BLIT;
 		break;
 	default:
 		ksim_unreachable("unhandled ring");
 	}
 
-	struct message m = {
-		.type = type,
-		.offset = bo->gtt_offset + execbuffer2->batch_start_offset
-	};
-	send_message(&m);
+	uint64_t offset = bo->gtt_offset + execbuffer2->batch_start_offset;
+	start_batch_buffer(offset, ring);
 
 	return 0;
 }
@@ -459,14 +436,8 @@ dispatch_create(int fd, unsigned long request,
 	bo->offset = alloc_range(create->size);
 	create->handle = get_handle(bo);
 
-	struct message m = {
-		.type = MSG_GEM_CREATE,
-		.handle = create->handle,
-		.offset = bo->offset,
-		.size = bo->size
-	};
-
-	send_message(&m);
+	bo->map = mmap(NULL, bo->size, PROT_READ | PROT_WRITE,
+		       MAP_SHARED, memfd, bo->offset);
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_CREATE: "
 	      "new bo %d, size %ld\n", create->handle, bo->size);
@@ -558,12 +529,6 @@ static int
 dispatch_set_domain(int fd, unsigned long request,
 		    struct drm_i915_gem_set_domain *set_domain)
 {
-	struct message m = {
-		.type = MSG_GEM_SET_DOMAIN,
-	};
-	send_message(&m);
-	receive_message(&m);
-
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_DOMAIN\n");
 	return 0;
 }
@@ -590,7 +555,6 @@ dispatch_userptr(int fd, unsigned long request,
 		 struct drm_i915_gem_userptr *userptr)
 {
 	struct stub_bo *bo = create_bo(userptr->user_size);
-	struct drm_prime_handle p;
 	int ret;
 
 	ret = libc_ioctl(fd, request, userptr);
@@ -601,20 +565,7 @@ dispatch_userptr(int fd, unsigned long request,
 	bo->map = (void *) (uintptr_t) userptr->user_ptr;
 	bo->kernel_handle = userptr->handle;
 
-	p.handle = bo->kernel_handle;
-	p.flags = DRM_CLOEXEC;
-	ret = libc_ioctl(fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &p);
-	ksim_assert(ret != -1);
-
 	userptr->handle = get_handle(bo);
-	struct message m = {
-		.type = MSG_GEM_PRIME,
-		.handle = userptr->handle,
-		.size = bo->size
-	};
-
-	send_message_with_fd(&m, p.fd);
-	close(p.fd);
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_USERPTR size=%llu -> handle=%u\n",
 	      userptr->user_size, userptr->handle);
@@ -630,11 +581,6 @@ dispatch_close(int fd, unsigned long request,
 
 	trace(TRACE_GEM, "DRM_IOCTL_GEM_CLOSE\n");
 	close_bo(bo);
-	struct message m = {
-		.type = MSG_GEM_CLOSE,
-		.handle = gem_close->handle
-	};
-	send_message(&m);
 
 	return 0;
 }
@@ -655,15 +601,6 @@ dispatch_prime_fd_to_handle(int fd, unsigned long request,
 
 	bo->offset = STUB_BO_PRIME;
 	bo->kernel_handle = prime->handle;
-
-	prime->handle = get_handle(bo);
-	struct message m = {
-		.type = MSG_GEM_PRIME,
-		.handle = prime->handle,
-		.size = bo->size
-	};
-
-	send_message_with_fd(&m, prime->fd);
 
 	trace(TRACE_GEM, "DRM_IOCTL_PRIME_FD_TO_HANDLE size=%llu -> handle=%u\n",
 	      bo->size, get_handle(bo));
@@ -858,8 +795,10 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 	return p;
 }
 
-uint32_t trace_mask = 0;
+uint32_t trace_mask = ~0;
 FILE *trace_file;
+char *framebuffer_filename;
+bool use_threads;
 
 __attribute__ ((constructor)) static void
 ksim_stub_init(void)
@@ -867,9 +806,8 @@ ksim_stub_init(void)
 	const char *args;
 
 	args = getenv("KSIM_ARGS");
-	ksim_assert(args != NULL &&
-		    sscanf(args, "%d,%d,%d",
-			   &memfd, &socket_fd, &trace_mask) == 3);
+	ksim_assert(args != NULL);
+	printf("ksim args: %s\n", args);
 
 	prctl(PR_SET_PDEATHSIG, SIGHUP);
 

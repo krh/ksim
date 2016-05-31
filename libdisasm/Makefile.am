@@ -1,6 +1,6 @@
 AM_CFLAGS = \
-	-Wall -std=c99 -march=native -mrtm
-	$(NULL)
+	-Wall -std=c99 -march=native -mrtm \
+	-fvisibility=hidden
 
 AM_CPPFLAGS = -I$(top_srcdir)/intel
 

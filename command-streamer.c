@@ -134,6 +134,13 @@ handle_mi_atomic(uint32_t *p)
 static void
 handle_mi_batch_buffer_start(uint32_t *p)
 {
+	struct GEN8_MI_BATCH_BUFFER_START v;
+	GEN8_MI_BATCH_BUFFER_START_unpack(NULL, p, &v);
+	uint64_t range;
+
+	gt.cs.next = map_gtt_offset(v.BatchBufferStartAddress, &range);
+	gt.cs.end = gt.cs.next + range;
+
 	ksim_trace(TRACE_CS, "MI_BATCH_BUFFER_START\n");
 }
 
@@ -1371,23 +1378,24 @@ get_3dstate_command(uint32_t *p)
 }
 
 void
-start_batch_buffer(uint64_t address)
+start_batch_buffer(uint64_t address, uint32_t ring)
 {
 	bool done = false;
 	uint64_t range;
-	uint32_t *base, *p;
+	uint32_t *p;
 	command_handler_t handler;
 
 	gt.curbe_dynamic_state_base = true;
-	base = map_gtt_offset(address, &range);
+	gt.cs.next = map_gtt_offset(address, &range);
+	gt.cs.end = gt.cs.next + range;
 
-	p = base;
 	while (!done) {
-		uint32_t h = p[0];
-		uint32_t type = field(h, 29, 31);
-		uint32_t length;
+		p = gt.cs.next;
+		ksim_assert(p + 4 < gt.cs.end);
 
-		ksim_assert(p + 4 < base + range);
+		const uint32_t h = p[0];
+		const uint32_t type = field(h, 29, 31);
+		uint32_t length;
 
 		switch (type) {
 		case 0: /* MI */ {
@@ -1439,11 +1447,11 @@ start_batch_buffer(uint64_t address)
 			ksim_unreachable("command type %d", type);
 		}
 
-		ksim_assert(p + length < base + range);
+		ksim_assert(p + length < gt.cs.end);
+		gt.cs.next = p + length;
 		if (handler)
 			handler(p);
 		else
 			unhandled_command(p);
-		p += length;
 	}
 }

@@ -166,8 +166,10 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 
 	offset = get_u64(&state[8]);
 	s->pixels = map_gtt_offset(offset, &range);
-	if (range < s->height * s->stride)
+	if (range < s->height * s->stride) {
+		ksim_warn("surface state out-of-range for bo\n");
 		return false;
+	}
 
 	return true;
 }
@@ -524,6 +526,8 @@ do_work(void *arg)
 
 	return NULL;
 }
+
+bool use_threads;
 
 void
 rasterize_primitive(struct primitive *prim)

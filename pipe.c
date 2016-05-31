@@ -423,9 +423,19 @@ assemble_primitives(struct value **vue, int count)
 		break;
 
 	case _3DPRIM_RECTLIST:
+		while (gt.ia.queue.head - tail >= 3) {
+			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
+			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			setup_prim(&prim);
+			tail += 3;
+		}
+
+#if 0
 		stub("_3DPRIM_RECTLIST");
 		wm_clear();
 		tail = gt.ia.queue.head;
+#endif
 		break;
 
 	default:

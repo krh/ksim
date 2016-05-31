@@ -178,7 +178,7 @@ max_u64(uint64_t a, uint64_t b)
 	return a > b ? a : b;
 }
 
-void start_batch_buffer(uint64_t address);
+void start_batch_buffer(uint64_t address, uint32_t ring);
 
 enum {
 	KSIM_VERTEX_STAGE,
@@ -414,6 +414,11 @@ struct gt {
 		uint32_t dimy;
 		uint32_t dimz;
 	} dispatch;
+
+	struct {
+		uint32_t *next;
+		uint32_t *end;
+	} cs;
 
 	uint32_t vs_invocation_count;
 	uint32_t ia_vertices_count;
