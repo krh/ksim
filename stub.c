@@ -272,7 +272,7 @@ dispatch_getparam(int fd, unsigned long request,
 		return -1;
 
 	case I915_PARAM_CHIPSET_ID:
-		*getparam->value = 0x1616;
+		*getparam->value = 0x1916;
 		return 0;
 
 	case I915_PARAM_HAS_GEM:
