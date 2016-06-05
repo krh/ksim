@@ -497,7 +497,7 @@ rasterize_tile(struct payload *p)
 			if (gt.depth.test_enable || gt.depth.write_enable)
 				mask = depth_test(p, mask, p->x0 + x, p->y0 + y);
 
-			if (mask)
+			if (mask && gt.ps.enable)
 				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
 
 		next:

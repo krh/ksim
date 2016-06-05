@@ -61,10 +61,12 @@ prepare_shaders(void)
 				       gt.vs.sampler_state_address);
 	}
 
-	gt.ps.avx_shader =
-		compile_shader(gt.ps.ksp0,
-			       gt.ps.binding_table_address,
-			       gt.ps.sampler_state_address);
+	if (gt.ps.enable) {
+		gt.ps.avx_shader =
+			compile_shader(gt.ps.ksp0,
+				       gt.ps.binding_table_address,
+				       gt.ps.sampler_state_address);
+	}
 }
 
 #define GEN5_SAMPLER_MESSAGE_SAMPLE              0

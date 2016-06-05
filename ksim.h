@@ -356,6 +356,7 @@ struct gt {
 		bool attribute_enable;
 		bool fast_clear;
 		bool resolve;
+		bool enable;
 		struct shader *avx_shader;
 	} ps;
 

@@ -1134,6 +1134,7 @@ handle_3dstate_ps_extra(uint32_t *p)
 	struct GEN8_3DSTATE_PS_EXTRA v;
 	GEN8_3DSTATE_PS_EXTRA_unpack(NULL, p, &v);
 
+	gt.ps.enable = v.PixelShaderValid;
 	gt.ps.uses_input_coverage_mask = v.PixelShaderUsesInputCoverageMask;
 	gt.ps.attribute_enable = v.AttributeEnable;
 	gt.ps.uses_source_w = v.PixelShaderUsesSourceW;
