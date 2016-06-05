@@ -591,7 +591,7 @@ bool execute_inst(void *inst, struct thread *t);
 void print_inst(void *p);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
-void *compile_shader(void *kernel, struct shader *shader,
+void *compile_shader(uint64_t kernel_offset, struct shader *shader,
 		     uint64_t surfaces, uint64_t samplers);
 
 

@@ -22,7 +22,6 @@
  */
 
 #include "ksim.h"
-#include "libdisasm/gen_disasm.h"
 
 uint32_t
 load_constants(struct thread *t, struct curbe *c, uint32_t start)
@@ -50,31 +49,10 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 }
 
 
-static struct gen_disasm *
-get_disasm(void)
-{
-	const int gen = 8;
-	static struct gen_disasm *disasm;
-
-	if (disasm == NULL)
-		disasm = gen_disasm_create(gen);
-
-	return disasm;
-}
-
-void
-print_inst(void *p)
-{
-	gen_disasm_disassemble_insn(get_disasm(), p, stdout);
-}
-
 void
 prepare_shaders(void)
 {
-	uint64_t ksp, range;
-	char cache[64 * 1024];
-	void *kernel, *end;
-
+	void *end;
 	static void *pool;
 	const size_t size = 64 * 1024;
 	if (pool == NULL) {
@@ -86,24 +64,14 @@ prepare_shaders(void)
 
 	end = pool;
 	if (gt.vs.enable) {
-		ksp = gt.vs.ksp + gt.instruction_base_address;
-		kernel = map_gtt_offset(ksp, &range);
-		gen_disasm_uncompact(get_disasm(), kernel,
-				     cache, sizeof(cache));
-
 		gt.vs.avx_shader = end;
-		end = compile_shader(cache, gt.vs.avx_shader,
+		end = compile_shader(gt.vs.ksp, gt.vs.avx_shader,
 				     gt.vs.binding_table_address,
 				     gt.vs.sampler_state_address);
 	}
 
-	ksp = gt.ps.ksp0 + gt.instruction_base_address;
-	kernel = map_gtt_offset(ksp, &range);
-	gen_disasm_uncompact(get_disasm(), kernel,
-			     cache, sizeof(cache));
-
 	gt.ps.avx_shader = align_ptr(end, 64);
-	end = compile_shader(cache, gt.ps.avx_shader,
+	end = compile_shader(gt.ps.ksp0, gt.ps.avx_shader,
 			     gt.ps.binding_table_address,
 			     gt.ps.sampler_state_address);
 

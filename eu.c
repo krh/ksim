@@ -34,6 +34,7 @@
 #include <assert.h>
 #include <immintrin.h>
 
+#include "libdisasm/gen_disasm.h"
 #include "ksim.h"
 
 #define BRW_HW_REG_TYPE_UD  0
@@ -1608,13 +1609,38 @@ compile_inst(struct builder *bld, struct inst *inst)
 	return eot;
 }
 
+static struct gen_disasm *
+get_disasm(void)
+{
+	const int gen = 8;
+	static struct gen_disasm *disasm;
+
+	if (disasm == NULL)
+		disasm = gen_disasm_create(gen);
+
+	return disasm;
+}
+
+void
+print_inst(void *p)
+{
+	gen_disasm_disassemble_insn(get_disasm(), p, stdout);
+}
+
 void *
-compile_shader(void *kernel, struct shader *shader,
+compile_shader(uint64_t kernel_offset, struct shader *shader,
 	       uint64_t surfaces, uint64_t samplers)
 {
 	struct builder bld;
 	void *insn;
 	bool eot;
+	uint64_t ksp, range;
+	void *kernel;
+	char cache[64 * 1024];
+
+	ksp = kernel_offset + gt.instruction_base_address;
+	kernel = map_gtt_offset(ksp, &range);
+	gen_disasm_uncompact(get_disasm(), kernel, cache, sizeof(cache));
 
 	bld.shader = shader;
 	bld.p = shader->code;
@@ -1622,7 +1648,7 @@ compile_shader(void *kernel, struct shader *shader,
 	bld.binding_table_address = surfaces;
 	bld.sampler_state_address = samplers;
 
-	for (insn = kernel, eot = false; !eot; insn += 16) {
+	for (insn = cache, eot = false; !eot; insn += 16) {
 		if (trace_mask & TRACE_EU)
 			print_inst(insn);
 		eot = compile_inst(&bld, insn);
