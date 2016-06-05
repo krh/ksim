@@ -1627,8 +1627,27 @@ print_inst(void *p)
 	gen_disasm_disassemble_insn(get_disasm(), p, stdout);
 }
 
-void *
-compile_shader(uint64_t kernel_offset, struct shader *shader,
+static void *shader_pool, *shader_end;
+const size_t shader_pool_size = 64 * 1024;
+
+void
+reset_shader_pool(void)
+{
+
+	if (shader_pool == NULL) {
+		int fd = memfd_create("jit", MFD_CLOEXEC);
+		ftruncate(fd, shader_pool_size);
+		shader_pool = mmap(NULL, shader_pool_size,
+				   PROT_WRITE | PROT_READ | PROT_EXEC,
+				   MAP_SHARED, fd, 0);
+		close(fd);
+	}
+
+	shader_end = shader_pool;
+}
+
+struct shader *
+compile_shader(uint64_t kernel_offset,
 	       uint64_t surfaces, uint64_t samplers)
 {
 	struct builder bld;
@@ -1642,8 +1661,8 @@ compile_shader(uint64_t kernel_offset, struct shader *shader,
 	kernel = map_gtt_offset(ksp, &range);
 	gen_disasm_uncompact(get_disasm(), kernel, cache, sizeof(cache));
 
-	bld.shader = shader;
-	bld.p = shader->code;
+	bld.shader = align_ptr(shader_end, 64);
+	bld.p = bld.shader->code;
 	bld.pool_index = 0;
 	bld.binding_table_address = surfaces;
 	bld.sampler_state_address = samplers;
@@ -1654,5 +1673,9 @@ compile_shader(uint64_t kernel_offset, struct shader *shader,
 		eot = compile_inst(&bld, insn);
 	}
 
-	return bld.p;
+	shader_end = bld.p;
+
+	ksim_assert(shader_end - shader_pool < shader_pool_size);
+
+	return bld.shader;
 }

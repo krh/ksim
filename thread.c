@@ -52,30 +52,19 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 void
 prepare_shaders(void)
 {
-	void *end;
-	static void *pool;
-	const size_t size = 64 * 1024;
-	if (pool == NULL) {
-		int fd = memfd_create("jit", MFD_CLOEXEC);
-		ftruncate(fd, size);
-		pool = mmap(NULL, size, PROT_WRITE | PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
-		close(fd);
-	}
+	reset_shader_pool();
 
-	end = pool;
 	if (gt.vs.enable) {
-		gt.vs.avx_shader = end;
-		end = compile_shader(gt.vs.ksp, gt.vs.avx_shader,
-				     gt.vs.binding_table_address,
-				     gt.vs.sampler_state_address);
+		gt.vs.avx_shader =
+			compile_shader(gt.vs.ksp,
+				       gt.vs.binding_table_address,
+				       gt.vs.sampler_state_address);
 	}
 
-	gt.ps.avx_shader = align_ptr(end, 64);
-	end = compile_shader(gt.ps.ksp0, gt.ps.avx_shader,
-			     gt.ps.binding_table_address,
-			     gt.ps.sampler_state_address);
-
-	ksim_assert(end - pool < size);
+	gt.ps.avx_shader =
+		compile_shader(gt.ps.ksp0,
+			       gt.ps.binding_table_address,
+			       gt.ps.sampler_state_address);
 }
 
 #define GEN5_SAMPLER_MESSAGE_SAMPLE              0
