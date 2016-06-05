@@ -348,7 +348,11 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		trace(TRACE_GEM, "    bo %d, size %ld, ",
 		      buffers[i].handle, bo->size);
 
-		if (bo->gtt_offset == NOT_BOUND &&
+		if (buffers[i].flags & EXEC_OBJECT_PINNED) {
+			bo->gtt_offset = buffers[i].offset;
+			bind_bo(bo, bo->gtt_offset);
+			trace(TRACE_GEM, "pinning to %08x\n", bo->gtt_offset);
+		} else if (bo->gtt_offset == NOT_BOUND &&
 		    next_offset + bo->size <= gtt_size) {
 			uint64_t alignment = max_u64(buffers[i].alignment, 4096);
 
