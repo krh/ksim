@@ -804,14 +804,85 @@ FILE *trace_file;
 char *framebuffer_filename;
 bool use_threads;
 
+static const struct { const char *name; uint32_t flag; } debug_tags[] = {
+	{ "debug",	TRACE_DEBUG },
+	{ "spam",	TRACE_SPAM },
+	{ "warn",	TRACE_WARN },
+	{ "gem",	TRACE_GEM },
+	{ "cs",		TRACE_CS },
+	{ "vf",		TRACE_VF },
+	{ "vs",		TRACE_VS },
+	{ "ps",		TRACE_PS },
+	{ "eu",		TRACE_EU },
+	{ "stub",	TRACE_STUB },
+	{ "urb",	TRACE_URB },
+	{ "queue",	TRACE_QUEUE },
+	{ "all",	~0 },
+};
+
+static void
+parse_trace_flags(const char *value)
+{
+	for (uint32_t i = 0, start = 0; ; i++) {
+		if (value[i] != ',' && value[i] != ';')
+			continue;
+		for (uint32_t j = 0; j < ARRAY_LENGTH(debug_tags); j++) {
+			if (strlen(debug_tags[j].name) == i - start &&
+			    memcmp(debug_tags[j].name, &value[start], i - start) == 0) {
+				trace_mask |= debug_tags[j].flag;
+			}
+		}
+		if (value[i] == ';')
+			break;
+		start = i + 1;
+	}
+}
+
+
+static bool is_prefix(const char *s, const char *prefix, const char **arg)
+{
+	const int len = strlen(prefix);
+
+	if (strncmp(s, prefix, len) == 0) {
+		if (s[len] == ';' || s[len] == '\0') {
+			if (arg)
+				*arg = NULL;
+			return true;
+		} else if (s[len] == '=') {
+			*arg = &s[len + 1];
+			return true;
+		}
+	}
+
+	return false;
+}
+
 __attribute__ ((constructor)) static void
 ksim_stub_init(void)
 {
-	const char *args;
+	const char *args, *s, *end, *value;
+	char *filename;
+
+	if (!__builtin_cpu_supports("avx2"))
+		error(EXIT_FAILURE, 0, "AVX2 instructions not available");
 
 	args = getenv("KSIM_ARGS");
 	ksim_assert(args != NULL);
-	printf("ksim args: %s\n", args);
+
+	for (s = args; end = strchr(s, ';'), end != NULL; s = end + 1) {
+		if (is_prefix(s, "quiet", NULL))
+			trace_mask = 0;
+		else if (is_prefix(s, "file", &value)) {
+			ksim_assert(trace_file == NULL);
+			filename = strndup(value, end - value);
+			trace_file = fopen(filename, "w");
+			free(filename);
+		} else if (is_prefix(s, "framebuffer", &value)) {
+			framebuffer_filename = strndup(value, end - value);
+		} else if (is_prefix(s, "trace", &value)) {
+			parse_trace_flags(value);
+		}
+	}
 
 	prctl(PR_SET_PDEATHSIG, SIGHUP);
 
@@ -821,7 +892,8 @@ ksim_stub_init(void)
 	if (libc_close == NULL || libc_ioctl == NULL || libc_mmap == NULL)
 		error(-1, 0, "ksim: failed to get libc ioctl or close\n");
 
-	trace_file = stdout;
+	if (trace_file == NULL)
+		trace_file = stdout;
 
 	unsetenv("LD_PRELOAD");
 }
