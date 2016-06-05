@@ -457,7 +457,18 @@ handle_media_interface_descriptor_load(uint32_t *p)
 	struct GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD v;
 	GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(NULL, p, &v);
 
-	gt.compute.descriptor_address = v.InterfaceDescriptorDataStartAddress;
+	const uint64_t offset = v.InterfaceDescriptorDataStartAddress +
+		gt.dynamic_state_base_address;
+
+	uint64_t range;
+	const uint32_t *desc = map_gtt_offset(offset, &range);
+
+	/* Oops, no unpack functions for structs... Need to redo
+	 * unpack functions from genxml. */
+	gt.compute.ksp = field(desc[0], 6, 31) +
+		((uint64_t) field(desc[1], 0, 15) << 32);
+	gt.compute.binding_table_address = field(desc[4], 5, 15);
+	gt.compute.sampler_state_address = field(desc[3], 5, 31);
 }
 
 static void

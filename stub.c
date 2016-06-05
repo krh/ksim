@@ -822,4 +822,6 @@ ksim_stub_init(void)
 		error(-1, 0, "ksim: failed to get libc ioctl or close\n");
 
 	trace_file = stdout;
+
+	unsetenv("LD_PRELOAD");
 }

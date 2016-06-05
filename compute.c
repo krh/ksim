@@ -23,8 +23,13 @@
 
 #include "ksim.h"
 
+
 void
 dispatch_compute(void)
 {
-	
+	reset_shader_pool();
+	gt.compute.avx_shader =
+		compile_shader(gt.compute.ksp,
+			       gt.compute.binding_table_address,
+			       gt.compute.sampler_state_address);
 }

@@ -16,6 +16,7 @@ ksim_stub_la_SOURCES = \
 	formats.c \
 	thread.c \
 	wm.c \
+	compute.c \
 	eu.c \
 	write-png.c \
 	write-png.h

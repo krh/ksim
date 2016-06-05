@@ -424,13 +424,16 @@ struct gt {
 	} cs;
 
 	struct {
-		uint64_t descriptor_address;
+		uint64_t ksp;
+		uint32_t binding_table_address;
+		uint32_t sampler_state_address;
 		uint32_t start_x;
 		uint32_t end_x;
 		uint32_t start_y;
 		uint32_t end_y;
 		uint32_t start_z;
 		uint32_t end_z;
+		struct shader *avx_shader;
 	} compute;
 
 	uint32_t vs_invocation_count;
