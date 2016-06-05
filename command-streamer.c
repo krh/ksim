@@ -406,9 +406,7 @@ handle_pipeline_select(uint32_t *p)
 	struct GEN8_PIPELINE_SELECT v;
 	GEN8_PIPELINE_SELECT_unpack(NULL, p, &v);
 
-	uint32_t pipeline = v.PipelineSelection;
-
-	ksim_assert(pipeline == _3D);
+	gt.pipeline = v.PipelineSelection;
 }
 
 static void
@@ -439,6 +437,94 @@ get_dword_command(uint32_t *p)
 	}
 
 }
+
+/* Compute commands */
+
+static void
+handle_media_curbe_load(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MEDIA_CURBE_LOAD\n");
+
+	struct GEN8_MEDIA_CURBE_LOAD v;
+	GEN8_MEDIA_CURBE_LOAD_unpack(NULL, p, &v);
+}
+
+static void
+handle_media_interface_descriptor_load(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MEDIA_INTERFACE_DESCRIPTOR_LOAD\n");
+
+	struct GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD v;
+	GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(NULL, p, &v);
+
+	gt.compute.descriptor_address = v.InterfaceDescriptorDataStartAddress;
+}
+
+static void
+handle_media_state_flush(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MEDIA_STATE_FLUSH\n");
+
+	struct GEN8_MEDIA_STATE_FLUSH v;
+	GEN8_MEDIA_STATE_FLUSH_unpack(NULL, p, &v);
+}
+
+static void
+handle_media_vfe_state(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MEDIA_VFE_STATE\n");
+
+	struct GEN8_MEDIA_VFE_STATE v;
+	GEN8_MEDIA_VFE_STATE_unpack(NULL, p, &v);
+}
+
+static void
+handle_gpgpu_walker(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "GPGPU_WALKER\n");
+
+	struct GEN8_GPGPU_WALKER v;
+	GEN8_GPGPU_WALKER_unpack(NULL, p, &v);
+
+	gt.compute.start_x = v.ThreadGroupIDStartingX;
+	gt.compute.end_x = v.ThreadGroupIDXDimension;
+	gt.compute.start_y = v.ThreadGroupIDStartingY;
+	gt.compute.end_y = v.ThreadGroupIDYDimension;
+	gt.compute.start_z = v.ThreadGroupIDStartingResumeZ;
+	gt.compute.end_z = v.ThreadGroupIDZDimension;
+
+	dispatch_compute();
+}
+
+static command_handler_t
+get_compute_command(uint32_t *p)
+{
+	uint32_t h = p[0];
+	uint32_t opcode = field(h, 24, 26);
+	uint32_t subopcode = field(h, 16, 23);
+
+	switch (opcode) {
+	case 0:
+		if (subopcode == 0)
+			return handle_media_vfe_state;
+		else if (subopcode == 1)
+			return handle_media_curbe_load;
+		else if (subopcode == 2)
+			return handle_media_interface_descriptor_load;
+		else if (subopcode == 4)
+			return handle_media_state_flush;
+		else
+			return NULL;
+	case 1:
+		if (subopcode == 5)
+			return handle_gpgpu_walker;
+		else
+			return NULL;
+	default:
+		return NULL;
+	}
+}
+
 
 /* Pipelined 3dstate commands */
 
@@ -1340,6 +1426,8 @@ handle_3dprimitive(uint32_t *p)
 	gt.prim.access_type = v.VertexAccessType;
 
 	if (!v.IndirectParameterEnable) {
+		/* FIXME: This overwrites the indirect params
+		 * register: not legal. */
 		gt.prim.vertex_count = v.VertexCountPerInstance;
 		gt.prim.start_vertex = v.StartVertexLocation;
 		gt.prim.instance_count = v.InstanceCount;
@@ -1432,11 +1520,11 @@ start_batch_buffer(uint64_t address, uint32_t ring)
 				handler = get_dword_command(p);
 				length = 1;
 				break;
-			case 2:
-				ksim_unreachable("unknown render command subtype: %d", subtype);
-				length = 2;
+			case 2: /* compute pipeline */
+				handler = get_compute_command(p);
+				length = field(h, 0, 7) + 2;
 				break;
-			case 3:
+			case 3: /* 3d pipline */
 				handler = get_3dstate_command(p);
 				length = field(h, 0, 7) + 2;
 				break;

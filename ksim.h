@@ -211,6 +211,8 @@ struct curbe {
 };
 
 struct gt {
+	uint32_t pipeline;
+
 	struct {
 		struct vb {
 			uint64_t address;
@@ -420,6 +422,16 @@ struct gt {
 		uint32_t *end;
 	} cs;
 
+	struct {
+		uint64_t descriptor_address;
+		uint32_t start_x;
+		uint32_t end_x;
+		uint32_t start_y;
+		uint32_t end_y;
+		uint32_t start_z;
+		uint32_t end_z;
+	} compute;
+
 	uint32_t vs_invocation_count;
 	uint32_t ia_vertices_count;
 	uint32_t ia_primitives_count;
@@ -466,6 +478,7 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 }
 
 void dispatch_primitive(void);
+void dispatch_compute(void);
 
 bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
