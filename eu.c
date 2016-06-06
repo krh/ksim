@@ -1214,6 +1214,21 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 	}
 }
 
+static void *
+builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+
+	uint32_t opcode = field(send.function_control, 0, 0);
+	uint32_t request = field(send.function_control, 1, 1);
+	uint32_t resource_select = field(send.function_control, 4, 4);
+
+	ksim_assert(send.eot);
+	ksim_assert(opcode == 0 && request == 0 && resource_select == 0);
+
+	return NULL;
+}
+
 static __m256
 math_function_pow(struct thread *t, __m256 v, __m256 e)
 {
@@ -1375,10 +1390,22 @@ compile_inst(struct builder *bld, struct inst *inst)
 		case BRW_SFID_URB:
 			*p = builder_emit_sfid_urb(bld, inst);
 			break;
+		case BRW_SFID_THREAD_SPAWNER:
+			*p = builder_emit_sfid_thread_spawner(bld, inst);
+			break;
 		default:
-			stub("sfid");
+			stub("sfid: %d", send.sfid);
 			break;
 		}
+
+		/* If func is NULL, it's the special case of a compute
+		 * thread terminating. Just return.
+		 */
+		if (*p == NULL) {
+			emit(bld, 0xc3);
+			break;
+		}
+
 		/* In case of eot, we end the thread by jumping
 		 * (instead of calling) to the sfid implementation.
 		 * When the sfid implementation returns it will return
