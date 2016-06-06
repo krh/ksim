@@ -1680,6 +1680,7 @@ compile_shader(uint64_t kernel_offset,
 	struct builder bld;
 	void *insn;
 	bool eot;
+	uint8_t *prev;
 	uint64_t ksp, range;
 	void *kernel;
 	char cache[64 * 1024];
@@ -1697,12 +1698,20 @@ compile_shader(uint64_t kernel_offset,
 	for (insn = cache, eot = false; !eot; insn += 16) {
 		if (trace_mask & TRACE_EU)
 			print_inst(insn);
+		prev = bld.p;
 		eot = compile_inst(&bld, insn);
+
+		if (trace_mask & TRACE_AVX)
+			print_avx(bld.shader, prev - bld.shader->code,
+				  bld.p - bld.shader->code);
 	}
 
 	shader_end = bld.p;
 
 	ksim_assert(shader_end - shader_pool < shader_pool_size);
+
+	if (trace_mask & (TRACE_EU | TRACE_AVX))
+		fprintf(trace_file, "\n");
 
 	return bld.shader;
 }

@@ -103,6 +103,7 @@ enum {
 	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
 	TRACE_URB = 1 << 10,		/* urb traffic */
 	TRACE_QUEUE = 1 << 11,		/* thread queue */
+	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
 };
 
 extern uint32_t trace_mask;
@@ -598,6 +599,7 @@ void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
 void reset_shader_pool(void);
 struct shader *compile_shader(uint64_t kernel_offset,
 			      uint64_t surfaces, uint64_t samplers);
+void print_avx(struct shader *shader, int start, int end);
 
 
 #define __gen_address_type uint64_t
