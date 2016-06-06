@@ -1,0 +1,5 @@
+add (4) g7<1>F g4<4,4,1>F -g5<4,4,1>F { align1 mask_disable };
+
+
+mov (8) g127<1>UD g0<8,8,1>UD { align1 mask_disable };
+send(8) 127 null g127<8,8,1>UW thread_spawner(0, 0, 1) mlen 1 rlen 0 { align1 mask_disable sechalf EOT };

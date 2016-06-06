@@ -21,3 +21,4 @@ ksim
 libtool
 ltmain.sh
 missing
+test/cs-runner

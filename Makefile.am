@@ -1,4 +1,4 @@
-SUBDIRS = libdisasm .
+SUBDIRS = libdisasm . test
 
 bin_SCRIPTS = ksim
 
