@@ -487,6 +487,9 @@ handle_media_vfe_state(uint32_t *p)
 
 	struct GEN8_MEDIA_VFE_STATE v;
 	GEN8_MEDIA_VFE_STATE_unpack(NULL, p, &v);
+
+	gt.compute.scratch_pointer = v.ScratchSpaceBasePointer;
+	gt.compute.scratch_size = v.PerThreadScratchSpace;
 }
 
 static void
@@ -497,6 +500,7 @@ handle_gpgpu_walker(uint32_t *p)
 	struct GEN8_GPGPU_WALKER v;
 	GEN8_GPGPU_WALKER_unpack(NULL, p, &v);
 
+	gt.compute.simd_size = v.SIMDSize;
 	gt.compute.start_x = v.ThreadGroupIDStartingX;
 	gt.compute.end_x = v.ThreadGroupIDXDimension;
 	gt.compute.start_y = v.ThreadGroupIDStartingY;

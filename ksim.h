@@ -426,6 +426,8 @@ struct gt {
 
 	struct {
 		uint64_t ksp;
+		uint64_t scratch_pointer;
+		uint32_t scratch_size;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
 		uint32_t start_x;
