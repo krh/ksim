@@ -1224,7 +1224,7 @@ builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 	uint32_t resource_select = field(send.function_control, 4, 4);
 
 	ksim_assert(send.eot);
-	ksim_assert(opcode == 0 && request == 0 && resource_select == 0);
+	ksim_assert(opcode == 0 && request == 0 && resource_select == 1);
 
 	return NULL;
 }
