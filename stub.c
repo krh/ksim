@@ -895,6 +895,4 @@ ksim_stub_init(void)
 
 	if (trace_file == NULL)
 		trace_file = stdout;
-
-	unsetenv("LD_PRELOAD");
 }

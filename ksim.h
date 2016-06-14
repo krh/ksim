@@ -425,7 +425,9 @@ struct gt {
 	} cs;
 
 	struct {
+		uint32_t tid;
 		uint64_t ksp;
+		uint32_t simd_size;
 		uint64_t scratch_pointer;
 		uint32_t scratch_size;
 		uint32_t binding_table_address;
