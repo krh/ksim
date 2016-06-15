@@ -1314,13 +1314,13 @@ compile_inst(struct builder *bld, struct inst *inst)
 		builder_emit_vpxor(bld, 0, 0, 1);
 		break;
 	case BRW_OPCODE_SHR:
-		builder_emit_vpsrlvd(bld, 0, 0, 1);
+		builder_emit_vpsrlvd(bld, 0, 1, 0);
 		break;
 	case BRW_OPCODE_SHL:
-		builder_emit_vpsllvd(bld, 0, 0, 1);
+		builder_emit_vpsllvd(bld, 0, 1, 0);
 		break;
 	case BRW_OPCODE_ASR:
-		builder_emit_vpsravd(bld, 0, 0, 1);
+		builder_emit_vpsravd(bld, 0, 1, 0);
 		break;
 	case BRW_OPCODE_CMP: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
