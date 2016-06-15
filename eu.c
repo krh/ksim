@@ -1251,6 +1251,67 @@ builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 	return NULL;
 }
 
+struct sfid_dataport1_args {
+	uint32_t src;
+	void *buffer;
+	uint32_t mask;
+};
+
+static void
+sfid_dataport1_untyped_write(struct thread *t, struct sfid_dataport1_args *args)
+{
+	uint32_t c;
+	const uint32_t mask = t->mask & t->grf[args->src].ud[7];
+
+	for_each_bit (c, mask) {
+		uint32_t *dst = args->buffer + t->grf[args->src + 1].ud[c];
+		uint32_t *src = &t->grf[args->src + 2].ud[c];
+		for (int comp = 0; comp < 4; comp++) {
+			if (args->mask & (1 << comp))
+				continue;
+			*dst++ = *src;
+			src += 8;
+		}
+	}
+}
+
+static void *
+builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+		struct surface buffer;
+
+	uint32_t bti = field(send.function_control, 0, 7);
+	uint32_t mask = field(send.function_control, 8, 11);
+	uint32_t simd_mode = field(send.function_control, 12, 13);
+	uint32_t opcode = field(send.function_control, 14, 18);
+	uint32_t header_present = field(send.function_control, 19, 19);
+
+	struct sfid_dataport1_args *args;
+	args = builder_get_const_data(bld, sizeof *args, 8);
+
+	printf("bti=%u, mask=0x%x, simd_mode=%u, opcode=%u, header_present=%u\n",
+	       bti, mask, simd_mode, opcode, header_present);
+
+	switch (opcode) {
+	case 9:
+		ksim_assert(simd_mode == 2); /* SIMD8 */
+		args->src = unpack_inst_2src_src0(inst).num;
+		args->mask = mask;
+		bool valid = get_surface(bld->binding_table_address,
+					 bti, &buffer);
+		ksim_assert(valid);
+		args->buffer = buffer.pixels;
+
+		builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
+
+		return sfid_dataport1_untyped_write;
+	default:
+		stub("dataport1 opcode");
+		return NULL;
+	}
+}
+
 static __m256
 math_function_pow(struct thread *t, __m256 v, __m256 e)
 {
@@ -1414,6 +1475,9 @@ compile_inst(struct builder *bld, struct inst *inst)
 			break;
 		case BRW_SFID_THREAD_SPAWNER:
 			*p = builder_emit_sfid_thread_spawner(bld, inst);
+			break;
+		case HSW_SFID_DATAPORT_DATA_CACHE_1:
+			*p = builder_emit_sfid_dataport1(bld, inst);
 			break;
 		default:
 			stub("sfid: %d", send.sfid);
