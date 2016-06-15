@@ -440,7 +440,7 @@ unpack_inst_2src_src1(struct inst *packed)
 {
    return (struct inst_src) {
       .file                     = get_inst_bits(packed,  89,  90),
-      .type                     = get_inst_bits(packed,  43,  45),
+      .type                     = get_inst_bits(packed,  91,  94),
       .da1_subnum               = get_inst_bits(packed,  96, 100),
       .da16_subnum              = get_inst_bits(packed, 100, 100),
       .num                      = get_inst_bits(packed, 101, 108),
