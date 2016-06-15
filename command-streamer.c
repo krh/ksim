@@ -460,11 +460,12 @@ handle_media_interface_descriptor_load(uint32_t *p)
 	uint64_t range;
 	const uint32_t *desc = map_gtt_offset(offset, &range);
 
-	/* Oops, no unpack functions for structs... Need to redo
-	 * unpack functions from genxml. */
-	gt.compute.ksp = desc[0] + ((uint64_t) desc[1] << 32);
-	gt.compute.binding_table_address = field(desc[4], 5, 15);
-	gt.compute.sampler_state_address = field(desc[3], 5, 31);
+	struct GEN9_INTERFACE_DESCRIPTOR_DATA d;
+	GEN9_INTERFACE_DESCRIPTOR_DATA_unpack(desc, &d);
+
+	gt.compute.ksp = d.KernelStartPointer;
+	gt.compute.binding_table_address = d.BindingTablePointer;
+	gt.compute.sampler_state_address = d.SamplerStatePointer;
 }
 
 static void

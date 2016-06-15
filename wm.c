@@ -158,13 +158,16 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 	if (range < 16 * 4)
 		return false;
 
-	s->width = field(state[2], 0, 13) + 1;
-	s->height = field(state[2], 16, 29) + 1;
-	s->stride = field(state[3], 0, 17) + 1;
-	s->format = field(state[0], 18, 26);
+	struct GEN9_RENDER_SURFACE_STATE v;
+	GEN9_RENDER_SURFACE_STATE_unpack(state, &v);
+
+	s->width = v.Width + 1;
+	s->height = v.Height + 1;
+	s->stride = v.SurfacePitch + 1;
+	s->format = v.SurfaceFormat;
 	s->cpp = format_size(s->format);
 
-	offset = get_u64(&state[8]);
+	offset = v.SurfaceBaseAddress;
 	s->pixels = map_gtt_offset(offset, &range);
 	if (range < s->height * s->stride) {
 		ksim_warn("surface state out-of-range for bo\n");
