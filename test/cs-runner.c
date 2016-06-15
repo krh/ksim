@@ -61,8 +61,9 @@ __gen_combine_address(struct bo *bo, void *location,
 
 #define __gen_address_type uint64_t
 #define __gen_user_data struct bo
+#define __gen_unpack_address __gen_unpack_offset
 
-#include "gen9_pack.h"
+#include "../gen9_pack.h"
 
 #define GEN9_INTERFACE_DESCRIPTOR_DATA_header
 #define GEN9_RENDER_SURFACE_STATE_header
@@ -413,7 +414,6 @@ int main(int argc, char *argv[])
 	uint32_t desc_offset = state->cursor;
 	bo_emit(state, GEN9_INTERFACE_DESCRIPTOR_DATA, idd) {
 		idd.KernelStartPointer = load_kernel(state, argv[1]);
-		idd.KernelStartPointerHigh = 0;
 		idd.SamplerStatePointer = 0;
 		idd.SamplerCount = 0;
 		idd.BindingTablePointer = binding_table_offset;

@@ -133,7 +133,7 @@ sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 	struct reg argb32;
 
 	switch (args->tex.format) {
-	case R8G8B8X8_UNORM:
+	case SF_R8G8B8X8_UNORM:
 		argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
 		t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
 		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
@@ -142,7 +142,7 @@ sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 		t->grf[args->dst + 2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
 		t->grf[args->dst + 3].reg = _mm256_set1_ps(1.0f);
 		break;
-	case R8G8B8A8_UNORM:
+	case SF_R8G8B8A8_UNORM:
 		argb32.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
 		t->grf[args->dst + 0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
 		argb32.ireg = _mm256_srli_epi32(argb32.ireg, 8);
@@ -153,7 +153,7 @@ sfid_sampler(struct thread *t, const struct sfid_sampler_args *args)
 		t->grf[args->dst + 3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(argb32.ireg, mask)), scale);
 		break;
 
-	case R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_FLOAT:
 		t->grf[args->dst + 0].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
 		offsets.ireg = _mm256_add_epi32(offsets.ireg, _mm256_set1_epi32(4));
 		t->grf[args->dst + 1].ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);

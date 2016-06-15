@@ -353,10 +353,10 @@ struct gt {
 		uint32_t position_offset_xy;
 		bool uses_source_depth;
 		bool uses_source_w;
-		bool uses_input_coverage_mask;
+		uint32_t input_coverage_mask_state;
 		bool attribute_enable;
 		bool fast_clear;
-		bool resolve;
+		uint32_t resolve_type;
 		bool enable;
 		struct shader *avx_shader;
 	} ps;
@@ -611,7 +611,7 @@ void print_avx(struct shader *shader, int start, int end);
 #define __gen_user_data void
 #define __gen_unpack_address(qw, start, end) __gen_unpack_offset(qw, start, end)
 
-#include "gen8_pack.h"
+#include "gen9_pack.h"
 
 #define BIM_PERSPECTIVE_PIXEL		 1
 #define BIM_PERSPECTIVE_CENTROID	 2

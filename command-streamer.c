@@ -134,8 +134,8 @@ handle_mi_atomic(uint32_t *p)
 static void
 handle_mi_batch_buffer_start(uint32_t *p)
 {
-	struct GEN8_MI_BATCH_BUFFER_START v;
-	GEN8_MI_BATCH_BUFFER_START_unpack(NULL, p, &v);
+	struct GEN9_MI_BATCH_BUFFER_START v;
+	GEN9_MI_BATCH_BUFFER_START_unpack(p, &v);
 	uint64_t range;
 
 	gt.cs.next = map_gtt_offset(v.BatchBufferStartAddress, &range);
@@ -221,9 +221,6 @@ static void
 handle_xy_src_copy_blt(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "XY_SRC_COPY_BLT\n");
-
-	struct GEN8_XY_SRC_COPY_BLT v;
-	GEN8_XY_SRC_COPY_BLT_unpack(NULL, p, &v);
 }
 
 static void
@@ -403,8 +400,8 @@ handle_pipeline_select(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "PIPELINE_SELECT\n");
 
-	struct GEN8_PIPELINE_SELECT v;
-	GEN8_PIPELINE_SELECT_unpack(NULL, p, &v);
+	struct GEN9_PIPELINE_SELECT v;
+	GEN9_PIPELINE_SELECT_unpack(p, &v);
 
 	gt.pipeline = v.PipelineSelection;
 }
@@ -414,8 +411,8 @@ handle_3dstate_vf_statistics(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_STATISTICS\n");
 
-	struct GEN8_3DSTATE_VF_STATISTICS v;
-	GEN8_3DSTATE_VF_STATISTICS_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VF_STATISTICS v;
+	GEN9_3DSTATE_VF_STATISTICS_unpack(p, &v);
 
 	gt.vf.statistics = v.StatisticsEnable;
 }
@@ -445,8 +442,8 @@ handle_media_curbe_load(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "MEDIA_CURBE_LOAD\n");
 
-	struct GEN8_MEDIA_CURBE_LOAD v;
-	GEN8_MEDIA_CURBE_LOAD_unpack(NULL, p, &v);
+	struct GEN9_MEDIA_CURBE_LOAD v;
+	GEN9_MEDIA_CURBE_LOAD_unpack(p, &v);
 }
 
 static void
@@ -454,8 +451,8 @@ handle_media_interface_descriptor_load(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "MEDIA_INTERFACE_DESCRIPTOR_LOAD\n");
 
-	struct GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD v;
-	GEN8_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(NULL, p, &v);
+	struct GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD v;
+	GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(p, &v);
 
 	const uint64_t offset = v.InterfaceDescriptorDataStartAddress +
 		gt.dynamic_state_base_address;
@@ -475,8 +472,8 @@ handle_media_state_flush(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "MEDIA_STATE_FLUSH\n");
 
-	struct GEN8_MEDIA_STATE_FLUSH v;
-	GEN8_MEDIA_STATE_FLUSH_unpack(NULL, p, &v);
+	struct GEN9_MEDIA_STATE_FLUSH v;
+	GEN9_MEDIA_STATE_FLUSH_unpack(p, &v);
 }
 
 static void
@@ -484,8 +481,8 @@ handle_media_vfe_state(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "MEDIA_VFE_STATE\n");
 
-	struct GEN8_MEDIA_VFE_STATE v;
-	GEN8_MEDIA_VFE_STATE_unpack(NULL, p, &v);
+	struct GEN9_MEDIA_VFE_STATE v;
+	GEN9_MEDIA_VFE_STATE_unpack(p, &v);
 
 	gt.compute.scratch_pointer = v.ScratchSpaceBasePointer;
 	gt.compute.scratch_size = v.PerThreadScratchSpace;
@@ -496,8 +493,8 @@ handle_gpgpu_walker(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "GPGPU_WALKER\n");
 
-	struct GEN8_GPGPU_WALKER v;
-	GEN8_GPGPU_WALKER_unpack(NULL, p, &v);
+	struct GEN9_GPGPU_WALKER v;
+	GEN9_GPGPU_WALKER_unpack(p, &v);
 
 	gt.compute.simd_size = v.SIMDSize;
 	gt.compute.start_x = v.ThreadGroupIDStartingX;
@@ -553,8 +550,8 @@ handle_3dstate_depth_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_DEPTH_BUFFER\n");
 
-	struct GEN8_3DSTATE_DEPTH_BUFFER v;
-	GEN8_3DSTATE_DEPTH_BUFFER_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_DEPTH_BUFFER v;
+	GEN9_3DSTATE_DEPTH_BUFFER_unpack(p, &v);
 
 	gt.depth.address = v.SurfaceBaseAddress;
 	gt.depth.width = v.Width + 1;
@@ -568,8 +565,8 @@ handle_3dstate_depth_buffer(uint32_t *p)
 static void
 handle_3dstate_stencil_buffer(uint32_t *p)
 {
-	struct GEN8_3DSTATE_STENCIL_BUFFER v;
-	GEN8_3DSTATE_STENCIL_BUFFER_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_STENCIL_BUFFER v;
+	GEN9_3DSTATE_STENCIL_BUFFER_unpack(p, &v);
 
 	ksim_trace(TRACE_CS, "3DSTATE_STENCIL_BUFFER\n");
 }
@@ -579,8 +576,8 @@ handle_3dstate_hier_depth_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_HIER_DEPTH_BUFFER\n");
 
-	struct GEN8_3DSTATE_HIER_DEPTH_BUFFER v;
-	GEN8_3DSTATE_HIER_DEPTH_BUFFER_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_HIER_DEPTH_BUFFER v;
+	GEN9_3DSTATE_HIER_DEPTH_BUFFER_unpack(p, &v);
 
 	gt.depth.hiz_address = v.SurfaceBaseAddress;
 	gt.depth.hiz_stride = v.SurfacePitch + 1;
@@ -635,8 +632,8 @@ handle_3dstate_index_buffer(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_INDEX_BUFFER\n");
 
-	struct GEN8_3DSTATE_INDEX_BUFFER v;
-	GEN8_3DSTATE_INDEX_BUFFER_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_INDEX_BUFFER v;
+	GEN9_3DSTATE_INDEX_BUFFER_unpack(p, &v);
 
 	gt.vf.ib.format = v.IndexFormat;
 	gt.vf.ib.address = get_u64(&p[2]);
@@ -648,8 +645,8 @@ handle_3dstate_vf(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF\n");
 
-	struct GEN8_3DSTATE_VF v;
-	GEN8_3DSTATE_VF_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VF v;
+	GEN9_3DSTATE_VF_unpack(p, &v);
 
 	gt.vf.cut_index = v.CutIndex;
 }
@@ -665,8 +662,8 @@ handle_3dstate_cc_state_pointers(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CC_STATE_POINTERS\n");
 
-	struct GEN8_3DSTATE_CC_STATE_POINTERS v;
-	GEN8_3DSTATE_CC_STATE_POINTERS_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_CC_STATE_POINTERS v;
+	GEN9_3DSTATE_CC_STATE_POINTERS_unpack(p, &v);
 
 	if (v.ColorCalcStatePointerValid)
 		gt.cc.state = v.ColorCalcStatePointer;
@@ -683,8 +680,8 @@ handle_3dstate_vs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VS\n");
 
-	struct GEN8_3DSTATE_VS v;
-	GEN8_3DSTATE_VS_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VS v;
+	GEN9_3DSTATE_VS_unpack(p, &v);
 
 	gt.vs.ksp = v.KernelStartPointer;
 	gt.vs.single_dispatch = v.SingleVertexDispatch;
@@ -716,8 +713,8 @@ handle_3dstate_clip(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CLIP\n");
 
-	struct GEN8_3DSTATE_CLIP v;
-	GEN8_3DSTATE_CLIP_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_CLIP v;
+	GEN9_3DSTATE_CLIP_unpack(p, &v);
 
 	gt.clip.perspective_divide_disable = v.PerspectiveDivideDisable;
 }
@@ -727,8 +724,8 @@ handle_3dstate_sf(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SF\n");
 
-	struct GEN8_3DSTATE_SF v;
-	GEN8_3DSTATE_SF_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_SF v;
+	GEN9_3DSTATE_SF_unpack(p, &v);
 
 	gt.sf.viewport_transform_enable = v.ViewportTransformEnable;
 }
@@ -738,8 +735,8 @@ handle_3dstate_wm(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM\n");
 
-	struct GEN8_3DSTATE_WM v;
-	GEN8_3DSTATE_WM_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_WM v;
+	GEN9_3DSTATE_WM_unpack(p, &v);
 
 	gt.wm.barycentric_mode = v.BarycentricInterpolationMode;
 }
@@ -841,8 +838,8 @@ handle_3dstate_ps(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS\n");
 
-	struct GEN8_3DSTATE_PS v;
-	GEN8_3DSTATE_PS_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_PS v;
+	GEN9_3DSTATE_PS_unpack(p, &v);
 
 	gt.ps.ksp0 = v.KernelStartPointer0;
 	gt.ps.enable_simd8 = v._8PixelDispatchEnable;
@@ -850,7 +847,7 @@ handle_3dstate_ps(uint32_t *p)
 	gt.ps.push_constant_enable = v.PushConstantEnable;
 	gt.ps.grf_start0 = v.DispatchGRFStartRegisterForConstantSetupData0;
 	gt.ps.fast_clear = v.RenderTargetFastClearEnable;
-	gt.ps.resolve = v.RenderTargetResolveEnable;
+	gt.ps.resolve_type = v.RenderTargetResolveType;
 }
 
 static void
@@ -858,8 +855,8 @@ handle_3dstate_viewport_state_pointer_sf_clip(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_SF_CLIP\n");
 
-	struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP v;
-	GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP v;
+	GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(p, &v);
 
 	/* The driver is required to reemit dynamic indirect state
 	 * packets (viewports and such) after emitting
@@ -875,8 +872,8 @@ handle_3dstate_viewport_state_pointer_cc(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VIEWPORT_STATE_POINTER_CC\n");
 
-	struct GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC v;
-	GEN8_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC v;
+	GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(p, &v);
 
 	gt.cc.viewport_pointer =
 		gt.dynamic_state_base_address + v.CCViewportPointer;
@@ -1081,8 +1078,8 @@ handle_3dstate_vf_instancing(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_INSTANCING\n");
 
-	struct GEN8_3DSTATE_VF_INSTANCING v;
-	GEN8_3DSTATE_VF_INSTANCING_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VF_INSTANCING v;
+	GEN9_3DSTATE_VF_INSTANCING_unpack(p, &v);
 
 	gt.vf.ve[v.VertexElementIndex].instancing = v.InstancingEnable;
 	gt.vf.ve[v.VertexElementIndex].step_rate = v.InstanceDataStepRate;
@@ -1093,8 +1090,8 @@ handle_3dstate_vf_sgvs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_SGVS\n");
 
-	struct GEN8_3DSTATE_VF_SGVS v;
-	GEN8_3DSTATE_VF_SGVS_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VF_SGVS v;
+	GEN9_3DSTATE_VF_SGVS_unpack(p, &v);
 
 	gt.vf.iid_enable = v.InstanceIDEnable;
 	gt.vf.iid_component = v.InstanceIDComponentNumber;
@@ -1110,8 +1107,8 @@ handle_3dstate_vf_topology(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_VF_TOPOLOGY\n");
 
-	struct GEN8_3DSTATE_VF_TOPOLOGY v;
-	GEN8_3DSTATE_VF_TOPOLOGY_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_VF_TOPOLOGY v;
+	GEN9_3DSTATE_VF_TOPOLOGY_unpack(p, &v);
 
 	gt.ia.topology = v.PrimitiveTopologyType;
 }
@@ -1133,8 +1130,8 @@ handle_3dstate_wm_depth_stencil(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM_DEPTH_STENCIL\n");
 
-	struct GEN8_3DSTATE_WM_DEPTH_STENCIL v;
-	GEN8_3DSTATE_WM_DEPTH_STENCIL_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_WM_DEPTH_STENCIL v;
+	GEN9_3DSTATE_WM_DEPTH_STENCIL_unpack(p, &v);
 
 	gt.depth.test_enable = v.DepthTestEnable;
 	gt.depth.test_function = v.DepthTestFunction;
@@ -1145,11 +1142,11 @@ handle_3dstate_ps_extra(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_PS_EXTRA\n");
 
-	struct GEN8_3DSTATE_PS_EXTRA v;
-	GEN8_3DSTATE_PS_EXTRA_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_PS_EXTRA v;
+	GEN9_3DSTATE_PS_EXTRA_unpack(p, &v);
 
 	gt.ps.enable = v.PixelShaderValid;
-	gt.ps.uses_input_coverage_mask = v.PixelShaderUsesInputCoverageMask;
+	gt.ps.input_coverage_mask_state = v.InputCoverageMaskState;
 	gt.ps.attribute_enable = v.AttributeEnable;
 	gt.ps.uses_source_w = v.PixelShaderUsesSourceW;
 	gt.ps.uses_source_depth = v.PixelShaderUsesSourceDepth;
@@ -1160,8 +1157,8 @@ handle_3dstate_raster(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_RASTER\n");
 
-	struct GEN8_3DSTATE_RASTER v;
-	GEN8_3DSTATE_RASTER_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_RASTER v;
+	GEN9_3DSTATE_RASTER_unpack(p, &v);
 
 	gt.wm.front_winding = v.FrontWinding;
 	gt.wm.cull_mode = v.CullMode;
@@ -1271,8 +1268,8 @@ handle_3dstate_drawing_rectangle(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_DRAWING_RECTANGLE\n");
 
-	struct GEN8_3DSTATE_DRAWING_RECTANGLE v;
-	GEN8_3DSTATE_DRAWING_RECTANGLE_unpack(NULL, p, &v);
+	struct GEN9_3DSTATE_DRAWING_RECTANGLE v;
+	GEN9_3DSTATE_DRAWING_RECTANGLE_unpack(p, &v);
 
 	gt.drawing_rectangle.min_x = v.ClippedDrawingRectangleXMin;
 	gt.drawing_rectangle.min_y = v.ClippedDrawingRectangleYMin;
@@ -1433,8 +1430,8 @@ handle_3dprimitive(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DPRIMITIVE\n");
 
-	struct GEN8_3DPRIMITIVE v;
-	GEN8_3DPRIMITIVE_unpack(NULL, p, &v);
+	struct GEN9_3DPRIMITIVE v;
+	GEN9_3DPRIMITIVE_unpack(p, &v);
 
 	gt.prim.predicate = v.PredicateEnable;
 	gt.prim.end_offset = v.EndOffsetEnable;

@@ -406,7 +406,7 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 		g++;
 	}
 
-	if (gt.ps.uses_input_coverage_mask) {
+	if (gt.ps.input_coverage_mask_state != ICMS_NONE) {
 		g++;
 	}
 
@@ -779,7 +779,7 @@ wm_clear(void)
 	void *depth;
 	uint64_t range;
 
-	if (!gt.ps.resolve &&
+	if (gt.ps.resolve_type == RESOLVE_DISABLED &&
 	    get_surface(gt.ps.binding_table_address, 0, &rt)) {
 		int height = (rt.height + 7) & ~7;
 		memset(rt.pixels, 0, height * rt.stride);
