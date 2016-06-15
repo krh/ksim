@@ -554,6 +554,8 @@ struct inst_imm {
    uint32_t ud;
    float f;
    float vf[4];
+   uint32_t uv[8];
+   int32_t v[8];
 };
 
 static inline float
@@ -590,6 +592,26 @@ unpack_inst_imm(struct inst *packed)
          vf_to_float(get_inst_bits(packed,  104,  111)),
          vf_to_float(get_inst_bits(packed,  112,  119)),
          vf_to_float(get_inst_bits(packed,  120,  127)),
+      },
+      .uv = {
+         get_inst_bits(packed,  96,  99),
+         get_inst_bits(packed, 100, 103),
+         get_inst_bits(packed, 104, 107),
+         get_inst_bits(packed, 108, 111),
+         get_inst_bits(packed, 112, 115),
+         get_inst_bits(packed, 116, 119),
+         get_inst_bits(packed, 120, 123),
+         get_inst_bits(packed, 124, 127)
+      },
+      .v = { /* FIXME: Sign extend */
+         get_inst_bits(packed,  96,  99),
+         get_inst_bits(packed, 100, 103),
+         get_inst_bits(packed, 104, 107),
+         get_inst_bits(packed, 108, 111),
+         get_inst_bits(packed, 112, 115),
+         get_inst_bits(packed, 116, 119),
+         get_inst_bits(packed, 120, 123),
+         get_inst_bits(packed, 124, 127)
       }
    };
 }
