@@ -749,6 +749,12 @@ builder_emit_m256i_load(struct builder *bld, int dst, int32_t offset)
 }
 
 static void
+builder_emit_m128i_load(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc5, 0xf9, 0x6f, 0x87 + dst * 0x08, emit_uint32(offset));
+}
+
+static void
 builder_emit_m256i_load_rip_relative(struct builder *bld, int dst, int32_t offset)
 {
 	emit(bld, 0xc5, 0xfd, 0x6f, 0x05 + dst * 0x08, emit_uint32(offset - 8));
@@ -773,9 +779,21 @@ builder_emit_vpmulld(struct builder *bld, int dst, int src0, int src1)
 }
 
 static void
-builder_emit_m256i_store(struct builder *bld, int dst, int32_t offset)
+builder_emit_m256i_store(struct builder *bld, int src, int32_t offset)
 {
-	emit(bld, 0xc5, 0xfd, 0x7f, 0x87 + dst * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xfd, 0x7f, 0x87 + src * 0x08, emit_uint32(offset));
+}
+
+static void
+builder_emit_m128i_store(struct builder *bld, int src, int32_t offset)
+{
+	emit(bld, 0xc5, 0xf9, 0x7f, 0x87 + src * 0x08, emit_uint32(offset));
+}
+
+static void
+builder_emit_u32_store(struct builder *bld, int src, int32_t offset)
+{
+	emit(bld, 0x66, 0x0f, 0x7e, 0x87 + src * 0x08, emit_uint32(offset));
 }
 
 static void
@@ -915,10 +933,34 @@ builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src
 	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x4c, 0xc0 + dst * 8 + src0, mask * 16);
 }
 
+static void __attribute__((unused))
+builder_emit_vpmovsxwd(struct builder *bld, int dst, int src)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d, 0x23, 0xc0 + dst * 8 + src);
+}
+
+static void __attribute__((unused))
+builder_emit_vpmovzxwd(struct builder *bld, int dst, int src)
+{
+	emit(bld, 0xc4, 0xe2, 0x7d, 0x33, 0xc0 + dst * 8 + src);
+}
+
 static void
 builder_emit_load_rsi_rip_relative(struct builder *bld, int offset)
 {
 	emit(bld, 0x48, 0x8d, 0x35, emit_uint32(offset - 7));
+}
+
+static void
+builder_emit_vpackssdw(struct builder *bld, int dst, int src0, int src1)
+{
+	emit(bld, 0xc5, 0xf9 - src1 * 8, 0x6b, 0xc0 + dst * 8 + src0);
+}
+
+static void
+builder_emit_vextractf128(struct builder *bld, int dst, int src, int sel)
+{
+	emit(bld, 0xc4, 0xe3, 0x7d, 0x19, 0xc0 + dst + src * 8, sel);
 }
 
 static uint32_t
@@ -961,17 +1003,28 @@ builder_emit_da_src_load(struct builder *bld, int avx_reg,
 	if (exec_size != 8)
 		stub("non-8 exec size: %d", exec_size);
 
-	if (subnum == 0 &&
-	    src->hstride == 1 && src->width == src->vstride)
+	if (type_size(src->type) == 4 && subnum == 0 &&
+	    src->hstride == 1 && src->width == src->vstride) {
 		builder_emit_m256i_load(bld, avx_reg,
-				       offsetof(struct thread, grf[src->num]));
-	else if (src->hstride == 0 && src->vstride == 0 && src->width == 1)
+					offsetof(struct thread, grf[src->num]));
+	} else if (type_size(src->type) == 2 && subnum == 0 &&
+		   src->hstride == 1 && src->width == src->vstride) {
+		builder_emit_m128i_load(bld, avx_reg,
+					offsetof(struct thread, grf[src->num]));
+		if (src->type == BRW_HW_REG_TYPE_UW)
+			builder_emit_vpmovzxwd(bld, avx_reg, avx_reg);
+		else if (src->type == BRW_HW_REG_TYPE_W)
+			builder_emit_vpmovsxwd(bld, avx_reg, avx_reg);
+		else
+			stub("2 byte src type %d\n");
+	} else if (src->hstride == 0 && src->vstride == 0 && src->width == 1) {
 		builder_emit_vpbroadcastd(bld, avx_reg,
 					  offsetof(struct thread,
 						   grf[src->num].ud[subnum]));
-	else
-		spam("unimplemented src: g%d.%d<%d,%d,%d>.%d",
+	} else {
+		stub("src: g%d.%d<%d,%d,%d>.%d",
 		     src->num, subnum, src->vstride, src->width, src->hstride);
+	}
 }
 
 static void
@@ -1120,6 +1173,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		       struct inst *inst, struct inst_dst *dst)
 {
 	struct inst_common common = unpack_inst_common(inst);
+	int exec_size = 1 << common.exec_size;
 
 	/* FIXME: write masks */
 
@@ -1138,11 +1192,34 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		builder_emit_vminps(bld, avx_reg, avx_reg, 5);
 	}
 
-	if (type_size(dst->type) != 4)
-		stub("eu: type size %d (!=4) in dest store", type_size(dst->type));
 
-	builder_emit_m256i_store(bld, avx_reg,
-				 offsetof(struct thread, grf[dst->num]));
+	if (exec_size == 1) {
+		if (type_size(dst->type) != 4)
+			stub("unhandled scalar dst type size");
+		builder_emit_u32_store(bld, avx_reg,
+				       offsetof(struct thread, grf[dst->num]) +
+				       dst->da1_subnum);
+		return;
+	}
+
+	const int tmp_reg = 7;
+	switch (type_size(dst->type)) {
+	case 4:
+		builder_emit_m256i_store(bld, avx_reg,
+					 offsetof(struct thread, grf[dst->num]));
+		break;
+
+	case 2:
+		builder_emit_vextractf128(bld, tmp_reg, avx_reg, 1);
+		builder_emit_vpackssdw(bld, avx_reg, tmp_reg, avx_reg);
+		builder_emit_m128i_store(bld, avx_reg,
+					 offsetof(struct thread, grf[dst->num]));
+		break;
+
+	default:
+		stub("eu: type size %d in dest store", type_size(dst->type));
+		break;
+	}
 }
 
 static inline int
