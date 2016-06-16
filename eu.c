@@ -979,6 +979,7 @@ builder_emit_src_load(struct builder *bld, int avx_reg,
 		      struct inst *inst, struct inst_src *src)
 {
 	struct inst_common common = unpack_inst_common(inst);
+	uint32_t *p;
 
 	if (src->file == BRW_ARCHITECTURE_REGISTER_FILE) {
 		switch (src->num & 0xf0) {
@@ -995,15 +996,50 @@ builder_emit_src_load(struct builder *bld, int avx_reg,
 		switch (src->type) {
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
-		case BRW_HW_REG_TYPE_F:
+			p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
+			builder_emit_vpbroadcastd_rip_relative(bld, avx_reg, builder_offset(bld, p));
 			break;
-		default:
+
+		case BRW_HW_REG_TYPE_UW:
+		case BRW_HW_REG_TYPE_W:
 			stub("unhandled imm type in src load");
 			break;
+
+		case BRW_HW_REG_IMM_TYPE_UV:
+			/* Gen6+ packed unsigned immediate vector */
+			p = builder_get_const_data(bld, 8 * sizeof *p, 4);
+			memcpy(p, unpack_inst_imm(inst).uv, 8 * sizeof *p);
+			builder_emit_m256i_load_rip_relative(bld, avx_reg, builder_offset(bld, p));
+
+			break;
+
+		case BRW_HW_REG_IMM_TYPE_VF:
+			/* packed float immediate vector */
+			stub("float imm vector");
+			break;
+
+		case BRW_HW_REG_IMM_TYPE_V:
+			/* packed int imm. vector; uword dest only */
+			p = builder_get_const_data(bld, 8 * sizeof *p, 4);
+			memcpy(p, unpack_inst_imm(inst).v, 8 * sizeof *p);
+			builder_emit_m256i_load_rip_relative(bld, avx_reg, builder_offset(bld, p));
+			break;
+
+		case BRW_HW_REG_TYPE_F:
+			p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
+			builder_emit_vpbroadcastd_rip_relative(bld, avx_reg, builder_offset(bld, p));
+			break;
+
+		case GEN8_HW_REG_TYPE_UQ:
+		case GEN8_HW_REG_TYPE_Q:
+		case GEN8_HW_REG_IMM_TYPE_DF:
+		case GEN8_HW_REG_IMM_TYPE_HF:
+			stub("unhandled imm type in src load");
+			break;
+		default:
+			ksim_unreachable("invalid imm type");
 		}
 
-		uint32_t *ud = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
-		builder_emit_vpbroadcastd_rip_relative(bld, avx_reg, builder_offset(bld, ud));
 	} else if (common.access_mode == BRW_ALIGN_1) {
 		builder_emit_da_src_load(bld, avx_reg, inst, src, src->da1_subnum);
 	} else if (common.access_mode == BRW_ALIGN_16) {
