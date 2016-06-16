@@ -1392,22 +1392,20 @@ static void *
 builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
-		struct surface buffer;
+	struct surface buffer;
 
 	uint32_t bti = field(send.function_control, 0, 7);
 	uint32_t mask = field(send.function_control, 8, 11);
 	uint32_t simd_mode = field(send.function_control, 12, 13);
 	uint32_t opcode = field(send.function_control, 14, 18);
-	uint32_t header_present = field(send.function_control, 19, 19);
+	//uint32_t header_present = field(send.function_control, 19, 19);
 
 	struct sfid_dataport1_args *args;
 	args = builder_get_const_data(bld, sizeof *args, 8);
 
-	printf("bti=%u, mask=0x%x, simd_mode=%u, opcode=%u, header_present=%u\n",
-	       bti, mask, simd_mode, opcode, header_present);
-
 	switch (opcode) {
 	case 9:
+		/* Command reference: MSD1W_US */
 		ksim_assert(simd_mode == 2); /* SIMD8 */
 		args->src = unpack_inst_2src_src0(inst).num;
 		args->mask = mask;
