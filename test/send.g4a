@@ -1,0 +1,86 @@
+/* Defines for send messages  -*- mode: asm -*- */
+
+/* Thread spawner */
+
+/* Opcodes */
+#define DEREF_RESOURCE	0
+#define SPAWN_THREAD	1
+
+/* Requester type */
+#define ROOT_THREAD	0
+#define CHILD_THREAD	1
+
+/* Resource select values for DEREF_RESOURCE */
+//#define DEREF_RESOURCE	0
+#define KEEP_RESOURCE	1
+
+/* Resource select values for SPAWN_THREAD */
+#define SPAWN_CHILD	0
+#define SPAWN_ROOT	1
+
+
+// MSD1W_US
+// data_port(cache_type,
+
+#define SFID_DATAPORT_RENDER_CACHE	0x05
+#define SFID_DATAPORT_DATA_CACHE1	0x0c
+
+//           message_type,
+
+#define HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_READ                  1
+#define HSW_DATAPORT_DC_PORT1_UNTYPED_ATOMIC_OP                     2
+#define HSW_DATAPORT_DC_PORT1_UNTYPED_ATOMIC_OP_SIMD4X2             3
+#define HSW_DATAPORT_DC_PORT1_MEDIA_BLOCK_READ                      4
+#define HSW_DATAPORT_DC_PORT1_TYPED_SURFACE_READ                    5
+#define HSW_DATAPORT_DC_PORT1_TYPED_ATOMIC_OP                       6
+#define HSW_DATAPORT_DC_PORT1_TYPED_ATOMIC_OP_SIMD4X2               7
+#define HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_WRITE                 9
+#define HSW_DATAPORT_DC_PORT1_MEDIA_BLOCK_WRITE                     10
+#define HSW_DATAPORT_DC_PORT1_ATOMIC_COUNTER_OP                     11
+#define HSW_DATAPORT_DC_PORT1_ATOMIC_COUNTER_OP_SIMD4X2             12
+#define HSW_DATAPORT_DC_PORT1_TYPED_SURFACE_WRITE                   13
+
+//	     message_control
+
+// MDC_UW_CMASK in bits 0-3
+#define CMASK_RGBA	0x0
+#define CMASK_RGB	0x8
+#define CMASK_RG	0xc
+#define CMASK_R		0xe
+
+// MDC_SM3
+#define SIMD4x2_MODE	0
+#define SIMD16_MODE	16
+#define SIMD8_MODE	32
+
+//           bti,
+//           category,
+
+//           1 for scratch block read/write msgs
+
+//           header_present)
+
+#define NO_HEADER	0
+#define HEADER_PRESENT	1
+
+#define terminate_thread						\
+  mov (8)      g127<1>UD  g0<8,8,1>UD  { align1 mask_disable };		\
+  send(8) 127  null       g127<8,8,1>UW					\
+    thread_spawner(DEREF_RESOURCE, ROOT_THREAD, KEEP_RESOURCE)		\
+    mlen 1 rlen 0		{ align1 mask_disable EOT };
+
+#define write(offset, _r, _g)						\
+  mov(8)	g32<1>UD         0D			{ align1 };	\
+  mov(1)	g32.28<1>UD      -1D			{ align1 };	\
+  mov(8)	g33<1>UW         0x76543210V		{ align1 };	\
+  shl(8)	g33<1>UD         g33<8,8,1>UW     3D	{ align1 };	\
+  add(8)        g33<1>UD         g33<8,8,1>UD   offset	{ align1 };	\
+  mov(8)	g34<1>UD         _r<8,8,1>UD		{ align1 };	\
+  mov(8)	g35<1>UD         _g<8,8,1>UD		{ align1 };	\
+  send(8) 32	null		 g32<8,8,1>UD				\
+	data_port(SFID_DATAPORT_DATA_CACHE1,				\
+		  HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_WRITE,		\
+		  44, /* SIMD8_MODE + 0xe mask */			\
+		  0, /* bti */						\
+		  0, HEADER_PRESENT)					\
+	mlen 4 rlen 0		{ align1 mask_disable };
