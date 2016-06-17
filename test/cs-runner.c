@@ -396,17 +396,30 @@ int main(int argc, char *argv[])
 
 	const uint32_t skl_gt2_max_cs_threads = 56;
 
+	const uint32_t curbe_size = 64;
+
 	bo_emit(batch, GEN9_MEDIA_VFE_STATE, mvs) {
 		mvs.MaximumNumberofThreads = skl_gt2_max_cs_threads - 1;
 		mvs.NumberofURBEntries     = 2;
 		mvs.ResetGatewayTimer      = true;
 		mvs.URBEntryAllocationSize = 2;
-		mvs.CURBEAllocationSize    = 0;
+		mvs.CURBEAllocationSize    = curbe_size / 32;
 	};
 
 	const uint32_t binding_table_offset = align_u64(state->cursor, 64);
 	uint32_t *binding_table = state->map + binding_table_offset;
 	state->cursor += 128;
+
+	const uint32_t constant_data_offset = align_u64(state->cursor, 64);
+	uint32_t *constant_data = state->map + constant_data_offset;
+	state->cursor += curbe_size;
+	for (uint32_t i = 0; i < curbe_size / 4; i++)
+		constant_data[i] = i;
+
+	bo_emit(batch, GEN9_MEDIA_CURBE_LOAD, mcl) {
+		mcl.CURBETotalDataLength = curbe_size;
+		mcl.CURBEDataStartAddress = constant_data_offset;
+	}
 
 	binding_table[0] = add_buffer(device, state, ssbo);
 
@@ -418,7 +431,7 @@ int main(int argc, char *argv[])
 		idd.SamplerCount = 0;
 		idd.BindingTablePointer = binding_table_offset;
 		idd.BindingTableEntryCount = 1;
-		idd.ConstantIndirectURBEntryReadLength = 0;
+		idd.ConstantIndirectURBEntryReadLength = curbe_size / 32;
 		idd.ConstantURBEntryReadOffset = 0;
 		idd.BarrierEnable = false;
 		idd.SharedLocalMemorySize = 0;
