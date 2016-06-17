@@ -438,7 +438,7 @@ int main(int argc, char *argv[])
 
 		gw.ThreadDepthCounterMaximum = 0;
 		gw.ThreadHeightCounterMaximum = 0;
-		gw.ThreadWidthCounterMaximum =  7;
+		gw.ThreadWidthCounterMaximum =  0;
 
 		gw.ThreadGroupIDStartingX = 0;
 		gw.ThreadGroupIDXDimension = 1;
