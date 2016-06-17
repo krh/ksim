@@ -62,11 +62,12 @@
 #define HEADER_PRESENT	1
 
 mov(8)	g10<1>UW         0x76543210V		{ align1 mask_disable };
-mov(8)	g7<1>UD         g10<8,8,1>UW		{ align1 mask_disable };
 mov(8)	g5<1>UD         0D			{ align1 mask_disable };
 mov(1)	g5.28<1>UD      -1D			{ align1 mask_disable };
 shl(8)	g6<1>UD         g10<8,8,1>UW     3D	{ align1 mask_disable };
-add(8)	g8<1>UD         g7<8,8,1>UD	8UD	{ align1 mask_disable };
+
+mov(8)	g7<1>UD         g1<8,8,1>UD		{ align1 mask_disable };
+mov(8)	g8<1>UD         g2<8,8,1>UD		{ align1 mask_disable };
 
 send(8) 5	null		g5<8,8,1>UD
 	data_port(SFID_DATAPORT_DATA_CACHE1,
