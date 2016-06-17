@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
 	};
 
 	const uint32_t binding_table_offset = align_u64(state->cursor, 64);
-	uint32_t *binding_table = state->map + state->cursor;
+	uint32_t *binding_table = state->map + binding_table_offset;
 	state->cursor += 128;
 
 	binding_table[0] = add_buffer(device, state, ssbo);
