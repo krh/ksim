@@ -38,7 +38,7 @@ print_avx(struct shader *shader, int start, int end)
 	info.arch = bfd_arch_i386;
 	info.mach = bfd_mach_x86_64;
 	info.buffer_vma = 0;
-	info.buffer_length = 4095;
+	info.buffer_length = 64 * 4096;
 	info.section = NULL;
 	info.buffer = shader->code;
 	disassemble_init_for_target(&info);
