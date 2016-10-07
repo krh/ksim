@@ -38,6 +38,8 @@ We have 16 AVX2 regs, we should use them. Instead of loading and writing back fo
 instruction, use a simple LRU register allocator. Gets tricky with control flow and
 partial assignments.
 
+** JIT vertex fetch
+
 ** JIT in ps thread setup code
 
 We can generate code to copy in the exact payload we'll need. Also
