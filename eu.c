@@ -1901,6 +1901,8 @@ compile_shader(uint64_t kernel_offset,
 		if (trace_mask & TRACE_AVX)
 			print_avx(bld.shader, prev - bld.shader->code,
 				  bld.p - bld.shader->code);
+
+		ksim_assert(shader_end - shader_pool < shader_pool_size);
 	}
 
 	shader_end = bld.p;
