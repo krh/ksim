@@ -1258,6 +1258,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	bool tex_valid = get_surface(bld->binding_table_address, surface, &args->tex);
 	ksim_assert(tex_valid);
 	switch (args->tex.format) {
+	case SF_R32G32B32A32_FLOAT:
 	case SF_R8G8B8X8_UNORM:
 	case SF_R8G8B8A8_UNORM:
 		break;
