@@ -94,6 +94,10 @@ while true; do
 	      args="${args}trace=all;"
 	      shift
 	      ;;
+	  --stub=*)
+	      ksim_stub_path=${1##--stub=};
+	      shift
+	      ;;
 	  --help)
 	      show_help
 	      ;;
@@ -114,8 +118,6 @@ done
 
 [ -z $1 ] && show_help
 
-test -f .libs/ksim-stub.so && libdir=.libs
-
-LD_PRELOAD=${libdir}/ksim-stub.so${LD_PPRELOAD:+:${LD_PRELOAD}} \
+LD_PRELOAD=${ksim_stub_path:-${libdir}/ksim-stub.so}${LD_PPRELOAD:+:${LD_PRELOAD}} \
 	KSIM_ARGS="$args" \
 	exec -- "$@"
