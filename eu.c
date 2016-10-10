@@ -1262,7 +1262,8 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	case SF_R8G8B8A8_UNORM:
 		break;
 	default:
-		stub("sampler format");
+		stub("sampler format: %d", args->tex.format);
+		break;
 	}
 
 	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
