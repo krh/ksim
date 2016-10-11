@@ -17,7 +17,7 @@ AC_PROG_LIBTOOL
 
 PKG_CHECK_MODULES(KSIM, [libdrm_intel >= 2.4.55 libdrm libpng16])
 
-AC_CONFIG_FILES([Makefile libdisasm/Makefile test/Makefile])
+AC_CONFIG_FILES([Makefile test/Makefile])
 AC_CONFIG_FILES([ksim], [chmod +x ksim])
 
 AC_OUTPUT

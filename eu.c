@@ -34,7 +34,6 @@
 #include <assert.h>
 #include <immintrin.h>
 
-#include "libdisasm/gen_disasm.h"
 #include "ksim.h"
 
 #define BRW_HW_REG_TYPE_UD  0
@@ -1839,23 +1838,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 	return eot;
 }
 
-static struct gen_disasm *
-get_disasm(void)
-{
-	const int gen = 8;
-	static struct gen_disasm *disasm;
+#include <common/gen_device_info.h>
 
-	if (disasm == NULL)
-		disasm = gen_disasm_create(gen);
+void brw_init_compaction_tables(const struct gen_device_info *devinfo);
+int brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
+                         struct inst *inst, bool is_compacted);
 
-	return disasm;
-}
-
-void
-print_inst(void *p)
-{
-	gen_disasm_disassemble_insn(get_disasm(), p, trace_file);
-}
+void brw_uncompact_instruction(const struct gen_device_info *devinfo,
+                               struct inst *dst, void *src);
 
 static void *shader_pool, *shader_end;
 const size_t shader_pool_size = 64 * 1024;
@@ -1863,7 +1853,6 @@ const size_t shader_pool_size = 64 * 1024;
 void
 reset_shader_pool(void)
 {
-
 	if (shader_pool == NULL) {
 		int fd = memfd_create("jit", MFD_CLOEXEC);
 		ftruncate(fd, shader_pool_size);
@@ -1876,21 +1865,24 @@ reset_shader_pool(void)
 	shader_end = shader_pool;
 }
 
+static const struct gen_device_info ksim_devinfo = { .gen = 9 };
+
 struct shader *
 compile_shader(uint64_t kernel_offset,
 	       uint64_t surfaces, uint64_t samplers)
 {
 	struct builder bld;
+	struct inst uncompacted;
 	void *insn;
 	bool eot;
 	uint8_t *prev;
 	uint64_t ksp, range;
-	void *kernel;
-	char cache[64 * 1024];
+	void *p;
+
+	brw_init_compaction_tables(&ksim_devinfo);
 
 	ksp = kernel_offset + gt.instruction_base_address;
-	kernel = map_gtt_offset(ksp, &range);
-	gen_disasm_uncompact(get_disasm(), kernel, cache, sizeof(cache));
+	p = map_gtt_offset(ksp, &range);
 
 	bld.shader = align_ptr(shader_end, 64);
 	bld.p = bld.shader->code;
@@ -1898,9 +1890,19 @@ compile_shader(uint64_t kernel_offset,
 	bld.binding_table_address = surfaces;
 	bld.sampler_state_address = samplers;
 
-	for (insn = cache, eot = false; !eot; insn += 16) {
+	do {
+		if (unpack_inst_common(p).cmpt_control) {
+			brw_uncompact_instruction(&ksim_devinfo, &uncompacted, p);
+			insn = &uncompacted;
+			p += 8;
+		} else {
+			insn = p;
+			p += 16;
+		}
+
 		if (trace_mask & TRACE_EU)
-			print_inst(insn);
+			brw_disassemble_inst(trace_file, &ksim_devinfo, insn, false);
+
 		prev = bld.p;
 		eot = compile_inst(&bld, insn);
 
@@ -1909,7 +1911,7 @@ compile_shader(uint64_t kernel_offset,
 				  bld.p - bld.shader->code);
 
 		ksim_assert(shader_end - shader_pool < shader_pool_size);
-	}
+	} while (!eot);
 
 	shader_end = bld.p;
 
