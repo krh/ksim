@@ -26,21 +26,41 @@ Add various depth tests, support all formats, do HiZ.
 
 * Thread pool
 
+Group primitives per tile, maybe fixed size per-tile queue, then run all shaders for
+one tile on one cpu-core.  Should reduce contention, allow one cpu to have entire
+RT tile (page) in cache the whole time.
+
 * JIT
+
+** Basic register allocator
+
+We have 16 AVX2 regs, we should use them. Instead of loading and writing back for every
+instruction, use a simple LRU register allocator. Gets tricky with control flow and
+partial assignments.
 
 ** JIT in ps thread setup code
 
 We can generate code to copy in the exact payload we'll need. Also
 compile in depth test. Maybe even entire tile level loop to avoid
-function pointer dispatch per SIMD8 group.
+function pointer dispatch per SIMD8 group. This should use the register allocator
+so that ideally for small shader we might never need to write out the payload.
 
-** Optimize rt write
+** Optimize RT write
+
+Compile in RT write.
 
 ** Track constants per sub reg (use case: msg headers)
 
-** Detect constant offset ubo loads and just replace the send with loading the constant
+** Detect constant offset ubo loads
+
+Since we JIT at 3DPRIMITIVE time, we know which buffers are bound when
+we JIT, so if we see a constant offset load through sampler or constant
+cache (both read only cached) we can just look up the constant and compile
+it into the shader as a regular load.
 
 * WM
+
+** SIMD16 dispatch
 
 ** Use AVX2
 
