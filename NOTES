@@ -36,6 +36,10 @@ function pointer dispatch per SIMD8 group.
 
 ** Optimize rt write
 
+** Track constants per sub reg (use case: msg headers)
+
+** Detect constant offset ubo loads and just replace the send with loading the constant
+
 * WM
 
 ** Use AVX2
