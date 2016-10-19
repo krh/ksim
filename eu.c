@@ -387,7 +387,7 @@ unpack_inst_send(struct inst *packed)
 {
    return (struct inst_send) {
       .sfid                     = get_inst_bits(packed,  24,  27),
-      .function_control         = get_inst_bits(packed,  96,  114),
+      .function_control         = get_inst_bits(packed,  96,  127),
       .header_present           = get_inst_bits(packed,  115,  115),
       .rlen                     = get_inst_bits(packed,  116,  120),
       .mlen                     = get_inst_bits(packed,  121,  124),
@@ -1227,10 +1227,148 @@ reg_offset(int num, int subnum)
 	return offsetof(struct thread, grf[num].ud[subnum]);
 }
 
+enum simd_mode {
+	SIMD_MODE_SIMD8D_SIMD4x2,
+	SIMD_MODE_SIMD8,
+	SIMD_MODE_SIMD16,
+	SIMD_MODE_SIMD32,
+};
+
+struct message_descriptor {
+	uint32_t	binding_table_index;
+	uint32_t	sampler_index;
+	uint32_t	message_type;
+	enum simd_mode	simd_mode;
+	bool		header_present;
+	uint32_t	response_length;
+	uint32_t	message_length;
+	uint32_t	return_format;
+	bool		eot;
+};
+
+static inline struct message_descriptor
+unpack_message_descriptor(uint32_t function_control)
+{
+	/* Vol 2d, "Message Descriptor - Sampling Engine" (p328) */
+	return (struct message_descriptor) {
+		.binding_table_index	= field(function_control,   0,    7),
+		.sampler_index		= field(function_control,   8,   11),
+		.message_type		= field(function_control,  12,   16),
+		.simd_mode		= field(function_control,  17,   18),
+		.header_present		= field(function_control,  19,   19),
+		.response_length	= field(function_control,  20,   24),
+		.message_length		= field(function_control,  25,   28),
+		.return_format		= field(function_control,  30,   30),
+		.eot			= field(function_control,  31,   31),
+	};
+}
+
+enum simd_mode_extension {
+	SIMD_MODE_EXTENSION_SIMD8D,
+	SIMD_MODE_EXTENSION_SIMD4x2
+};
+
+struct message_header {
+	uint32_t			r_offset;
+	uint32_t			v_offset;
+	uint32_t			u_offset;
+	uint32_t			red_channel_mask;
+	uint32_t			green_channel_mask;
+	uint32_t			blue_channel_mask;
+	uint32_t			alpha_channel_mask;
+	uint32_t			gather4_source_channel_select;
+	uint32_t			simd3264_output_format_control;
+	enum simd_mode_extension	simd_mode_extension;
+	uint32_t			pixel_null_mask_enable;
+	uint32_t			render_target_index;
+	uint32_t			sampler_state_pointer;
+	uint32_t			destination_x_address;
+	uint32_t			destination_y_address;
+	uint32_t			output_format;
+};
+
+/* Vol 7, p 362 */
+enum sample_message_type {
+	SAMPLE_MESSAGE_SAMPLE		= 0b00000,
+	SAMPLE_MESSAGE_SAMPLE_B		= 0b00001,
+	SAMPLE_MESSAGE_SAMPLE_L		= 0b00010,
+	SAMPLE_MESSAGE_SAMPLE_C		= 0b00011,
+	SAMPLE_MESSAGE_SAMPLE_D		= 0b00100,
+	SAMPLE_MESSAGE_SAMPLE_B_C	= 0b00101,
+	SAMPLE_MESSAGE_SAMPLE_L_C	= 0b00110,
+	SAMPLE_MESSAGE_LD		= 0b00111,
+	SAMPLE_MESSAGE_GATHER4		= 0b01000,
+	SAMPLE_MESSAGE_LOD		= 0b01001,
+	SAMPLE_MESSAGE_RESINFO		= 0b01010,
+	SAMPLE_MESSAGE_SAMPLEINFO	= 0b01011,
+	SAMPLE_MESSAGE_GATHER4_C	= 0b10000,
+	SAMPLE_MESSAGE_GATHER4_PO	= 0b10001,
+	SAMPLE_MESSAGE_GATHER4_PO_C	= 0b10010,
+	SAMPLE_MESSAGE_D_C		= 0b10100,
+	SAMPLE_MESSAGE_MIN		= 0b10110,
+	SAMPLE_MESSAGE_MAX		= 0b10111,
+	SAMPLE_MESSAGE_LZ		= 0b11000,
+	SAMPLE_MESSAGE_C_LZ		= 0b11001,
+	SAMPLE_MESSAGE_LD_LZ		= 0b11010, /* Not in docs */
+	SAMPLE_MESSAGE_LD2DMS_W		= 0b11100,
+	SAMPLE_MESSAGE_LD_MCS		= 0b11101,
+	SAMPLE_MESSAGE_LD2DMS		= 0b11110,
+};
+
+static inline struct message_header
+unpack_message_header(const struct reg h)
+{
+	return (struct message_header) {
+		.r_offset			= field(h.ud[2],  0,  3),
+		.v_offset			= field(h.ud[2],  4,  7),
+		.u_offset			= field(h.ud[2],  8, 11),
+		.red_channel_mask		= field(h.ud[2], 12, 12),
+		.green_channel_mask		= field(h.ud[2], 13, 13),
+		.blue_channel_mask		= field(h.ud[2], 14, 14),
+		.alpha_channel_mask		= field(h.ud[2], 15, 15),
+		.gather4_source_channel_select	= field(h.ud[2], 16, 17),
+		.simd3264_output_format_control	= field(h.ud[2], 18, 19),
+		.simd_mode_extension		= field(h.ud[2], 22, 22),
+		.pixel_null_mask_enable		= field(h.ud[2], 23, 23),
+		.render_target_index		= field(h.ud[2], 24, 31),
+		.sampler_state_pointer		= field(h.ud[3],  0, 31),
+		.destination_x_address		= field(h.ud[4],  0, 15),
+		.destination_y_address		= field(h.ud[4], 16, 31),
+		.output_format			= field(h.ud[5],  0,  4),
+	};
+}
+
+static void
+sfid_sampler_ld(struct thread *t, const struct sfid_sampler_args *args)
+{
+	const struct message_header h = unpack_message_header(t->grf[args->src]);
+	struct reg u, sample;
+	float *p;
+	/* Payload struct MAP32B_TS_SIMD4X2 */
+
+	ksim_assert(h.simd_mode_extension == SIMD_MODE_EXTENSION_SIMD4x2);
+
+	u.ireg = t->grf[args->src + 1].ireg;
+	switch (args->tex.format) {
+	case SF_R32G32B32A32_FLOAT:
+		p = args->tex.pixels + u.ud[0] * args->tex.stride;
+		sample.f[0] = p[0];
+		sample.f[1] = p[1];
+		sample.f[2] = p[2];
+		sample.f[3] = p[3];
+		t->grf[args->dst] = sample;
+		break;
+	default:
+		stub("unhandled ld format");
+		break;
+	}
+}
+
 static void *
 builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
+	const int exec_size = 1 << unpack_inst_common(inst).exec_size;
 	struct sfid_sampler_args *args;
 
 	args = builder_get_const_data(bld, sizeof *args, 8);
@@ -1238,23 +1376,22 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	args->dst = unpack_inst_2src_dst(inst).num;
 	args->src = unpack_inst_2src_src0(inst).num;
 
-	uint32_t msg = field(send.function_control, 12, 16);
-	uint32_t simd_mode = field(send.function_control, 17, 18);
-	uint32_t sampler = field(send.function_control, 8, 11);
-	uint32_t surface = field(send.function_control, 0, 7);
-	uint32_t format = field(send.function_control, 12, 13);
+	const struct message_descriptor d =
+		unpack_message_descriptor(send.function_control);
 
 	/*  sampler_table_offset = t->grf[0].ud[3] & ~((1<<5) - 1); */
 
 	spam("sfid sampler: msg %d, simd_mode %d, "
-	     "sampler %d, surface %d, format %d\n",
-	     msg, simd_mode, sampler, surface, format);
+	     "sampler %d, surface %d, header %d\n",
+	     d.message_type, d.simd_mode, d.sampler_index, d.binding_table_index,
+	     d.header_present);
 
 	/* FIXME: We can't do this optimization for any kind of
 	 * dynamically indexed surface state or sampler state. Also
 	 * need to watch out for shaders writing the sampler state
 	 * offset in g0.3. */
-	bool tex_valid = get_surface(bld->binding_table_address, surface, &args->tex);
+	bool tex_valid = get_surface(bld->binding_table_address,
+				     d.binding_table_index, &args->tex);
 	ksim_assert(tex_valid);
 	switch (args->tex.format) {
 	case SF_R32G32B32A32_FLOAT:
@@ -1268,7 +1405,22 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 
 	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
-	return sfid_sampler;
+	switch (d.message_type) {
+	case SAMPLE_MESSAGE_LD:
+	case SAMPLE_MESSAGE_LD_LZ:
+		if (d.simd_mode == SIMD_MODE_SIMD8D_SIMD4x2) {
+			/* We only handle 4x2, which on SKL requires
+			 * the simd mode extension bit in the header
+			 * to be set. Assert we have a header. */
+			ksim_assert(d.header_present);
+			ksim_assert(exec_size == 4);
+			return sfid_sampler_ld;
+		}
+		stub("unhandled ld simd mode");
+		return NULL;
+	default:
+		return sfid_sampler;
+	}
 }
 
 static void *
