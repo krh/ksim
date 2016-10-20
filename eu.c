@@ -1021,7 +1021,7 @@ builder_emit_da_src_load(struct builder *bld, int avx_reg,
 					  offsetof(struct thread,
 						   grf[src->num].ud[subnum]));
 	} else {
-		stub("src: g%d.%d<%d,%d,%d>.%d",
+		stub("src: g%d.%d<%d,%d,%d>",
 		     src->num, subnum, src->vstride, src->width, src->hstride);
 	}
 }
