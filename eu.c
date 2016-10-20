@@ -1343,7 +1343,7 @@ sfid_sampler_ld(struct thread *t, const struct sfid_sampler_args *args)
 {
 	const struct message_header h = unpack_message_header(t->grf[args->src]);
 	struct reg u, sample;
-	float *p;
+	uint32_t *p;
 	/* Payload struct MAP32B_TS_SIMD4X2 */
 
 	ksim_assert(h.simd_mode_extension == SIMD_MODE_EXTENSION_SIMD4x2);
@@ -1351,11 +1351,13 @@ sfid_sampler_ld(struct thread *t, const struct sfid_sampler_args *args)
 	u.ireg = t->grf[args->src + 1].ireg;
 	switch (args->tex.format) {
 	case SF_R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_SINT:
+	case SF_R32G32B32A32_UINT:
 		p = args->tex.pixels + u.ud[0] * args->tex.stride;
-		sample.f[0] = p[0];
-		sample.f[1] = p[1];
-		sample.f[2] = p[2];
-		sample.f[3] = p[3];
+		sample.ud[0] = p[0];
+		sample.ud[1] = p[1];
+		sample.ud[2] = p[2];
+		sample.ud[3] = p[3];
 		t->grf[args->dst] = sample;
 		break;
 	default:
@@ -1395,6 +1397,8 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	ksim_assert(tex_valid);
 	switch (args->tex.format) {
 	case SF_R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_SINT:
+	case SF_R32G32B32A32_UINT:
 	case SF_R8G8B8X8_UNORM:
 	case SF_R8G8B8A8_UNORM:
 		break;
