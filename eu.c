@@ -1753,7 +1753,6 @@ compile_shader(uint64_t kernel_offset,
 	struct inst uncompacted;
 	void *insn;
 	bool eot;
-	uint8_t *prev;
 	uint64_t ksp, range;
 	void *p;
 
@@ -1777,12 +1776,11 @@ compile_shader(uint64_t kernel_offset,
 		if (trace_mask & TRACE_EU)
 			brw_disassemble_inst(trace_file, &ksim_devinfo, insn, false);
 
-		prev = bld.p;
 		eot = compile_inst(&bld, insn);
 
 		if (trace_mask & TRACE_AVX)
-			print_avx(bld.shader, prev - bld.shader->code,
-				  bld.p - bld.shader->code);
+			while (builder_disasm(&bld))
+				fprintf(trace_file, "      %s\n", bld.disasm_output);
 	} while (!eot);
 
 	builder_finish(&bld);

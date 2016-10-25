@@ -1,3 +1,6 @@
+#include <bfd.h>
+#include <dis-asm.h>
+
 struct avx2_reg {
         struct list link;
 };
@@ -12,6 +15,12 @@ struct builder {
 	struct avx2_reg regs[16];
 	struct list regs_lru_list;
 	struct list used_regs_list;
+
+	/* Disassembly fields */
+	struct disassemble_info info;
+	int disasm_tail;
+	char disasm_output[128];
+	int disasm_length;
 };
 
 #define emit(bld, ...)							\
@@ -303,3 +312,6 @@ builder_get_reg(struct builder *bld);
 
 void
 builder_release_regs(struct builder *bld);
+
+bool
+builder_disasm(struct builder *bld);

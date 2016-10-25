@@ -22,8 +22,6 @@
  */
 
 #include <stddef.h>
-#include <bfd.h>
-#include <dis-asm.h>
 
 #include "ksim.h"
 #include "avx-builder.h"
@@ -46,6 +44,22 @@ reset_shader_pool(void)
 	shader_end = shader_pool;
 }
 
+static int
+builder_disasm_printf(void *_bld, const char *fmt, ...)
+{
+	struct builder *bld = _bld;
+	va_list va;
+	int length;
+
+	va_start(va, fmt);
+	length = vsnprintf(bld->disasm_output + bld->disasm_length,
+			   sizeof(bld->disasm_output) - bld->disasm_length, fmt, va);
+	va_end(va);
+	bld->disasm_length += length;
+
+	return length;
+}
+
 void
 builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 {
@@ -54,6 +68,17 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	bld->pool_index = 0;
 	bld->binding_table_address = surfaces;
 	bld->sampler_state_address = samplers;
+
+	bld->disasm_tail = bld->p - (uint8_t *) shader_pool;
+	init_disassemble_info(&bld->info, bld, builder_disasm_printf);
+	/* info.print_address_func = override_print_address; */
+	bld->info.arch = bfd_arch_i386;
+	bld->info.mach = bfd_mach_x86_64;
+	bld->info.buffer_vma = 0;
+	bld->info.buffer_length = shader_pool_size;
+	bld->info.buffer = shader_pool;
+	bld->info.section = NULL;
+	disassemble_init_for_target(&bld->info);
 
 	list_init(&bld->regs_lru_list);
 	list_init(&bld->used_regs_list);
@@ -90,26 +115,17 @@ builder_release_regs(struct builder *bld)
 	list_init(&bld->used_regs_list);
 }
 
-void
-print_avx(struct shader *shader, int start, int end)
+bool
+builder_disasm(struct builder *bld)
 {
-	struct disassemble_info info;
-	int pc, count;
+	const int end = bld->p - (uint8_t *) shader_pool;
 
-	init_disassemble_info(&info, trace_file,
-			      (fprintf_ftype)fprintf);
-	/* info.print_address_func = override_print_address; */
-	info.arch = bfd_arch_i386;
-	info.mach = bfd_mach_x86_64;
-	info.buffer_vma = 0;
-	info.buffer_length = 64 * 4096;
-	info.section = NULL;
-	info.buffer = shader->code;
-	disassemble_init_for_target(&info);
-
-	for (pc = start; pc < end; pc += count) {
-		fprintf(trace_file, "      ");
-		count = print_insn_i386(pc, &info);
-		fprintf(trace_file, "\n");
+	bld->disasm_length = 0;
+	if (bld->disasm_tail < end) {
+		bld->disasm_tail +=
+			print_insn_i386(bld->disasm_tail, &bld->info);
+		return true;
+	} else {
+		return false;
 	}
 }
