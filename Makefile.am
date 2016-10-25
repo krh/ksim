@@ -31,3 +31,12 @@ ksim_stub_la_SOURCES = \
 	avx-builder.h \
 	write-png.c \
 	write-png.h
+
+TESTS = test-avx-builder
+
+check_PROGRAMS = $(TESTS)
+
+test_avx_builder_CFLAGS = -Wall -march=native -mrtm
+test_avx_builder_SOURCES = avx-builder.c
+test_avx_builder_CPPFLAGS = $(KSIM_CFLAGS) -I$(mesadir)/src/intel -DTEST_AVX_BUILDER
+test_avx_builder_LDADD = $(KSIM_LIBS)

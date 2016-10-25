@@ -23,3 +23,8 @@ ltmain.sh
 missing
 test/cs-runner
 *.aub
+test-avx-builder
+*.log
+*.trs
+test-driver
+test-suite.log
