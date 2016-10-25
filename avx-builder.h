@@ -54,49 +54,33 @@ builder_emit_call_rip_relative(struct builder *bld, int32_t offset)
 static inline void
 builder_emit_m256i_load(struct builder *bld, int dst, int32_t offset)
 {
-	emit(bld, 0xc5, 0xfd, 0x6f, 0x87 + dst * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f, 0x87 + (dst & 7) * 0x08, emit_uint32(offset));
 }
 
 static inline void
 builder_emit_m128i_load(struct builder *bld, int dst, int32_t offset)
 {
-	emit(bld, 0xc5, 0xf9, 0x6f, 0x87 + dst * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xf9 - (dst & 8) * 16, 0x6f, 0x87 + (dst & 7) * 8, emit_uint32(offset));
 }
 
 static inline void
 builder_emit_m256i_load_rip_relative(struct builder *bld, int dst, int32_t offset)
 {
-	emit(bld, 0xc5, 0xfd, 0x6f, 0x05 + dst * 0x08, emit_uint32(offset - 8));
-}
+	ksim_assert(dst < 16);
 
-static inline void
-builder_emit_vpaddd(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfd - src1 * 8, 0xfe, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpsubd(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfd - src1 * 8, 0xfa, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpmulld(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x40, 0xc0 + src0 + dst * 8);
+	emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f, 0x05 + (dst & 7) * 8, emit_uint32(offset - 8));
 }
 
 static inline void
 builder_emit_m256i_store(struct builder *bld, int src, int32_t offset)
 {
-	emit(bld, 0xc5, 0xfd, 0x7f, 0x87 + src * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, 0x87 + (src & 7) * 0x08, emit_uint32(offset));
 }
 
 static inline void
 builder_emit_m128i_store(struct builder *bld, int src, int32_t offset)
 {
-	emit(bld, 0xc5, 0xf9, 0x7f, 0x87 + src * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xf9 - (src & 8) * 16, 0x7f, 0x87 + (src & 7) * 0x08, emit_uint32(offset));
 }
 
 static inline void
@@ -106,75 +90,121 @@ builder_emit_u32_store(struct builder *bld, int src, int32_t offset)
 }
 
 static inline void
-builder_emit_vaddps(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x58, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vmulps(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x59, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vdivps(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5e, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vsubps(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5c, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpand(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfd - src1 * 8, 0xdb, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpxor(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfd - src1 * 8, 0xef, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpor(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xfd - src1 * 8, 0xeb, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpsrlvd(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x45, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpsravd(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x46, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
-builder_emit_vpsllvd(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc4, 0xe2, 0x7d - src1 * 8, 0x47, 0xc0 + src0 + dst * 8);
-}
-
-static inline void
 builder_emit_vpbroadcastd(struct builder *bld, int dst, int32_t offset)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d, 0x58, 0x87 + dst * 8, emit_uint32(offset));
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x58, 0x87 + (dst & 7) * 8,
+	     emit_uint32(offset));
 }
 
 static inline void
 builder_emit_vpbroadcastd_rip_relative(struct builder *bld, int dst, int32_t offset)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d, 0x58, 0x05 + dst * 8, emit_uint32(offset - 9));
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x58, 0x05 + (dst & 7) * 8,
+	     emit_uint32(offset - 9));
+}
+
+static inline void
+builder_emit_load_rsi_rip_relative(struct builder *bld, int offset)
+{
+	emit(bld, 0x48, 0x8d, 0x35, emit_uint32(offset - 7));
+}
+
+static inline void
+builder_emit_long_alu(struct builder *bld, int opcode0, int opcode1, int dst, int src0, int src1)
+{
+	ksim_assert(dst < 16 && src0 < 16 && src1 < 16);
+
+	if (src0 < 8)
+		emit(bld, 0xc5, (0xf0 | opcode0) - src1 * 8 - (dst & 8) * 16,
+		     opcode1, 0xc0 + src0 + (dst & 7) * 8);
+	else
+		emit(bld, 0xc4, 0xc1 - (dst & 8) * 16, (0x70 | opcode0) - src1 * 8,
+		     opcode1, 0xc0 + (src0 & 7) + (dst & 7) * 8);
+}
+
+static inline void
+builder_emit_short_alu(struct builder *bld, int opcode, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe2 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,
+	     opcode, 0xc0 + (src0 & 7) + (dst & 7) * 8);
+}
+
+static inline void
+builder_emit_vpaddd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xfe, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpsubd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xfa, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpmulld(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_short_alu(bld, 0x40, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vaddps(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0c, 0x58, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vmulps(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0c, 0x59, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vdivps(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0c, 0x5e, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vsubps(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0c, 0x5c, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpand(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xdb, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpxor(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xef, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpor(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xeb, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpsrlvd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_short_alu(bld, 0x45, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpsravd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_short_alu(bld, 0x46, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpsllvd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_short_alu(bld, 0x47, dst, src0, src1);
 }
 
 /* For the vfmaddXYZps instructions, X and Y are multiplied, Z is
@@ -185,55 +215,56 @@ builder_emit_vpbroadcastd_rip_relative(struct builder *bld, int dst, int32_t off
 static inline void
 builder_emit_vfmadd132ps(struct builder *bld, int dst, int src0, int src1)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d - src0 * 8, 0x98, 0xc0 + dst * 8 + src1);
+	builder_emit_short_alu(bld, 0x98, dst, src0, src1);
 }
 
 static inline void
 builder_emit_vfmadd231ps(struct builder *bld, int dst, int src0, int src1)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d - src0 * 8, 0xb8, 0xc0 + dst * 8 + src1);
+	builder_emit_short_alu(bld, 0xb8, dst, src0, src1);
 }
 
 static inline void
 builder_emit_vpabsd(struct builder *bld, int dst, int src0)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d, 0x1e, 0xc0 + dst * 8 + src0);
+	builder_emit_short_alu(bld, 0x1e, dst, src0, 0);
 }
 
 static inline void
 builder_emit_vrsqrtps(struct builder *bld, int dst, int src0)
 {
-	emit(bld, 0xc5, 0xfc, 0x52, 0xc0 + dst * 8 + src0);
+	builder_emit_long_alu(bld, 0x0c, 0x52, dst, src0, 0);
 }
 
 static inline void
 builder_emit_vsqrtps(struct builder *bld, int dst, int src0)
 {
-	emit(bld, 0xc5, 0xfc, 0x5, 0xc0 + dst * 8 + src0);
+	builder_emit_long_alu(bld, 0x0c, 0x51, dst, src0, 0);
 }
 
 static inline void
 builder_emit_vrcpps(struct builder *bld, int dst, int src0)
 {
-	emit(bld, 0xc5, 0xfc, 0x53, 0xc0 + dst * 8 + src0);
+	builder_emit_long_alu(bld, 0x0c, 0x53, dst, src0, 0);
 }
 
 static inline void
 builder_emit_vcmpps(struct builder *bld, int op, int dst, int src0, int src1)
 {
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0xc2, 0xc0 + dst * 8 + src0, op);
+	builder_emit_long_alu(bld, 0x0c, 0xc2, dst, src0, src1);
+	emit(bld, op);
 }
 
 static inline void
 builder_emit_vmaxps(struct builder *bld, int dst, int src0, int src1)
 {
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5f, 0xc0 + dst * 8 + src0);
+	builder_emit_long_alu(bld, 0x0c, 0x5f, dst, src0, src1);
 }
 
 static inline void
 builder_emit_vminps(struct builder *bld, int dst, int src0, int src1)
 {
-	emit(bld, 0xc5, 0xfc - src1 * 8, 0x5d, 0xc0 + dst * 8 + src0);
+	builder_emit_long_alu(bld, 0x0c, 0x5d, dst, src0, src1);
 }
 
 static inline void
@@ -242,28 +273,22 @@ builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src
 	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x4c, 0xc0 + dst * 8 + src0, mask * 16);
 }
 
-static inline void __attribute__((unused))
+static inline void
+builder_emit_vpackssdw(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x09, 0x6b, dst, src0, src1);
+}
+
+static inline void
 builder_emit_vpmovsxwd(struct builder *bld, int dst, int src)
 {
 	emit(bld, 0xc4, 0xe2, 0x7d, 0x23, 0xc0 + dst * 8 + src);
 }
 
-static inline void __attribute__((unused))
+static inline void
 builder_emit_vpmovzxwd(struct builder *bld, int dst, int src)
 {
 	emit(bld, 0xc4, 0xe2, 0x7d, 0x33, 0xc0 + dst * 8 + src);
-}
-
-static inline void
-builder_emit_load_rsi_rip_relative(struct builder *bld, int offset)
-{
-	emit(bld, 0x48, 0x8d, 0x35, emit_uint32(offset - 7));
-}
-
-static inline void
-builder_emit_vpackssdw(struct builder *bld, int dst, int src0, int src1)
-{
-	emit(bld, 0xc5, 0xf9 - src1 * 8, 0x6b, 0xc0 + dst * 8 + src0);
 }
 
 static inline void

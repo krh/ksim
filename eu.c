@@ -1654,7 +1654,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		src0_reg = builder_emit_src_load(bld, inst, &src1);
 		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum));
 		builder_emit_vpbroadcastd(bld, tmp1_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, src0_reg, tmp1_reg, tmp0_reg);
+		builder_emit_vfmadd132ps(bld, src0_reg, tmp0_reg, tmp1_reg);
 		break;
 	}
 	case BRW_OPCODE_PLN: {
@@ -1672,10 +1672,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 		src1_reg = builder_emit_src_load(bld, inst, &src1);
 		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum));
 		builder_emit_vpbroadcastd(bld, tmp1_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, src1_reg, tmp1_reg, tmp0_reg);
+		builder_emit_vfmadd132ps(bld, src1_reg, tmp0_reg, tmp1_reg);
 		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum + 1));
 		src0_reg = builder_emit_src_load(bld, inst, &src2);
-		builder_emit_vfmadd132ps(bld, src0_reg, src1_reg, tmp0_reg);
+		builder_emit_vfmadd132ps(bld, src0_reg, tmp0_reg, src1_reg);
 		break;
 	}
 	case BRW_OPCODE_MAD:
@@ -1683,7 +1683,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vpmulld(bld, src1_reg, src1_reg, src2_reg);
 			builder_emit_vpaddd(bld, src0_reg, src0_reg, src1_reg);
 		} else {
-			builder_emit_vfmadd231ps(bld, src0_reg, src1_reg, src2_reg);
+			builder_emit_vfmadd231ps(bld, src0_reg, src2_reg, src1_reg);
 		}
 		break;
 	case BRW_OPCODE_LRP:
