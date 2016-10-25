@@ -27,6 +27,7 @@ ksim_stub_la_SOURCES = \
 	wm.c \
 	compute.c \
 	eu.c \
-	avx-disasm.c \
+	avx-builder.c \
+	avx-builder.h \
 	write-png.c \
 	write-png.h
