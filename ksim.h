@@ -619,3 +619,56 @@ void print_avx(struct shader *shader, int start, int end);
 #define BIM_LINEAR_PIXEL		 8
 #define BIM_LINEAR_CENTROID		16
 #define BIM_LINEAR_SAMPLE		32
+
+struct list {
+	struct list *prev;
+	struct list *next;
+};
+
+static inline void
+list_init(struct list *list)
+{
+	list->prev = list;
+	list->next = list;
+}
+
+static inline void
+list_insert(struct list *list, struct list *elm)
+{
+	elm->prev = list;
+	elm->next = list->next;
+	list->next = elm;
+	elm->next->prev = elm;
+}
+
+static inline void
+list_remove(struct list *elm)
+{
+	elm->prev->next = elm->next;
+	elm->next->prev = elm->prev;
+	elm->next = NULL;
+	elm->prev = NULL;
+}
+
+static inline bool
+list_empty(const struct list *list)
+{
+	return list->next == list;
+}
+
+static inline void
+list_insert_list(struct list *list, struct list *other)
+{
+	if (list_empty(other))
+		return;
+
+	other->next->prev = list;
+	other->prev->next = list->next;
+	list->next->prev = other->prev;
+	list->next = other->next;
+}
+
+
+#define container_of(ptr, sample, member)				\
+	(__typeof__(sample))((char *)(ptr) -				\
+			     offsetof(__typeof__(*sample), member))
