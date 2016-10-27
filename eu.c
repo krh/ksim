@@ -1497,7 +1497,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		 * thread terminating. Just return.
 		 */
 		if (p == NULL) {
-			emit(bld, 0xc3);
+			builder_emit_ret(bld);
 			break;
 		}
 
@@ -1510,9 +1510,9 @@ compile_inst(struct builder *bld, struct inst *inst)
 		if (eot) {
 			builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
 		} else {
-			emit(bld, 0x57);
+			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
-			emit(bld, 0x5f);
+			builder_emit_pop_rdi(bld);
 		}
 		break;
 	}
@@ -1547,10 +1547,9 @@ compile_inst(struct builder *bld, struct inst *inst)
 			break;
 		case BRW_MATH_FUNCTION_POW: {
 			void *p = math_function_pow;
-			emit(bld, 0x57);
-			ksim_assert(!"broken arg passing");
+			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
-			emit(bld, 0x5f);
+			builder_emit_pop_rdi(bld);
 			break;
 		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:

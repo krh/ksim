@@ -40,6 +40,18 @@ struct builder {
 
 
 static inline void
+builder_emit_push_rdi(struct builder *bld)
+{
+	emit(bld, 0x57);
+}
+
+static inline void
+builder_emit_pop_rdi(struct builder *bld)
+{
+	emit(bld, 0x5f);
+}
+
+static inline void
 builder_emit_jmp_relative(struct builder *bld, int32_t offset)
 {
 	emit(bld, 0xe9, emit_uint32(offset - 5));
@@ -61,6 +73,12 @@ static inline void
 builder_emit_call_rip_relative(struct builder *bld, int32_t offset)
 {
 	emit(bld, 0xff, 0x15, emit_uint32(offset - 6));
+}
+
+static inline void
+builder_emit_ret(struct builder *bld)
+{
+	emit(bld, 0xc3);
 }
 
 static inline void
