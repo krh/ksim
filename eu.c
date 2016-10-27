@@ -1545,7 +1545,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			dst_reg = emit_call(bld, _ZGVdN8v_cosf);
 			break;
 		case BRW_MATH_FUNCTION_SINCOS:
-			stub("BRW_MATH_FUNCTION_SINCOS");
+			ksim_unreachable("sincos only gen4/5");
 			break;
 		case BRW_MATH_FUNCTION_FDIV:
 			builder_emit_vdivps(bld, dst_reg, src0_reg, src1_reg);
