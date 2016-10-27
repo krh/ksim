@@ -778,7 +778,7 @@ builder_emit_src_load(struct builder *bld,
 
 		case BRW_HW_REG_IMM_TYPE_UV:
 			/* Gen6+ packed unsigned immediate vector */
-			p = builder_get_const_data(bld, 8 * sizeof *p, 4);
+			p = builder_get_const_data(bld, 8 * sizeof *p, 32);
 			memcpy(p, unpack_inst_imm(inst).uv, 8 * sizeof *p);
 			builder_emit_m256i_load_rip_relative(bld, reg, builder_offset(bld, p));
 
@@ -791,7 +791,7 @@ builder_emit_src_load(struct builder *bld,
 
 		case BRW_HW_REG_IMM_TYPE_V:
 			/* packed int imm. vector; uword dest only */
-			p = builder_get_const_data(bld, 8 * sizeof *p, 4);
+			p = builder_get_const_data(bld, 8 * sizeof *p, 32);
 			memcpy(p, unpack_inst_imm(inst).v, 8 * sizeof *p);
 			builder_emit_m256i_load_rip_relative(bld, reg, builder_offset(bld, p));
 			break;
