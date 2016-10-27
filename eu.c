@@ -1313,15 +1313,22 @@ builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 	}
 }
 
-static __m256
-math_function_pow(struct thread *t, __m256 v, __m256 e)
+/* Vectorized AVX2 math functions from glibc's libmvec */
+__m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
+__m256 _ZGVdN8v___logf_finite(__m256 x);
+__m256 _ZGVdN8v___expf_finite(__m256 x);
+__m256 _ZGVdN8v_sinf(__m256 x);
+__m256 _ZGVdN8v_cosf(__m256 x);
+__m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
+
+static int
+emit_call(struct builder *bld, void *func)
 {
-	__m256 r;
+	builder_emit_push_rdi(bld);
+	builder_emit_call_relative(bld, (uint8_t *) func - bld->p);
+	builder_emit_pop_rdi(bld);
 
-	for (int i = 0; i < 8; i++)
-		r[i] = powf(v[i], e[i]);
-
-	return r;
+	return 0;
 }
 
 bool
@@ -1510,9 +1517,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		if (eot) {
 			builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
 		} else {
-			builder_emit_push_rdi(bld);
-			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
-			builder_emit_pop_rdi(bld);
+			emit_call(bld, p);
 		}
 		break;
 	}
@@ -1522,10 +1527,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vrcpps(bld, dst_reg, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_LOG:
-			stub("BRW_MATH_FUNCTION_LOG");
+			dst_reg = emit_call(bld, _ZGVdN8v___logf_finite);
 			break;
 		case BRW_MATH_FUNCTION_EXP:
-			stub("BRW_MATH_FUNCTION_EXP");
+			dst_reg = emit_call(bld, _ZGVdN8v___expf_finite);
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
 			builder_emit_vsqrtps(bld, dst_reg, src0_reg);
@@ -1534,10 +1539,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vrsqrtps(bld, dst_reg, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SIN:
-			stub("BRW_MATH_FUNCTION_SIN");
+			dst_reg = emit_call(bld, _ZGVdN8v_sinf);
 			break;
 		case BRW_MATH_FUNCTION_COS:
-			stub("BRW_MATH_FUNCTION_COS");
+			dst_reg = emit_call(bld, _ZGVdN8v_cosf);
 			break;
 		case BRW_MATH_FUNCTION_SINCOS:
 			stub("BRW_MATH_FUNCTION_SINCOS");
@@ -1546,10 +1551,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vdivps(bld, dst_reg, src0_reg, src1_reg);
 			break;
 		case BRW_MATH_FUNCTION_POW: {
-			void *p = math_function_pow;
-			builder_emit_push_rdi(bld);
-			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
-			builder_emit_pop_rdi(bld);
+			dst_reg = emit_call(bld, _ZGVdN8vv___powf_finite);
 			break;
 		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
