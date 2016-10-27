@@ -1730,36 +1730,16 @@ compile_inst(struct builder *bld, struct inst *inst)
 		break;
 	}
 
-	if (opcode_info[opcode].num_srcs == 3) {
-		if (opcode_info[opcode].store_dst) {
-			struct inst_dst _dst = unpack_inst_3src_dst(inst);
-			if (_dst.hstride > 1)
-				stub("eu: 3src dst hstride %d is > 1", _dst.hstride);
-#if 0
-			struct inst_src _src = unpack_inst_3src_src0(inst);
-			dump_reg("dst", dst, _dst.type);
-			if (is_integer(_src.type) && is_float(_dst.type))
-				dst.f = _mm256_cvtepi32_ps(dst.d);
-			else if (is_float(_src.type) && is_integer(_dst.type))
-				dst.d = _mm256_cvtps_epi32(dst.f);
-#endif
-			builder_emit_dst_store(bld, dst_reg, inst, &_dst);
-		}
-	} else {
-		if (opcode_info[opcode].store_dst) {
-			struct inst_dst _dst = unpack_inst_2src_dst(inst);
-			if (_dst.hstride > 1)
-				stub("eu: 2src dst hstride %d is > 1", _dst.hstride);
-#if 0
-			struct inst_src _src = unpack_inst_2src_src0(inst);
-			dump_reg("dst", dst, _dst.type);
-			if (is_integer(_src.type) && is_float(_dst.type))
-				dst.f = _mm256_cvtepi32_ps(dst.d);
-			else if (is_float(_src.type) && is_integer(_dst.type))
-				dst.d = _mm256_cvtps_epi32(dst.f);
-#endif
-			builder_emit_dst_store(bld, dst_reg, inst, &_dst);
-		}
+	if (opcode_info[opcode].store_dst) {
+		if (dst.hstride > 1)
+			stub("eu: dst hstride %d is > 1", dst.hstride);
+
+		if (is_integer(src0.file, src0.type) && is_float(dst.file, dst.type))
+			builder_emit_vcvtdq2ps(bld, dst_reg, dst_reg);
+		else if (is_float(src0.file, src0.type) && is_integer(dst.file, dst.type))
+			builder_emit_vcvtps2dq(bld, dst_reg, dst_reg);
+
+		builder_emit_dst_store(bld, dst_reg, inst, &dst);
 	}
 
         builder_release_regs(bld);

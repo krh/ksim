@@ -327,6 +327,18 @@ builder_emit_vextractf128(struct builder *bld, int dst, int src, int sel)
 	emit(bld, 0xc4, 0xe3, 0x7d, 0x19, 0xc0 + dst + src * 8, sel);
 }
 
+static inline void
+builder_emit_vcvtps2dq(struct builder *bld, int dst, int src)
+{
+	builder_emit_long_alu(bld, 0x0d, 0x5b, dst, src, 0);
+}
+
+static inline void
+builder_emit_vcvtdq2ps(struct builder *bld, int dst, int src)
+{
+	builder_emit_long_alu(bld, 0x0c, 0x5b, dst, src, 0);
+}
+
 static inline uint32_t
 builder_offset(struct builder *bld, void *p)
 {
