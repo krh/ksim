@@ -1471,22 +1471,22 @@ compile_inst(struct builder *bld, struct inst *inst)
 		struct inst_send send = unpack_inst_send(inst);
 		eot = send.eot;
 
-		void **p = builder_get_const_data(bld, sizeof(void*), 8);
+		void *p;
 		switch (send.sfid) {
 		case BRW_SFID_SAMPLER:
-			*p = builder_emit_sfid_sampler(bld, inst);
+			p = builder_emit_sfid_sampler(bld, inst);
 			break;
 		case GEN6_SFID_DATAPORT_RENDER_CACHE:
-			*p = builder_emit_sfid_render_cache(bld, inst);
+			p = builder_emit_sfid_render_cache(bld, inst);
 			break;
 		case BRW_SFID_URB:
-			*p = builder_emit_sfid_urb(bld, inst);
+			p = builder_emit_sfid_urb(bld, inst);
 			break;
 		case BRW_SFID_THREAD_SPAWNER:
-			*p = builder_emit_sfid_thread_spawner(bld, inst);
+			p = builder_emit_sfid_thread_spawner(bld, inst);
 			break;
 		case HSW_SFID_DATAPORT_DATA_CACHE_1:
-			*p = builder_emit_sfid_dataport1(bld, inst);
+			p = builder_emit_sfid_dataport1(bld, inst);
 			break;
 		default:
 			stub("sfid: %d", send.sfid);
@@ -1496,7 +1496,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		/* If func is NULL, it's the special case of a compute
 		 * thread terminating. Just return.
 		 */
-		if (*p == NULL) {
+		if (p == NULL) {
 			emit(bld, 0xc3);
 			break;
 		}
@@ -1508,10 +1508,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 		 * optimization).
 		 */
 		if (eot) {
-			builder_emit_jmp_rip_relative(bld, (uint8_t *) p - bld->p);
+			builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
 		} else {
 			emit(bld, 0x57);
-			builder_emit_call_rip_relative(bld, (uint8_t *) p - bld->p);
+			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
 			emit(bld, 0x5f);
 		}
 		break;
@@ -1546,11 +1546,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vdivps(bld, dst_reg, src0_reg, src1_reg);
 			break;
 		case BRW_MATH_FUNCTION_POW: {
-			void **p = builder_get_const_data(bld, sizeof(void*), 8);
-			*p = math_function_pow;
+			void *p = math_function_pow;
 			emit(bld, 0x57);
 			ksim_assert(!"broken arg passing");
-			builder_emit_call_rip_relative(bld, (uint8_t *) p - bld->p);
+			builder_emit_call_relative(bld, (uint8_t *) p - bld->p);
 			emit(bld, 0x5f);
 			break;
 		}

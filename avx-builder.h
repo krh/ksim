@@ -40,6 +40,18 @@ struct builder {
 
 
 static inline void
+builder_emit_jmp_relative(struct builder *bld, int32_t offset)
+{
+	emit(bld, 0xe9, emit_uint32(offset - 5));
+}
+
+static inline void
+builder_emit_call_relative(struct builder *bld, int32_t offset)
+{
+	emit(bld, 0xe8, emit_uint32(offset - 5));
+}
+
+static inline void
 builder_emit_jmp_rip_relative(struct builder *bld, int32_t offset)
 {
 	emit(bld, 0xff, 0x25, emit_uint32(offset - 6));
