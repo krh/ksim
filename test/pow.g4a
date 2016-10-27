@@ -1,0 +1,12 @@
+#include "send.g4a"
+
+mov(8)	g1<1>UW         0x76543210V		{ align1 };
+mov(8)	g2<1>F         g1<8,8,1>UW		{ align1 };
+
+mov(8) g3<1>F 7.0F     { align1 };
+
+math(8)          g1<1>F         g2<8,8,1>F    g3<8,8,1>F pow     { align1 };
+
+write(0, g1, g2)
+
+terminate_thread
