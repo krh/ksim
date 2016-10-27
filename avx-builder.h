@@ -338,7 +338,7 @@ builder_get_const_data(struct builder *bld, size_t size, size_t align)
 {
 	int offset = align_u64(bld->pool_index, align);
 
-	bld->pool_index += size;
+	bld->pool_index = offset + size;
 	ksim_assert(bld->pool_index <= sizeof(bld->shader->constant_pool));
 
 	return bld->shader->constant_pool + offset;
