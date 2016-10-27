@@ -278,32 +278,52 @@ struct inst {
 };
 
 static inline bool
-is_integer(int type)
+is_integer(int file, int type)
 {
-   switch (type) {
-   case BRW_HW_REG_TYPE_UD:
-   case BRW_HW_REG_TYPE_D:
-   case BRW_HW_REG_TYPE_UW:
-   case BRW_HW_REG_TYPE_W:
-   case BRW_HW_REG_NON_IMM_TYPE_UB:
-   case BRW_HW_REG_NON_IMM_TYPE_B:
-   case GEN8_HW_REG_TYPE_UQ:
-   case GEN8_HW_REG_TYPE_Q:
-      return true;
-   case BRW_HW_REG_TYPE_F:
-   case GEN8_HW_REG_NON_IMM_TYPE_HF:
-   case GEN7_HW_REG_NON_IMM_TYPE_DF:
-      return false;
-   }
+	if (file == BRW_IMMEDIATE_VALUE) {
+		switch (type) {
+		case BRW_HW_REG_TYPE_UD:
+		case BRW_HW_REG_TYPE_D:
+		case BRW_HW_REG_TYPE_UW:
+		case BRW_HW_REG_TYPE_W:
+		case GEN8_HW_REG_TYPE_UQ:
+		case GEN8_HW_REG_TYPE_Q:
+		case BRW_HW_REG_IMM_TYPE_UV:
+		case BRW_HW_REG_IMM_TYPE_V:
+			return true;
+		case BRW_HW_REG_TYPE_F:
+		case BRW_HW_REG_IMM_TYPE_VF:
+		case GEN8_HW_REG_IMM_TYPE_DF:
+		case GEN8_HW_REG_IMM_TYPE_HF:
+			return false;
+		}
+	} else {
+		switch (type) {
+		case BRW_HW_REG_TYPE_UD:
+		case BRW_HW_REG_TYPE_D:
+		case BRW_HW_REG_TYPE_UW:
+		case BRW_HW_REG_TYPE_W:
+		case BRW_HW_REG_NON_IMM_TYPE_UB:
+		case BRW_HW_REG_NON_IMM_TYPE_B:
+		case GEN8_HW_REG_TYPE_UQ:
+		case GEN8_HW_REG_TYPE_Q:
+			return true;
+		case BRW_HW_REG_TYPE_F:
+		case GEN8_HW_REG_NON_IMM_TYPE_HF:
+		case GEN7_HW_REG_NON_IMM_TYPE_DF:
+			return false;
+		}
+	}
 
-   printf("unknown type\n");
-   return false;
+	ksim_unreachable("unknown type\n");
+
+	return 0;
 }
 
 static inline bool
-is_float(int type)
+is_float(int file, int type)
 {
-   return !is_integer(type);
+	return !is_integer(file, type);
 };
 
 static int
@@ -906,7 +926,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 
 	if (common.saturate) {
 		int tmp_reg = builder_get_reg(bld);
-		ksim_assert(!is_integer(dst->type));
+		ksim_assert(is_float(dst->file, dst->type));
 		uint32_t *zero = builder_get_const_ud(bld, 0);
 		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
 						       builder_offset(bld, zero));
@@ -1335,6 +1355,7 @@ bool
 compile_inst(struct builder *bld, struct inst *inst)
 {
 	struct inst_src src0, src1, src2;
+	struct inst_dst dst;
 	int dst_reg, src0_reg, src1_reg, src2_reg;
 	uint32_t opcode = unpack_inst_common(inst).opcode;
 	bool eot = false;
@@ -1355,6 +1376,11 @@ compile_inst(struct builder *bld, struct inst *inst)
 		src1 = unpack_inst_2src_src1(inst);
 		src1_reg = builder_emit_src_load(bld, inst, &src1);
 	}
+
+	if (opcode_info[opcode].num_srcs == 3)
+		dst = unpack_inst_3src_dst(inst);
+	else
+		dst = unpack_inst_2src_dst(inst);
 
 	if (opcode_info[opcode].store_dst)
 		dst_reg = builder_get_reg(bld);
@@ -1575,13 +1601,13 @@ compile_inst(struct builder *bld, struct inst *inst)
 		}
 		break;
 	case BRW_OPCODE_ADD:
-		if (is_integer(unpack_inst_2src_dst(inst).type))
+		if (is_integer(dst.file, dst.type))
 			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
 		else
 			builder_emit_vaddps(bld, dst_reg, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_MUL:
-		if (is_integer(unpack_inst_2src_dst(inst).type))
+		if (is_integer(dst.file, dst.type))
 			builder_emit_vpmulld(bld, dst_reg, src0_reg, src1_reg);
 		else
 			builder_emit_vmulps(bld, dst_reg, src0_reg, src1_reg);
@@ -1685,7 +1711,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		break;
 	}
 	case BRW_OPCODE_MAD:
-		if (is_integer(unpack_inst_3src_dst(inst).type)) {
+		if (is_integer(dst.file, dst.type)) {
 			builder_emit_vpmulld(bld, src1_reg, src1_reg, src2_reg);
 			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
 		} else {
