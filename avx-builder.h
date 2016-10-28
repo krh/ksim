@@ -32,12 +32,15 @@ struct builder {
 		bld->p += length;					\
 	} while (0)
 
+#define emit_uint16(u)			\
+	((u) & 0xff),			\
+	(((u) >> 8) & 0xff)
+
 #define emit_uint32(u)			\
 	((u) & 0xff),			\
 	(((u) >> 8) & 0xff),		\
 	(((u) >> 16) & 0xff),		\
 	(((u) >> 24) & 0xff)
-
 
 static inline void
 builder_emit_push_rdi(struct builder *bld)
@@ -134,9 +137,50 @@ builder_emit_vpbroadcastd_rip_relative(struct builder *bld, int dst, int32_t off
 }
 
 static inline void
+builder_emit_vpbroadcastw(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x79, 0x87 + (dst & 7) * 8,
+	     emit_uint32(offset));
+}
+
+static inline void
+builder_emit_vpbroadcastw_xmm(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x79, 0x79, 0x87 + (dst & 7) * 8,
+	     emit_uint32(offset));
+}
+
+static inline void
+builder_emit_vpbroadcastq(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x59, 0x87 + (dst & 7) * 8,
+	     emit_uint16(offset));
+}
+
+static inline void
+builder_emit_vbroadcasti128(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x5a, 0x87 + (dst & 7) * 8,
+	     emit_uint32(offset));
+}
+
+static inline void
+builder_emit_vbroadcasti128_rip_relative(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x5a, 0x05 + (dst & 7) * 8,
+	     emit_uint32(offset - 9));
+}
+
+static inline void
 builder_emit_load_rsi_rip_relative(struct builder *bld, int offset)
 {
 	emit(bld, 0x48, 0x8d, 0x35, emit_uint32(offset - 7));
+}
+
+static inline void
+builder_emit_load_rsi(struct builder *bld, int offset)
+{
+	emit(bld, 0x48, 0x8b, 0xb7, emit_uint32(offset));
 }
 
 static inline void
@@ -157,6 +201,24 @@ builder_emit_short_alu(struct builder *bld, int opcode, int dst, int src0, int s
 {
 	emit(bld, 0xc4, 0xe2 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,
 	     opcode, 0xc0 + (src0 & 7) + (dst & 7) * 8);
+}
+
+static inline void
+builder_emit_vpinsrq(struct builder *bld, int dst, int src0, int idx)
+{
+	int src1 = 0;
+
+	emit(bld, 0xc4, 0xe3 - (src0 & 8) * 4 - (dst & 8) * 16, 0xf9 - src1 * 8,
+	     0x22, 0xc6 + (src0 & 7) + (dst & 7) * 8);
+	emit(bld, idx);
+}
+
+static inline void
+builder_emit_vinserti128(struct builder *bld, int dst, int src0, int src1, int idx)
+{
+	emit(bld, 0xc4, 0xe3 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,
+	     0x38, 0xc0 + (src0 & 7) + (dst & 7) * 8);
+	emit(bld, idx);
 }
 
 static inline void
@@ -301,6 +363,18 @@ static inline void
 builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src1)
 {
 	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x4c, 0xc0 + dst * 8 + src0, mask * 16);
+}
+
+static inline void
+builder_emit_vpblendd(struct builder *bld, int dst, int mask, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x02, 0xc0 + dst * 8 + src0, mask);
+}
+
+static inline void
+builder_emit_vpackusdw(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_short_alu(bld, 0x2b, dst, src0, src1);
 }
 
 static inline void
