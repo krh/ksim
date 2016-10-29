@@ -429,12 +429,22 @@ rasterize_tile(struct payload *p)
 	}
 }
 
-static inline void
-init_edge(struct edge *e, int x0, int y0, int x1, int y1)
+struct point {
+	int x, y;
+};
+
+static inline struct point
+snap_point(float x, float y)
 {
-	e->a = (y0 - y1);
-	e->b = (x1 - x0);
-	e->c = (y1 * x0 - x1 * y0);
+	return (struct point) { x, y };
+}
+
+static inline void
+init_edge(struct edge *e, struct point p0, struct point p1)
+{
+	e->a = (p0.y - p1.y);
+	e->b = (p1.x - p0.x);
+	e->c = (p1.y * p0.x - p1.x * p0.y);
 	e->bias = e->a < 0 || (e->a == 0 && e->b < 0);
 	e->min_x = e->a > 0 ? 0 : 1;
 	e->min_y = e->b > 0 ? 0 : 1;
@@ -458,19 +468,15 @@ eval_edge(struct edge *e, int x, int y)
 void
 rasterize_primitive(struct primitive *prim)
 {
-	const int x0 = prim->v[0].x;
-	const int y0 = prim->v[0].y;
-	const int x1 = prim->v[1].x;
-	const int y1 = prim->v[1].y;
-	const int x2 = prim->v[2].x;
-	const int y2 = prim->v[2].y;
-
 	struct payload p;
+	struct point p0 = snap_point(prim->v[0].x, prim->v[0].y);
+	struct point p1 = snap_point(prim->v[1].x, prim->v[1].y);
+	struct point p2 = snap_point(prim->v[2].x, prim->v[2].y);
 
-	init_edge(&p.e01, x0, y0, x1, y1);
-	init_edge(&p.e12, x1, y1, x2, y2);
-	init_edge(&p.e20, x2, y2, x0, y0);
-	int area = eval_edge(&p.e01, x2, y2);
+	init_edge(&p.e01, p0, p1);
+	init_edge(&p.e12, p1, p2);
+	init_edge(&p.e20, p2, p0);
+	int area = eval_edge(&p.e01, p2.x, p2.y);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
