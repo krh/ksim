@@ -32,14 +32,17 @@
 #include "ksim.h"
 #include "write-png.h"
 
+struct edge {
+	int32_t a, b, c, bias;
+	int32_t min_x, min_y;
+};
+
 struct payload {
 	int x0, y0;
 	int start_w2, start_w0, start_w1;
 	float inv_area;
 	struct reg w2, w0, w1;
-	int a01, b01, c01, adjust01;
-	int a12, b12, c12, adjust12;
-	int a20, b20, c20, adjust20;
+	struct edge e01, e12, e20;
 
 	struct {
 		struct reg offsets;
@@ -357,14 +360,14 @@ rasterize_tile(struct payload *p)
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
 	w2_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->a01), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->b01), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.b), sy.ireg);
 	w0_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->a12), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->b12), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.b), sy.ireg);
 	w1_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->a20), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->b20), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.b), sy.ireg);
 
 	row_w2.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w2),
 				       w2_offsets.ireg);
@@ -399,13 +402,13 @@ rasterize_tile(struct payload *p)
 			 * back the tie-breaker adjustment so as to
 			 * not distort the barycentric coordinates.*/
 			p->w2.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->adjust01))),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->e01.bias))),
 					      _mm256_set1_ps(p->inv_area));
 			p->w0.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->adjust12))),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->e12.bias))),
 					      _mm256_set1_ps(p->inv_area));
 			p->w1.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->adjust20))),
+				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->e20.bias))),
 					      _mm256_set1_ps(p->inv_area));
 
 			p->t.mask_full = det.ireg;
@@ -416,14 +419,40 @@ rasterize_tile(struct payload *p)
 				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
 
 		next:
-			w2.ireg = _mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->a01 * 4));
-			w0.ireg = _mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->a12 * 4));
-			w1.ireg = _mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->a20 * 4));
+			w2.ireg = _mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->e01.a * 4));
+			w0.ireg = _mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->e12.a * 4));
+			w1.ireg = _mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->e20.a * 4));
 		}
-		row_w2.ireg = _mm256_add_epi32(row_w2.ireg, _mm256_set1_epi32(p->b01 * 2));
-		row_w0.ireg = _mm256_add_epi32(row_w0.ireg, _mm256_set1_epi32(p->b12 * 2));
-		row_w1.ireg = _mm256_add_epi32(row_w1.ireg, _mm256_set1_epi32(p->b20 * 2));
+		row_w2.ireg = _mm256_add_epi32(row_w2.ireg, _mm256_set1_epi32(p->e01.b * 2));
+		row_w0.ireg = _mm256_add_epi32(row_w0.ireg, _mm256_set1_epi32(p->e12.b * 2));
+		row_w1.ireg = _mm256_add_epi32(row_w1.ireg, _mm256_set1_epi32(p->e20.b * 2));
 	}
+}
+
+static inline void
+init_edge(struct edge *e, int x0, int y0, int x1, int y1)
+{
+	e->a = (y0 - y1);
+	e->b = (x1 - x0);
+	e->c = (y1 * x0 - x1 * y0);
+	e->bias = e->a < 0 || (e->a == 0 && e->b < 0);
+	e->min_x = e->a > 0 ? 0 : 1;
+	e->min_y = e->b > 0 ? 0 : 1;
+}
+
+static inline void
+invert_edge(struct edge *e)
+{
+	e->a = -e->a;
+	e->b = -e->b;
+	e->c = -e->c;
+	e->bias = 1 - e->bias;
+}
+
+static inline int
+eval_edge(struct edge *e, int x, int y)
+{
+	return e->a * x + e->b * y + e->c + e->bias;
 }
 
 void
@@ -438,60 +467,25 @@ rasterize_primitive(struct primitive *prim)
 
 	struct payload p;
 
+	init_edge(&p.e01, x0, y0, x1, y1);
+	init_edge(&p.e12, x1, y1, x2, y2);
+	init_edge(&p.e20, x2, y2, x0, y0);
+	int area = eval_edge(&p.e01, x2, y2);
+
 	if ((gt.wm.front_winding == CounterClockwise &&
-	     gt.wm.cull_mode == CULLMODE_BACK) ||
+	     gt.wm.cull_mode == CULLMODE_FRONT) ||
 	    (gt.wm.front_winding == Clockwise &&
-	     gt.wm.cull_mode == CULLMODE_FRONT)) {
-		p.a01 = (y0 - y1);
-		p.b01 = (x1 - x0);
-		p.c01 = (y1 * x0 - x1 * y0);
-
-		p.a12 = (y1 - y2);
-		p.b12 = (x2 - x1);
-		p.c12 = (y2 * x1 - x2 * y1);
-
-		p.a20 = (y2 - y0);
-		p.b20 = (x0 - x2);
-		p.c20 = (y0 * x2 - x0 * y2);
-	} else {
-		p.a01 = (y1 - y0);
-		p.b01 = (x0 - x1);
-		p.c01 = (x1 * y0 - y1 * x0);
-
-		p.a12 = (y2 - y1);
-		p.b12 = (x1 - x2);
-		p.c12 = (x2 * y1 - y2 * x1);
-
-		p.a20 = (y0 - y2);
-		p.b20 = (x2 - x0);
-		p.c20 = (x0 * y2 - y0 * x2);
-	}
-
-	int area = p.a01 * x2 + p.b01 * y2 + p.c01;
-
-	if ((gt.wm.cull_mode == CULLMODE_NONE && area > 0)) {
-		p.a01 = -p.a01;
-		p.b01 = -p.b01;
-		p.c01 = -p.c01;
-
-		p.a12 = -p.a12;
-		p.b12 = -p.b12;
-		p.c12 = -p.c12;
-
-		p.a20 = -p.a20;
-		p.b20 = -p.b20;
-		p.c20 = -p.c20;
+	     gt.wm.cull_mode == CULLMODE_BACK) ||
+	    (gt.wm.cull_mode == CULLMODE_NONE && area > 0)) {
+		invert_edge(&p.e01);
+		invert_edge(&p.e12);
+		invert_edge(&p.e20);
 		area = -area;
 	}
 
 	if (area >= 0)
 		return;
 	p.inv_area = 1.0f / area;
-
-	/* Tie breaker adjustments for pixels on edges. */
-	p.adjust01 = p.a01 < 0 || (p.a01 == 0 && p.b01 <= 0);
-	p.adjust12 = p.a12 < 0 || (p.a12 == 0 && p.b12 <= 0);
-	p.adjust20 = p.a20 < 0 || (p.a20 == 0 && p.b20 <= 0);
 
 	float w[3] = {
 		1.0f / prim->v[0].z,
@@ -550,24 +544,16 @@ rasterize_primitive(struct primitive *prim)
 	const int tile_max_x = tile_width - 1;
 	const int tile_max_y = tile_height - 1;
 
-	int w2_min_x = p.a01 > 0 ? 0 : 1;
-	int w2_min_y = p.b01 > 0 ? 0 : 1;
 	int min_w0_delta, min_w1_delta, min_w2_delta;
 
 	/* delta from w2 in top-left corner to minimum w2 in tile */
-	min_w2_delta = p.a01 * w2_min_x * tile_max_x + p.b01 * w2_min_y * tile_max_y;
-
-	int w0_min_x = p.a12 > 0 ? 0 : 1;
-	int w0_min_y = p.b12 > 0 ? 0 : 1;
+	min_w2_delta = p.e01.a * p.e01.min_x * tile_max_x + p.e01.b * p.e01.min_y * tile_max_y;
 
 	/* delta from w0 in top-left corner to minimum w0 in tile */
-	min_w0_delta = p.a12 * w0_min_x * tile_max_x + p.b12 * w0_min_y * tile_max_y;
-
-	int w1_min_x = p.a20 > 0 ? 0 : 1;
-	int w1_min_y = p.b20 > 0 ? 0 : 1;
+	min_w0_delta = p.e12.a * p.e12.min_x * tile_max_x + p.e12.b * p.e12.min_y * tile_max_y;
 
 	/* delta from w1 in top-left corner to minumum w1 in tile */
-	min_w1_delta = p.a20 * w1_min_x * tile_max_x + p.b20 * w1_min_y * tile_max_y;
+	min_w1_delta = p.e20.a * p.e20.min_x * tile_max_x + p.e20.b * p.e20.min_y * tile_max_y;
 
 	int min_x, min_y, max_x, max_y;
 
@@ -607,9 +593,9 @@ rasterize_primitive(struct primitive *prim)
 	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
 	max_y = (max_y + tile_height - 1) & ~(tile_height - 1);
 
-	int row_w2 = p.a01 * min_x + p.b01 * min_y + p.c01 - p.adjust01;
-	int row_w0 = p.a12 * min_x + p.b12 * min_y + p.c12 - p.adjust12;
-	int row_w1 = p.a20 * min_x + p.b20 * min_y + p.c20 - p.adjust20;
+	int row_w2 = eval_edge(&p.e01, min_x, min_y);
+	int row_w0 = eval_edge(&p.e12, min_x, min_y);
+	int row_w1 = eval_edge(&p.e20, min_x, min_y);
 	for (p.y0 = min_y; p.y0 < max_y; p.y0 += tile_height) {
 		p.start_w2 = row_w2;
 		p.start_w0 = row_w0;
@@ -623,14 +609,14 @@ rasterize_primitive(struct primitive *prim)
 			if ((min_w2 & min_w0 & min_w1) < 0)
 				rasterize_tile(&p);
 
-			p.start_w2 += tile_width * p.a01;
-			p.start_w0 += tile_width * p.a12;
-			p.start_w1 += tile_width * p.a20;
+			p.start_w2 += tile_width * p.e01.a;
+			p.start_w0 += tile_width * p.e12.a;
+			p.start_w1 += tile_width * p.e20.a;
 		}
 
-		row_w2 += tile_height * p.b01;
-		row_w0 += tile_height * p.b12;
-		row_w1 += tile_height * p.b20;
+		row_w2 += tile_height * p.e01.b;
+		row_w0 += tile_height * p.e12.b;
+		row_w1 += tile_height * p.e20.b;
 	}
 }
 
