@@ -571,6 +571,7 @@ struct shader {
 struct sfid_sampler_args {
 	int src;
 	int dst;
+	int header;
 	struct surface tex;
 };
 

@@ -1176,16 +1176,16 @@ unpack_message_header(const struct reg h)
 }
 
 static void
-sfid_sampler_ld(struct thread *t, const struct sfid_sampler_args *args)
+sfid_sampler_ld_simd4x2(struct thread *t, const struct sfid_sampler_args *args)
 {
-	const struct message_header h = unpack_message_header(t->grf[args->src]);
+	const struct message_header h = unpack_message_header(t->grf[args->header]);
 	struct reg u, sample;
 	uint32_t *p;
 	/* Payload struct MAP32B_TS_SIMD4X2 */
 
 	ksim_assert(h.simd_mode_extension == SIMD_MODE_EXTENSION_SIMD4x2);
 
-	u.ireg = t->grf[args->src + 1].ireg;
+	u.ireg = t->grf[args->src].ireg;
 	switch (args->tex.format) {
 	case SF_R32G32B32A32_FLOAT:
 	case SF_R32G32B32A32_SINT:
@@ -1203,32 +1203,73 @@ sfid_sampler_ld(struct thread *t, const struct sfid_sampler_args *args)
 	}
 }
 
+static void
+sfid_sampler_ld_simd8(struct thread *t, const struct sfid_sampler_args *args)
+{
+	struct reg u, v;
+
+	u.ireg = t->grf[args->src].ireg;
+	v.ireg = t->grf[args->src + 1].ireg;
+	void *p = args->tex.pixels;
+
+	struct reg offsets;
+	offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+
+	const __m256i mask = _mm256_set1_epi32(0xffff);
+	const __m256 scale = _mm256_set1_ps(1.0f / 65535.0f);
+	struct reg rg;
+
+	switch (args->tex.format) {
+	case SF_R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_SINT:
+	case SF_R32G32B32A32_UINT:
+		t->grf[args->dst + 0].ireg = _mm256_i32gather_epi32(p, offsets.ireg, 1);
+		t->grf[args->dst + 1].ireg = _mm256_i32gather_epi32(p + 4, offsets.ireg, 1);
+		t->grf[args->dst + 2].ireg = _mm256_i32gather_epi32(p + 8, offsets.ireg, 1);
+		t->grf[args->dst + 3].ireg = _mm256_i32gather_epi32(p + 12, offsets.ireg, 1);
+		break;
+	case SF_R16G16B16A16_UNORM:
+		rg.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
+		t->grf[args->dst + 0].reg =
+			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+		rg.ireg = _mm256_srli_epi32(rg.ireg, 16);
+		t->grf[args->dst + 1].reg =
+			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+
+		rg.ireg = _mm256_i32gather_epi32(args->tex.pixels + 4, offsets.ireg, 1);
+		t->grf[args->dst + 2].reg =
+			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+		rg.ireg = _mm256_srli_epi32(rg.ireg, 16);
+		t->grf[args->dst + 3].reg =
+			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+
+		break;
+	}
+}
+
 static void *
 builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	const int exec_size = 1 << unpack_inst_common(inst).exec_size;
 	struct sfid_sampler_args *args;
-
-	args = builder_get_const_data(bld, sizeof *args, 8);
-
-	args->dst = unpack_inst_2src_dst(inst).num;
-	args->src = unpack_inst_2src_src0(inst).num;
+	int num;
 
 	const struct message_descriptor d =
 		unpack_message_descriptor(send.function_control);
 
-	/*  sampler_table_offset = t->grf[0].ud[3] & ~((1<<5) - 1); */
+	args = builder_get_const_data(bld, sizeof *args, 8);
 
-	spam("sfid sampler: msg %d, simd_mode %d, "
-	     "sampler %d, surface %d, header %d\n",
-	     d.message_type, d.simd_mode, d.sampler_index, d.binding_table_index,
-	     d.header_present);
+	args->dst = unpack_inst_2src_dst(inst).num;
+	num = unpack_inst_2src_src0(inst).num;
+	if (d.header_present)
+		args->header = num++;
+	else
+		args->header = -1;
+	args->src = num;
 
-	/* FIXME: We can't do this optimization for any kind of
-	 * dynamically indexed surface state or sampler state. Also
-	 * need to watch out for shaders writing the sampler state
-	 * offset in g0.3. */
 	bool tex_valid = get_surface(bld->binding_table_address,
 				     d.binding_table_index, &args->tex);
 	ksim_assert(tex_valid);
@@ -1238,6 +1279,10 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	case SF_R32G32B32A32_UINT:
 	case SF_R8G8B8X8_UNORM:
 	case SF_R8G8B8A8_UNORM:
+	case SF_R16G16B16A16_UNORM:
+	case SF_R16G16B16A16_SNORM:
+	case SF_R16G16B16A16_SINT:
+	case SF_R16G16B16A16_UINT:
 		break;
 	default:
 		stub("surface format: %d", args->tex.format);
@@ -1255,7 +1300,9 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			 * to be set. Assert we have a header. */
 			ksim_assert(d.header_present);
 			ksim_assert(exec_size == 4);
-			return sfid_sampler_ld;
+			return sfid_sampler_ld_simd4x2;
+		} else if (d.simd_mode == SIMD_MODE_SIMD8) {
+			return sfid_sampler_ld_simd8;
 		}
 		stub("unhandled ld simd mode");
 		return NULL;
