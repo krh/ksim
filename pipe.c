@@ -217,8 +217,7 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
 
-	void (*f)(struct thread *t) = (void *) gt.vs.avx_shader->code;
-	f(&t);
+	dispatch_shader(gt.vs.avx_shader, &t);
 }
 
 static void

@@ -341,8 +341,7 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	void (*f)(struct thread *t) = (void *) gt.ps.avx_shader->code;
-	f(&p->t);
+	dispatch_shader(gt.ps.avx_shader, &p->t);
 }
 
 const int tile_width = 512 / 4;

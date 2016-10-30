@@ -568,6 +568,14 @@ struct shader {
 	uint8_t code[1024] __attribute__ ((aligned (64)));
 };
 
+static inline void
+dispatch_shader(struct shader *shader, struct thread *t)
+{
+	void (*f)(struct thread *t) = (void *) shader->code;
+
+	f(t);
+}
+
 struct sfid_sampler_args {
 	int src;
 	int dst;
