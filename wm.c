@@ -39,7 +39,7 @@ struct edge {
 
 struct payload {
 	int x0, y0;
-	int start_w2, start_w0, start_w1;
+	int32_t start_w2, start_w0, start_w1;
 	float inv_area;
 	struct reg w2, w0, w1;
 	struct edge e01, e12, e20;
@@ -378,7 +378,6 @@ rasterize_tile(struct payload *p)
 	row_w1.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w1),
 				       w1_offsets.ireg);
 
-
 	for (int y = 0; y < tile_height; y += 2) {
 		w2.ireg = row_w2.ireg;
 		w0.ireg = row_w0.ireg;
@@ -430,13 +429,16 @@ rasterize_tile(struct payload *p)
 }
 
 struct point {
-	int x, y;
+	int32_t x, y;
 };
 
 static inline struct point
 snap_point(float x, float y)
 {
-	return (struct point) { x, y };
+	return (struct point) {
+		(int32_t) (x * 256.0f),
+		(int32_t) (y * 256.0f)
+	};
 }
 
 static inline void
@@ -444,7 +446,7 @@ init_edge(struct edge *e, struct point p0, struct point p1)
 {
 	e->a = (p0.y - p1.y);
 	e->b = (p1.x - p0.x);
-	e->c = (p1.y * p0.x - p1.x * p0.y);
+	e->c = ((int64_t) p1.y * p0.x - (int64_t) p1.x * p0.y) >> 8;
 	e->bias = e->a < 0 || (e->a == 0 && e->b < 0);
 	e->min_x = e->a > 0 ? 0 : 1;
 	e->min_y = e->b > 0 ? 0 : 1;
@@ -460,9 +462,9 @@ invert_edge(struct edge *e)
 }
 
 static inline int
-eval_edge(struct edge *e, int x, int y)
+eval_edge(struct edge *e, struct point p)
 {
-	return e->a * x + e->b * y + e->c + e->bias;
+	return (((int64_t) e->a * p.x + (int64_t) e->b * p.y) >> 8) + e->c - e->bias;
 }
 
 void
@@ -476,7 +478,7 @@ rasterize_primitive(struct primitive *prim)
 	init_edge(&p.e01, p0, p1);
 	init_edge(&p.e12, p1, p2);
 	init_edge(&p.e20, p2, p0);
-	int area = eval_edge(&p.e01, p2.x, p2.y);
+	int32_t area = eval_edge(&p.e01, p2);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
@@ -553,13 +555,13 @@ rasterize_primitive(struct primitive *prim)
 	int min_w0_delta, min_w1_delta, min_w2_delta;
 
 	/* delta from w2 in top-left corner to minimum w2 in tile */
-	min_w2_delta = p.e01.a * p.e01.min_x * tile_max_x + p.e01.b * p.e01.min_y * tile_max_y;
+	min_w2_delta = ((int64_t) p.e01.a * p.e01.min_x * tile_max_x + (int64_t) p.e01.b * p.e01.min_y * tile_max_y);
 
 	/* delta from w0 in top-left corner to minimum w0 in tile */
-	min_w0_delta = p.e12.a * p.e12.min_x * tile_max_x + p.e12.b * p.e12.min_y * tile_max_y;
+	min_w0_delta = ((int64_t) p.e12.a * p.e12.min_x * tile_max_x + (int64_t) p.e12.b * p.e12.min_y * tile_max_y);
 
 	/* delta from w1 in top-left corner to minumum w1 in tile */
-	min_w1_delta = p.e20.a * p.e20.min_x * tile_max_x + p.e20.b * p.e20.min_y * tile_max_y;
+	min_w1_delta = ((int64_t) p.e20.a * p.e20.min_x * tile_max_x + (int64_t) p.e20.b * p.e20.min_y * tile_max_y);
 
 	int min_x, min_y, max_x, max_y;
 
@@ -599,18 +601,21 @@ rasterize_primitive(struct primitive *prim)
 	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
 	max_y = (max_y + tile_height - 1) & ~(tile_height - 1);
 
-	int row_w2 = eval_edge(&p.e01, min_x, min_y);
-	int row_w0 = eval_edge(&p.e12, min_x, min_y);
-	int row_w1 = eval_edge(&p.e20, min_x, min_y);
+	struct point min = snap_point(min_x, min_y);
+	min.x += 128;
+	min.y += 128;
+	int32_t row_w2 = eval_edge(&p.e01, min);
+	int32_t row_w0 = eval_edge(&p.e12, min);
+	int32_t row_w1 = eval_edge(&p.e20, min);
 	for (p.y0 = min_y; p.y0 < max_y; p.y0 += tile_height) {
 		p.start_w2 = row_w2;
 		p.start_w0 = row_w0;
 		p.start_w1 = row_w1;
 
 		for (p.x0 = min_x; p.x0 < max_x; p.x0 += tile_width) {
-			int min_w2 = p.start_w2 + min_w2_delta;
-			int min_w0 = p.start_w0 + min_w0_delta;
-			int min_w1 = p.start_w1 + min_w1_delta;
+			int32_t min_w2 = p.start_w2 + min_w2_delta;
+			int32_t min_w0 = p.start_w0 + min_w0_delta;
+			int32_t min_w1 = p.start_w1 + min_w1_delta;
 
 			if ((min_w2 & min_w0 & min_w1) < 0)
 				rasterize_tile(&p);

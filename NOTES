@@ -66,8 +66,6 @@ it into the shader as a regular load.
 
 ** Use AVX2
 
-** Subpixel precision
-
 ** Perspective correct barycentric
 
 ** Multi-sample
