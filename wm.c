@@ -49,6 +49,10 @@ struct payload {
 		void *buffer;
 	} depth;
 
+	int min_x, min_y, max_x, max_y;
+	int32_t row_w2, row_w0, row_w1;
+	int min_w0_delta, min_w1_delta, min_w2_delta;
+
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
 	struct thread t;
@@ -467,6 +471,40 @@ eval_edge(struct edge *e, struct point p)
 }
 
 void
+rasterize_rectlist(struct payload *p)
+{
+	stub("_3DPRIM_RECTLIST");
+	wm_clear();
+}
+
+void
+rasterize_triangle(struct payload *p)
+{
+	for (p->y0 = p->min_y; p->y0 < p->max_y; p->y0 += tile_height) {
+		p->start_w2 = p->row_w2;
+		p->start_w0 = p->row_w0;
+		p->start_w1 = p->row_w1;
+
+		for (p->x0 = p->min_x; p->x0 < p->max_x; p->x0 += tile_width) {
+			int32_t min_w2 = p->start_w2 + p->min_w2_delta;
+			int32_t min_w0 = p->start_w0 + p->min_w0_delta;
+			int32_t min_w1 = p->start_w1 + p->min_w1_delta;
+
+			if ((min_w2 & min_w0 & min_w1) < 0)
+				rasterize_tile(p);
+
+			p->start_w2 += tile_width * p->e01.a;
+			p->start_w0 += tile_width * p->e12.a;
+			p->start_w1 += tile_width * p->e20.a;
+		}
+
+		p->row_w2 += tile_height * p->e01.b;
+		p->row_w0 += tile_height * p->e12.b;
+		p->row_w1 += tile_height * p->e20.b;
+	}
+}
+
+void
 rasterize_primitive(struct primitive *prim)
 {
 	struct payload p;
@@ -551,83 +589,62 @@ rasterize_primitive(struct primitive *prim)
 	const int tile_max_x = tile_width - 1;
 	const int tile_max_y = tile_height - 1;
 
-	int min_w0_delta, min_w1_delta, min_w2_delta;
-
 	/* delta from w2 in top-left corner to minimum w2 in tile */
-	min_w2_delta = ((int64_t) p.e01.a * p.e01.min_x * tile_max_x + (int64_t) p.e01.b * p.e01.min_y * tile_max_y);
+	p.min_w2_delta = ((int64_t) p.e01.a * p.e01.min_x * tile_max_x + (int64_t) p.e01.b * p.e01.min_y * tile_max_y);
 
 	/* delta from w0 in top-left corner to minimum w0 in tile */
-	min_w0_delta = ((int64_t) p.e12.a * p.e12.min_x * tile_max_x + (int64_t) p.e12.b * p.e12.min_y * tile_max_y);
+	p.min_w0_delta = ((int64_t) p.e12.a * p.e12.min_x * tile_max_x + (int64_t) p.e12.b * p.e12.min_y * tile_max_y);
 
 	/* delta from w1 in top-left corner to minumum w1 in tile */
-	min_w1_delta = ((int64_t) p.e20.a * p.e20.min_x * tile_max_x + (int64_t) p.e20.b * p.e20.min_y * tile_max_y);
+	p.min_w1_delta = ((int64_t) p.e20.a * p.e20.min_x * tile_max_x + (int64_t) p.e20.b * p.e20.min_y * tile_max_y);
 
-	int min_x, min_y, max_x, max_y;
-
-	min_x = INT_MAX;
-	min_y = INT_MAX;
-	max_x = INT_MIN;
-	max_y = INT_MIN;
+	p.min_x = INT_MAX;
+	p.min_y = INT_MAX;
+	p.max_x = INT_MIN;
+	p.max_y = INT_MIN;
 	for (int i = 0; i < 3; i++) {
 		int x, y;
 
 		x = floor(prim->v[i].x);
-		if (x < min_x)
-			min_x = x;
+		if (x < p.min_x)
+			p.min_x = x;
 		y = floor(prim->v[i].y);
-		if (y < min_y)
-			min_y = y;
+		if (y < p.min_y)
+			p.min_y = y;
 
 		x = ceil(prim->v[i].x);
-		if (max_x < x)
-			max_x = x;
+		if (p.max_x < x)
+			p.max_x = x;
 		y = ceil(prim->v[i].y);
-		if (max_y < y)
-			max_y = y;
+		if (p.max_y < y)
+			p.max_y = y;
 	}
 
-	if (min_x < gt.drawing_rectangle.min_x)
-		min_x = gt.drawing_rectangle.min_x;
-	if (min_y < gt.drawing_rectangle.min_y)
-		min_y = gt.drawing_rectangle.min_y;
-	if (max_x > gt.drawing_rectangle.max_x)
-		max_x = gt.drawing_rectangle.max_x;
-	if (max_y > gt.drawing_rectangle.max_y)
-		max_y = gt.drawing_rectangle.max_y;
+	if (p.min_x < gt.drawing_rectangle.min_x)
+		p.min_x = gt.drawing_rectangle.min_x;
+	if (p.min_y < gt.drawing_rectangle.min_y)
+		p.min_y = gt.drawing_rectangle.min_y;
+	if (p.max_x > gt.drawing_rectangle.max_x)
+		p.max_x = gt.drawing_rectangle.max_x;
+	if (p.max_y > gt.drawing_rectangle.max_y)
+		p.max_y = gt.drawing_rectangle.max_y;
 
-	min_x = min_x & ~(tile_width - 1);
-	min_y = min_y & ~(tile_height - 1);
-	max_x = (max_x + tile_width - 1) & ~(tile_width - 1);
-	max_y = (max_y + tile_height - 1) & ~(tile_height - 1);
+	p.min_x = p.min_x & ~(tile_width - 1);
+	p.min_y = p.min_y & ~(tile_height - 1);
+	p.max_x = (p.max_x + tile_width - 1) & ~(tile_width - 1);
+	p.max_y = (p.max_y + tile_height - 1) & ~(tile_height - 1);
 
-	struct point min = snap_point(min_x, min_y);
+	struct point min = snap_point(p.min_x, p.min_y);
 	min.x += 128;
 	min.y += 128;
-	int32_t row_w2 = eval_edge(&p.e01, min);
-	int32_t row_w0 = eval_edge(&p.e12, min);
-	int32_t row_w1 = eval_edge(&p.e20, min);
-	for (p.y0 = min_y; p.y0 < max_y; p.y0 += tile_height) {
-		p.start_w2 = row_w2;
-		p.start_w0 = row_w0;
-		p.start_w1 = row_w1;
+	p.row_w2 = eval_edge(&p.e01, min);
+	p.row_w0 = eval_edge(&p.e12, min);
+	p.row_w1 = eval_edge(&p.e20, min);
 
-		for (p.x0 = min_x; p.x0 < max_x; p.x0 += tile_width) {
-			int32_t min_w2 = p.start_w2 + min_w2_delta;
-			int32_t min_w0 = p.start_w0 + min_w0_delta;
-			int32_t min_w1 = p.start_w1 + min_w1_delta;
-
-			if ((min_w2 & min_w0 & min_w1) < 0)
-				rasterize_tile(&p);
-
-			p.start_w2 += tile_width * p.e01.a;
-			p.start_w0 += tile_width * p.e12.a;
-			p.start_w1 += tile_width * p.e20.a;
-		}
-
-		row_w2 += tile_height * p.e01.b;
-		row_w0 += tile_height * p.e12.b;
-		row_w1 += tile_height * p.e20.b;
-	}
+	if (gt.ia.topology == _3DPRIM_RECTLIST)
+		rasterize_rectlist(&p);
+	else
+		rasterize_triangle(&p);
 }
 
 void
