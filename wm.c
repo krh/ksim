@@ -441,6 +441,43 @@ compute_barycentric_coords(struct tile_iterator *iter, struct payload *p)
 static void
 rasterize_rectlist_tile(struct payload *p)
 {
+	struct tile_iterator iter;
+
+	for (tile_iterator_init(&iter, p);
+	     !tile_iterator_done(&iter);
+	     tile_iterator_next(&iter, p)) {
+		__m256i w2, w3, c;
+
+		/* To determine coverage, we compute the edge function
+		 * for all edges in the rectangle. We only have two of
+		 * the four edges, but we can compute the edge
+		 * function from the opposite edge by subtracting from
+		 * the area. We also subtract 1 to either cancel out
+		 * the bias on the original edge, or to add it to the
+		 * oppoiste edge if the original doesn't have bias. */
+		c = _mm256_set1_epi32(p->area - 1);
+		w2 = _mm256_sub_epi32(c, iter.w0);
+		w3 = _mm256_sub_epi32(c, iter.w1);
+
+		struct reg det;
+		det.ireg = _mm256_and_si256(_mm256_and_si256(iter.w1, iter.w0),
+					    _mm256_and_si256(w2, w3));
+
+		uint32_t mask = _mm256_movemask_ps(det.reg);
+		if (mask == 0)
+			continue;
+
+		/* Some pixels are covered and we have to
+		 * calculate barycentric coordinates. */
+		compute_barycentric_coords(&iter, p);
+
+		p->t.mask_full = det.ireg;
+		if (gt.depth.test_enable || gt.depth.write_enable)
+			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+
+		if (mask && gt.ps.enable)
+			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+	}
 }
 
 static void
