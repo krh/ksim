@@ -351,7 +351,12 @@ const int tile_width = 512 / 4;
 const int tile_height = 8;
 
 static void
-rasterize_tile(struct payload *p)
+rasterize_rectlist_tile(struct payload *p)
+{
+}
+
+static void
+rasterize_triangle_tile(struct payload *p)
 {
 	struct reg row_w2, w2;
 	struct reg row_w0, w0;
@@ -469,12 +474,50 @@ eval_edge(struct edge *e, struct point p)
 	return (((int64_t) e->a * p.x + (int64_t) e->b * p.y) >> 8) + e->c - e->bias;
 }
 
+static void
+bbox_iter_init(struct payload *p)
+{
+	p->x0 = p->min_x;
+	p->y0 = p->min_y;
+
+	p->start_w2 = p->row_w2;
+	p->start_w0 = p->row_w0;
+	p->start_w1 = p->row_w1;
+}
+
+static bool
+bbox_iter_done(struct payload *p)
+{
+	return p->y0 == p->max_y;
+}
+
+static void
+bbox_iter_next(struct payload *p)
+{
+	p->x0 += tile_width;
+	if (p->x0 == p->max_x) {
+		p->x0 = p->min_x;
+		p->y0 += tile_height;
+		p->row_w2 += tile_height * p->e01.b;
+		p->row_w0 += tile_height * p->e12.b;
+		p->row_w1 += tile_height * p->e20.b;
+		p->start_w2 = p->row_w2;
+		p->start_w0 = p->row_w0;
+		p->start_w1 = p->row_w1;
+	} else {
+		p->start_w2 += tile_width * p->e01.a;
+		p->start_w0 += tile_width * p->e12.a;
+		p->start_w1 += tile_width * p->e20.a;
+	}
+}
+
 void
 rasterize_rectlist(struct payload *p)
 {
-	stub("_3DPRIM_RECTLIST");
-	wm_clear();
+	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p))
+		rasterize_rectlist_tile(p);
 }
+
 
 void
 rasterize_triangle(struct payload *p)
@@ -489,27 +532,13 @@ rasterize_triangle(struct payload *p)
 	min_w0_delta = p->e12.a * p->e12.min_x * tile_max_x + p->e12.b * p->e12.min_y * tile_max_y;
 	min_w1_delta = p->e20.a * p->e20.min_x * tile_max_x + p->e20.b * p->e20.min_y * tile_max_y;
 
-	for (p->y0 = p->min_y; p->y0 < p->max_y; p->y0 += tile_height) {
-		p->start_w2 = p->row_w2;
-		p->start_w0 = p->row_w0;
-		p->start_w1 = p->row_w1;
+	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p)) {
+		int32_t min_w2 = p->start_w2 + min_w2_delta;
+		int32_t min_w0 = p->start_w0 + min_w0_delta;
+		int32_t min_w1 = p->start_w1 + min_w1_delta;
 
-		for (p->x0 = p->min_x; p->x0 < p->max_x; p->x0 += tile_width) {
-			int32_t min_w2 = p->start_w2 + min_w2_delta;
-			int32_t min_w0 = p->start_w0 + min_w0_delta;
-			int32_t min_w1 = p->start_w1 + min_w1_delta;
-
-			if ((min_w2 & min_w0 & min_w1) < 0)
-				rasterize_tile(p);
-
-			p->start_w2 += tile_width * p->e01.a;
-			p->start_w0 += tile_width * p->e12.a;
-			p->start_w1 += tile_width * p->e20.a;
-		}
-
-		p->row_w2 += tile_height * p->e01.b;
-		p->row_w0 += tile_height * p->e12.b;
-		p->row_w1 += tile_height * p->e20.b;
+		if ((min_w2 & min_w0 & min_w1) < 0)
+			rasterize_triangle_tile(p);
 	}
 }
 
@@ -630,6 +659,9 @@ rasterize_primitive(struct primitive *prim)
 	p.min_y = p.min_y & ~(tile_height - 1);
 	p.max_x = (p.max_x + tile_width - 1) & ~(tile_width - 1);
 	p.max_y = (p.max_y + tile_height - 1) & ~(tile_height - 1);
+
+	if (p.max_x <= p.min_x || p.max_y < p.min_y)
+		return;
 
 	struct point min = snap_point(p.min_x, p.min_y);
 	min.x += 128;
