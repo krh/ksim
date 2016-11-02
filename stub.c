@@ -290,6 +290,7 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_HAS_SEMAPHORES:
 	case I915_PARAM_HAS_WT:
 	case I915_PARAM_HAS_COHERENT_PHYS_GTT:
+	case I915_PARAM_HAS_EXEC_SOFTPIN:
 		*getparam->value = 1;
 		return 0;
 
@@ -297,6 +298,7 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_HAS_BLT:
 	case I915_PARAM_HAS_VEBOX:
 	case I915_PARAM_HAS_BSD2:
+	case I915_PARAM_HAS_RESOURCE_STREAMER:
 		*getparam->value = 0;
 		return 0;
 
