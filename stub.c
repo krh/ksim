@@ -790,31 +790,32 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_GEM_CLOSE:
 		return dispatch_close(fd, request, argp);
 
-	case DRM_IOCTL_GEM_FLINK:
-		errno = EINVAL;
-		return -1;
-
-	case DRM_IOCTL_GEM_OPEN:
-		errno = EINVAL;
-		return -1;
-
 	case DRM_IOCTL_PRIME_FD_TO_HANDLE:
 		return dispatch_prime_fd_to_handle(fd, request, argp);
 
 	case DRM_IOCTL_PRIME_HANDLE_TO_FD:
 		return dispatch_prime_handle_to_fd(fd, request, argp);
 
-	case DRM_IOCTL_GET_MAGIC:
-		return libc_ioctl(fd, request, argp);
-
 	case DRM_IOCTL_VERSION:
 		return dispatch_version(fd, request, argp);
+
+	case DRM_IOCTL_GEM_FLINK:
+	case DRM_IOCTL_GEM_OPEN:
+	case DRM_IOCTL_GET_MAGIC:
+		/* There are many more non-render ioctls, perhaps we
+		 * should handle them all here. */
+		trace(TRACE_WARN,
+		      "gem: non-render ioctl 0x%x\n", _IOC_NR(request));
+
+		errno = EACCES;
+		return -1;
 
 	default:
 		trace(TRACE_WARN,
 		      "gem: unhandled ioctl 0x%x\n", _IOC_NR(request));
 
-		return 0;
+		errno = EINVAL;
+		return -1;
 	}
 
 
