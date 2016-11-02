@@ -48,13 +48,17 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 	return grf;
 }
 
+#define NO_KERNEL 1
 
 void
 prepare_shaders(void)
 {
+	uint64_t ksp_simd8 = NO_KERNEL, ksp_simd16 = NO_KERNEL, ksp_simd32 = NO_KERNEL;
+
 	reset_shader_pool();
 
 	if (gt.vs.enable) {
+		ksim_trace(TRACE_VS, "jit vs\n");
 		gt.vs.avx_shader =
 			compile_shader(gt.vs.ksp,
 				       gt.vs.binding_table_address,
@@ -62,10 +66,49 @@ prepare_shaders(void)
 	}
 
 	if (gt.ps.enable) {
-		gt.ps.avx_shader =
-			compile_shader(gt.ps.ksp0,
-				       gt.ps.binding_table_address,
-				       gt.ps.sampler_state_address);
+		if (gt.ps.enable_simd8) {
+			ksp_simd8 = gt.ps.ksp0;
+			if (gt.ps.enable_simd16) {
+				ksp_simd16 = gt.ps.ksp2;
+				if (gt.ps.enable_simd32)
+					ksp_simd32 = gt.ps.ksp1;
+			} else {
+				ksp_simd32 = gt.ps.ksp2;
+			}
+		} else {
+			if (gt.ps.enable_simd16) {
+				if(gt.ps.enable_simd32) {
+					ksp_simd16 = gt.ps.ksp2;
+					ksp_simd32 = gt.ps.ksp1;
+				} else {
+					ksp_simd16 = gt.ps.ksp0;
+				}
+			} else {
+				ksp_simd32 = gt.ps.ksp0;
+			}
+		}
+
+		if (ksp_simd8 != NO_KERNEL) {
+			ksim_trace(TRACE_PS, "jit simd8 ps\n");
+			gt.ps.avx_shader_simd8 =
+				compile_shader(ksp_simd8,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
+		if (ksp_simd16 != NO_KERNEL) {
+			ksim_trace(TRACE_PS, "jit simd16 ps\n");
+			gt.ps.avx_shader_simd16 =
+				compile_shader(ksp_simd16,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
+		if (ksp_simd32 != NO_KERNEL) {
+			ksim_trace(TRACE_PS, "jit simd32 ps\n");
+			gt.ps.avx_shader_simd32 =
+				compile_shader(ksp_simd32,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
 	}
 }
 

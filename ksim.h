@@ -343,9 +343,13 @@ struct gt {
 		uint64_t scratch_pointer;
 		uint32_t scratch_size;
 		bool enable_simd8;
+		bool enable_simd16;
+		bool enable_simd32;
 		bool statistics;
 		bool push_constant_enable;
 		uint64_t ksp0;
+		uint64_t ksp1;
+		uint64_t ksp2;
 		uint32_t grf_start0;
 		struct curbe curbe;
 		uint32_t binding_table_address;
@@ -358,7 +362,9 @@ struct gt {
 		bool fast_clear;
 		uint32_t resolve_type;
 		bool enable;
-		struct shader *avx_shader;
+		struct shader *avx_shader_simd8;
+		struct shader *avx_shader_simd16;
+		struct shader *avx_shader_simd32;
 	} ps;
 
 	struct {

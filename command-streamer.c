@@ -843,7 +843,11 @@ handle_3dstate_ps(uint32_t *p)
 	GEN9_3DSTATE_PS_unpack(p, &v);
 
 	gt.ps.ksp0 = v.KernelStartPointer0;
+	gt.ps.ksp1 = v.KernelStartPointer1;
+	gt.ps.ksp2 = v.KernelStartPointer2;
 	gt.ps.enable_simd8 = v._8PixelDispatchEnable;
+	gt.ps.enable_simd16 = v._16PixelDispatchEnable;
+	gt.ps.enable_simd32 = v._32PixelDispatchEnable;
 	gt.ps.position_offset_xy = v.PositionXYOffsetSelect;
 	gt.ps.push_constant_enable = v.PushConstantEnable;
 	gt.ps.grf_start0 = v.DispatchGRFStartRegisterForConstantSetupData0;
