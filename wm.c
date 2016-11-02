@@ -51,7 +51,6 @@ struct payload {
 
 	int min_x, min_y, max_x, max_y;
 	int32_t row_w2, row_w0, row_w1;
-	int min_w0_delta, min_w1_delta, min_w2_delta;
 
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
@@ -480,15 +479,25 @@ rasterize_rectlist(struct payload *p)
 void
 rasterize_triangle(struct payload *p)
 {
+	int min_w0_delta, min_w1_delta, min_w2_delta;
+
+	const int tile_max_x = tile_width - 1;
+	const int tile_max_y = tile_height - 1;
+
+	/* delta from w in top-left corner to minimum w in tile */
+	min_w2_delta = p->e01.a * p->e01.min_x * tile_max_x + p->e01.b * p->e01.min_y * tile_max_y;
+	min_w0_delta = p->e12.a * p->e12.min_x * tile_max_x + p->e12.b * p->e12.min_y * tile_max_y;
+	min_w1_delta = p->e20.a * p->e20.min_x * tile_max_x + p->e20.b * p->e20.min_y * tile_max_y;
+
 	for (p->y0 = p->min_y; p->y0 < p->max_y; p->y0 += tile_height) {
 		p->start_w2 = p->row_w2;
 		p->start_w0 = p->row_w0;
 		p->start_w1 = p->row_w1;
 
 		for (p->x0 = p->min_x; p->x0 < p->max_x; p->x0 += tile_width) {
-			int32_t min_w2 = p->start_w2 + p->min_w2_delta;
-			int32_t min_w0 = p->start_w0 + p->min_w0_delta;
-			int32_t min_w1 = p->start_w1 + p->min_w1_delta;
+			int32_t min_w2 = p->start_w2 + min_w2_delta;
+			int32_t min_w0 = p->start_w0 + min_w0_delta;
+			int32_t min_w1 = p->start_w1 + min_w1_delta;
 
 			if ((min_w2 & min_w0 & min_w1) < 0)
 				rasterize_tile(p);
@@ -585,18 +594,6 @@ rasterize_primitive(struct primitive *prim)
 					 _mm256_mullo_epi32(sy.ireg, _mm256_set1_epi32(gt.depth.stride)));
 		p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
 	}
-
-	const int tile_max_x = tile_width - 1;
-	const int tile_max_y = tile_height - 1;
-
-	/* delta from w2 in top-left corner to minimum w2 in tile */
-	p.min_w2_delta = ((int64_t) p.e01.a * p.e01.min_x * tile_max_x + (int64_t) p.e01.b * p.e01.min_y * tile_max_y);
-
-	/* delta from w0 in top-left corner to minimum w0 in tile */
-	p.min_w0_delta = ((int64_t) p.e12.a * p.e12.min_x * tile_max_x + (int64_t) p.e12.b * p.e12.min_y * tile_max_y);
-
-	/* delta from w1 in top-left corner to minumum w1 in tile */
-	p.min_w1_delta = ((int64_t) p.e20.a * p.e20.min_x * tile_max_x + (int64_t) p.e20.b * p.e20.min_y * tile_max_y);
 
 	p.min_x = INT_MAX;
 	p.min_y = INT_MAX;
