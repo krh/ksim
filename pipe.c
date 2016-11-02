@@ -126,7 +126,8 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 		uint32_t offset = index * vb->pitch + ve->offset;
 		ksim_assert(valid_vertex_format(ve->format));
 		if (offset + format_size(ve->format) > vb->size) {
-			ksim_trace(TRACE_WARN, "vertex element overflow");
+			ksim_trace(TRACE_WARN, "vertex element %d overflows vertex buffer %d\n",
+				   i, ve->vb);
 			v = vec4(0, 0, 0, 0);
 		} else {
 			v = fetch_format(vb->address + offset, ve->format);
