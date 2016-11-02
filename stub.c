@@ -615,6 +615,28 @@ dispatch_prime_fd_to_handle(int fd, unsigned long request,
 }
 
 static int
+dispatch_version(int fd, unsigned long request,
+		 struct drm_version *version)
+{
+	static const char name[] = "i915";
+	static const char date[] = "20160919";
+	static const char desc[] = "Intel Graphics";
+
+	version->version_major = 1;
+	version->version_minor = 6;
+	version->version_patchlevel = 0;
+
+	strncpy(version->name, name, version->name_len);
+	version->name_len = strlen(name);
+	strncpy(version->date, date, version->date_len);
+	version->date_len = strlen(date);
+	strncpy(version->desc, desc, version->desc_len);
+	version->desc_len = strlen(desc);
+
+	return 0;
+}
+
+static int
 dispatch_prime_handle_to_fd(int fd, unsigned long request,
 			    struct drm_prime_handle *prime)
 {
@@ -776,7 +798,7 @@ ioctl(int fd, unsigned long request, ...)
 		return libc_ioctl(fd, request, argp);
 
 	case DRM_IOCTL_VERSION:
-		return libc_ioctl(fd, request, argp);
+		return dispatch_version(fd, request, argp);
 
 	default:
 		trace(TRACE_WARN,

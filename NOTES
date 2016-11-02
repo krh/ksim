@@ -2,10 +2,6 @@
 
 * GEM/Stub
 
-** Handle userptr
-
-** Handle DRM_IOCTL_VERSION
-
 * Stages
 
 ** Geometry
