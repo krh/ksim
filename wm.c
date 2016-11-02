@@ -40,6 +40,7 @@ struct edge {
 struct payload {
 	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
+	int32_t area;
 	float inv_area;
 	struct reg w2, w0, w1;
 	struct edge e01, e12, e20;
@@ -350,6 +351,93 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 const int tile_width = 512 / 4;
 const int tile_height = 8;
 
+struct tile_iterator {
+	int x, y;
+	__m256i row_w2, w2;
+	__m256i row_w0, w0;
+	__m256i row_w1, w1;
+};
+
+static void
+tile_iterator_init(struct tile_iterator *iter, struct payload *p)
+{
+	__m256i w2_offsets, w0_offsets, w1_offsets;
+	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
+	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+
+	iter->x = 0;
+	iter->y = 0;
+
+	w2_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.b), sy.ireg);
+	w0_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.b), sy.ireg);
+	w1_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.b), sy.ireg);
+
+	iter->row_w2 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w2),
+				       w2_offsets);
+
+	iter->row_w0 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w0),
+				       w0_offsets);
+
+	iter->row_w1 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w1),
+				       w1_offsets);
+
+	iter->w2 = iter->row_w2;
+	iter->w0 = iter->row_w0;
+	iter->w1 = iter->row_w1;
+}
+
+static bool
+tile_iterator_done(struct tile_iterator *iter)
+{
+	return iter->y == tile_height;
+}
+
+static void
+tile_iterator_next(struct tile_iterator *iter, struct payload *p)
+{
+	iter->x += 4;
+	if (iter->x == tile_width) {
+		iter->x = 0;
+		iter->y += 2;
+
+		iter->row_w2 = _mm256_add_epi32(iter->row_w2, _mm256_set1_epi32(p->e01.b * 2));
+		iter->row_w0 = _mm256_add_epi32(iter->row_w0, _mm256_set1_epi32(p->e12.b * 2));
+		iter->row_w1 = _mm256_add_epi32(iter->row_w1, _mm256_set1_epi32(p->e20.b * 2));
+
+		iter->w2 = iter->row_w2;
+		iter->w0 = iter->row_w0;
+		iter->w1 = iter->row_w1;
+
+	} else {
+		iter->w2 = _mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.a * 4));
+		iter->w0 = _mm256_add_epi32(iter->w0, _mm256_set1_epi32(p->e12.a * 4));
+		iter->w1 = _mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.a * 4));
+	}
+
+}
+
+static void
+compute_barycentric_coords(struct tile_iterator *iter, struct payload *p)
+{
+	/* We add back the tie-breaker adjustment so as to not distort
+	 * the barycentric coordinates.*/
+	p->w2.reg =
+		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.bias))),
+			      _mm256_set1_ps(p->inv_area));
+	p->w0.reg =
+		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w0, _mm256_set1_epi32(p->e12.bias))),
+			      _mm256_set1_ps(p->inv_area));
+	p->w1.reg =
+		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
+			      _mm256_set1_ps(p->inv_area));
+}
+
 static void
 rasterize_rectlist_tile(struct payload *p)
 {
@@ -358,80 +446,33 @@ rasterize_rectlist_tile(struct payload *p)
 static void
 rasterize_triangle_tile(struct payload *p)
 {
-	struct reg row_w2, w2;
-	struct reg row_w0, w0;
-	struct reg row_w1, w1;
+	struct tile_iterator iter;
 
-	struct reg w2_offsets, w0_offsets, w1_offsets;
-	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
-	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+	for (tile_iterator_init(&iter, p);
+	     !tile_iterator_done(&iter);
+	     tile_iterator_next(&iter, p)) {
+		struct reg det;
+		det.ireg =
+			_mm256_and_si256(_mm256_and_si256(iter.w1,
+							  iter.w0), iter.w2);
 
-	w2_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.b), sy.ireg);
-	w0_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.b), sy.ireg);
-	w1_offsets.ireg =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.b), sy.ireg);
+		/* Determine coverage: this is an e < 0 test,
+		 * where we've subtracted 1 from top-left
+		 * edges to include pixels on those edges. */
+		uint32_t mask = _mm256_movemask_ps(det.reg);
+		if (mask == 0)
+			continue;
 
-	row_w2.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w2),
-				       w2_offsets.ireg);
+		/* Some pixels are covered and we have to
+		 * calculate barycentric coordinates. */
+		compute_barycentric_coords(&iter, p);
 
-	row_w0.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w0),
-				       w0_offsets.ireg);
+		p->t.mask_full = det.ireg;
+		if (gt.depth.test_enable || gt.depth.write_enable)
+			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 
-	row_w1.ireg = _mm256_add_epi32(_mm256_set1_epi32(p->start_w1),
-				       w1_offsets.ireg);
-
-	for (int y = 0; y < tile_height; y += 2) {
-		w2.ireg = row_w2.ireg;
-		w0.ireg = row_w0.ireg;
-		w1.ireg = row_w1.ireg;
-
-		for (int x = 0; x < tile_width; x += 4) {
-			struct reg det;
-			det.ireg =
-				_mm256_and_si256(_mm256_and_si256(w1.ireg,
-								  w0.ireg), w2.ireg);
-
-			/* Determine coverage: this is an e < 0 test,
-			 * where we've subtracted 1 from top-left
-			 * edges to include pixels on those edges. */
-			uint32_t mask = _mm256_movemask_ps(det.reg);
-			if (mask == 0)
-				goto next;
-
-			/* Some pixels are covered and we have to
-			 * calculate barycentric coordinates. We add
-			 * back the tie-breaker adjustment so as to
-			 * not distort the barycentric coordinates.*/
-			p->w2.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->e01.bias))),
-					      _mm256_set1_ps(p->inv_area));
-			p->w0.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->e12.bias))),
-					      _mm256_set1_ps(p->inv_area));
-			p->w1.reg =
-				_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->e20.bias))),
-					      _mm256_set1_ps(p->inv_area));
-
-			p->t.mask_full = det.ireg;
-			if (gt.depth.test_enable || gt.depth.write_enable)
-				mask = depth_test(p, mask, p->x0 + x, p->y0 + y);
-
-			if (mask && gt.ps.enable)
-				dispatch_ps(p, mask, p->x0 + x, p->y0 + y);
-
-		next:
-			w2.ireg = _mm256_add_epi32(w2.ireg, _mm256_set1_epi32(p->e01.a * 4));
-			w0.ireg = _mm256_add_epi32(w0.ireg, _mm256_set1_epi32(p->e12.a * 4));
-			w1.ireg = _mm256_add_epi32(w1.ireg, _mm256_set1_epi32(p->e20.a * 4));
-		}
-		row_w2.ireg = _mm256_add_epi32(row_w2.ireg, _mm256_set1_epi32(p->e01.b * 2));
-		row_w0.ireg = _mm256_add_epi32(row_w0.ireg, _mm256_set1_epi32(p->e12.b * 2));
-		row_w1.ireg = _mm256_add_epi32(row_w1.ireg, _mm256_set1_epi32(p->e20.b * 2));
+		if (mask && gt.ps.enable)
+			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
 }
 
@@ -553,22 +594,22 @@ rasterize_primitive(struct primitive *prim)
 	init_edge(&p.e01, p0, p1);
 	init_edge(&p.e12, p1, p2);
 	init_edge(&p.e20, p2, p0);
-	int32_t area = eval_edge(&p.e01, p2);
+	p.area = eval_edge(&p.e01, p2);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
 	    (gt.wm.front_winding == Clockwise &&
 	     gt.wm.cull_mode == CULLMODE_BACK) ||
-	    (gt.wm.cull_mode == CULLMODE_NONE && area > 0)) {
+	    (gt.wm.cull_mode == CULLMODE_NONE && p.area > 0)) {
 		invert_edge(&p.e01);
 		invert_edge(&p.e12);
 		invert_edge(&p.e20);
-		area = -area;
+		p.area = -p.area;
 	}
 
-	if (area >= 0)
+	if (p.area >= 0)
 		return;
-	p.inv_area = 1.0f / area;
+	p.inv_area = 1.0f / p.area;
 
 	float w[3] = {
 		1.0f / prim->v[0].z,
