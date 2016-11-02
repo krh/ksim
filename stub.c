@@ -777,6 +777,16 @@ ioctl(int fd, unsigned long request, ...)
 	case DRM_IOCTL_I915_GEM_USERPTR:
 		return dispatch_userptr(fd, request, argp);
 
+	case DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM:
+		stub("DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM");
+		return 0;
+	case DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM:
+		stub("DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM");
+		return 0;
+
+	case DRM_IOCTL_GET_CAP:
+		stub("DRM_IOCTL_GET_CAP");
+		return 0;
 	case DRM_IOCTL_GEM_CLOSE:
 		return dispatch_close(fd, request, argp);
 
