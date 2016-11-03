@@ -21,6 +21,9 @@ struct builder {
 	int disasm_tail;
 	char disasm_output[128];
 	int disasm_length;
+
+	int exec_offset;
+	int exec_size;
 };
 
 #define emit(bld, ...)							\

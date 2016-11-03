@@ -730,29 +730,38 @@ static int
 builder_emit_da_src_load(struct builder *bld,
 			 struct inst *inst, struct inst_src *src, int subnum_bytes)
 {
-	struct inst_common common = unpack_inst_common(inst);
-	int exec_size = 1 << common.exec_size;
 	int subnum = subnum_bytes / type_size(src->type);
         int reg = builder_get_reg(bld);
 
-	if (exec_size != 8)
-		stub("non-8 exec size: %d", exec_size);
+	subnum += bld->exec_offset / src->width * src->vstride;
 
-	if (type_size(src->type) == 4 && subnum == 0 &&
-	    src->hstride == 1 && src->width == src->vstride) {
-		builder_emit_m256i_load(bld, reg,
-					offsetof(struct thread, grf[src->num]));
-	} else if (type_size(src->type) == 2 && subnum == 0 &&
-		   src->hstride == 1 && src->width == src->vstride) {
-		builder_emit_m128i_load(bld, reg,
-					offsetof(struct thread, grf[src->num]));
+	if (src->hstride == 1 && src->width == src->vstride) {
+		switch (type_size(src->type) * bld->exec_size) {
+		case 32:
+			builder_emit_m256i_load(bld, reg,
+						offsetof(struct thread, grf[src->num].ud[subnum]));
+			break;
+		case 16:
+		default:
+			/* Could do broadcastq/d/w for sizes 8, 4 and
+			 * 2 to avoid loading too much */
+			builder_emit_m128i_load(bld, reg,
+						offsetof(struct thread, grf[src->num].uw[subnum]));
+			break;
+		}
 	} else if (src->hstride == 0 && src->vstride == 0 && src->width == 1) {
-		ksim_assert(type_size(src->type) == 4);
-		builder_emit_vpbroadcastd(bld, reg,
-					  offsetof(struct thread,
-						   grf[src->num].ud[subnum]));
+		switch (type_size(src->type)) {
+		case 4:
+			builder_emit_vpbroadcastd(bld, reg,
+						  offsetof(struct thread,
+							   grf[src->num].ud[subnum]));
+			break;
+		default:
+			stub("unhandled broadcast load size %d\n", type_size(src->type));
+			break;
+		}
 	} else if (src->hstride == 0 && src->width == 4 && src->vstride == 1 &&
-		   exec_size == 16 && type_size(src->type) == 2) {
+		   type_size(src->type) == 2) {
 		int tmp0_reg = builder_get_reg(bld);
 		int tmp1_reg = builder_get_reg(bld);
 
@@ -770,14 +779,11 @@ builder_emit_da_src_load(struct builder *bld,
 		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
 
 		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
-	} else if (src->hstride == 1 && src->vstride == 8 &&
-		   src->width == 4 && type_size(src->type) == 2) {
-		/* Frag coord shuffle back to all x or y coordinates in one register */
-
-		builder_emit_load_rsi(bld, offsetof(struct thread, grf[src->num].uw[subnum]));;
-		builder_emit_vpinsrq(bld, reg, reg, 0);
-		builder_emit_load_rsi(bld, offsetof(struct thread, grf[src->num].uw[subnum + 8]));;
-		builder_emit_vpinsrq(bld, reg, reg, 1);
+	} else if (src->hstride == 1 && src->width * src->type == 8) {
+		for (int y = 0; y < bld->exec_size / src->width; y++) {
+			builder_emit_load_rsi(bld, offsetof(struct thread, grf[src->num].uw[subnum + y * src->vstride]));;
+			builder_emit_vpinsrq(bld, reg, reg, y);
+		}
 	} else {
 		stub("src: g%d.%d<%d,%d,%d>",
 		     src->num, subnum, src->vstride, src->width, src->hstride);
@@ -812,9 +818,11 @@ builder_emit_type_conversion(struct builder *bld, int reg, int dst_type, int src
 			break;
 
 		if (src_type == BRW_HW_REG_TYPE_UD) {
+			stub("not sure this pack is right");
 			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
 			builder_emit_vpackusdw(bld, reg, tmp_reg, reg);
 		} else if (src_type == BRW_HW_REG_TYPE_D) {
+			stub("not sure this pack is right");
 			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
 			builder_emit_vpackssdw(bld, reg, tmp_reg, reg);
 		} else
@@ -1018,7 +1026,6 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		       struct inst *inst, struct inst_dst *dst)
 {
 	struct inst_common common = unpack_inst_common(inst);
-	int exec_size = 1 << common.exec_size;
 
 	/* FIXME: write masks */
 
@@ -1041,20 +1048,24 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		builder_emit_vminps(bld, avx_reg, avx_reg, tmp_reg);
 	}
 
-
-	if (type_size(dst->type) * exec_size == 32) {
+	switch (bld->exec_size * type_size(dst->type)) {
+	case 32:
 		builder_emit_m256i_store(bld, avx_reg,
+					 bld->exec_offset * type_size(dst->type) +
 					 offsetof(struct thread, grf[dst->num]));
-	} else if (type_size(dst->type) * exec_size == 16) {
+		break;
+	case 16:
 		builder_emit_m128i_store(bld, avx_reg,
 					 offsetof(struct thread, grf[dst->num]));
-	} else if (type_size(dst->type) * exec_size == 4) {
+		break;
+	case 4:
 		builder_emit_u32_store(bld, avx_reg,
 				       offsetof(struct thread, grf[dst->num]) +
 				       dst->da1_subnum);
-		return;
-	} else {
+		break;
+	default:
 		stub("eu: type size %d in dest store", type_size(dst->type));
+		break;
 	}
 }
 
@@ -1876,6 +1887,34 @@ compile_inst(struct builder *bld, struct inst *inst)
 	return eot;
 }
 
+static bool
+do_compile_inst(struct builder *bld, struct inst *inst)
+{
+	uint32_t opcode = unpack_inst_common(inst).opcode;
+	int exec_size = 1 << unpack_inst_common(inst).exec_size;
+	struct inst_dst dst;
+	bool eot;
+
+	if (opcode_info[opcode].num_srcs == 3)
+		dst = unpack_inst_3src_dst(inst);
+	else
+		dst = unpack_inst_2src_dst(inst);
+
+	if (exec_size * type_size(dst.type) < 64) {
+		bld->exec_size = exec_size;
+		bld->exec_offset = 0;
+		eot = compile_inst(bld, inst);
+	} else {
+		bld->exec_size = exec_size / 2;
+		bld->exec_offset = 0;
+		eot = compile_inst(bld, inst);
+		bld->exec_offset = exec_size / 2;
+		compile_inst(bld, inst);
+	}
+
+	return eot;
+}
+
 #include <common/gen_device_info.h>
 
 void brw_init_compaction_tables(const struct gen_device_info *devinfo);
@@ -1918,7 +1957,7 @@ compile_shader(uint64_t kernel_offset,
 		if (trace_mask & TRACE_EU)
 			brw_disassemble_inst(trace_file, &ksim_devinfo, insn, false);
 
-		eot = compile_inst(&bld, insn);
+		eot = do_compile_inst(&bld, insn);
 
 		if (trace_mask & TRACE_AVX)
 			while (builder_disasm(&bld))
