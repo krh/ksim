@@ -1338,9 +1338,12 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 
 	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
+	/* vol 2d, p445 */
 	switch (opcode) {
 	case 12: /* rt write */
 		switch (type) {
+		case 0:
+			return sfid_render_cache_rt_write_simd16;
 		case 1:
 			stub("rep16 rt write");
 			return sfid_render_cache_rt_write_simd8;

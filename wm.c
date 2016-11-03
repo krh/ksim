@@ -150,6 +150,13 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 			    _mm256_extractf128_si256(argb.ireg, 1));
 }
 
+void
+sfid_render_cache_rt_write_simd16(struct thread *t,
+				 const struct sfid_render_cache_args *args)
+{
+	stub("sfid_render_cache_rt_write_simd16");
+}
+
 static uint32_t
 depth_test(struct payload *p, uint32_t mask, int x, int y)
 {

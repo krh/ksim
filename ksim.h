@@ -608,7 +608,8 @@ struct sfid_render_cache_args {
 
 void sfid_render_cache_rt_write_simd8(struct thread *t,
 				      const struct sfid_render_cache_args *args);
-
+void sfid_render_cache_rt_write_simd16(struct thread *t,
+				       const struct sfid_render_cache_args *args);
 
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
