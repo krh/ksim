@@ -1490,16 +1490,6 @@ __m256 _ZGVdN8v_sinf(__m256 x);
 __m256 _ZGVdN8v_cosf(__m256 x);
 __m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
 
-static int
-emit_call(struct builder *bld, void *func)
-{
-	builder_emit_push_rdi(bld);
-	builder_emit_call_relative(bld, (uint8_t *) func - bld->p);
-	builder_emit_pop_rdi(bld);
-
-	return 0;
-}
-
 bool
 compile_inst(struct builder *bld, struct inst *inst)
 {
@@ -1692,7 +1682,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		if (eot) {
 			builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
 		} else {
-			emit_call(bld, p);
+			builder_emit_call(bld, p);
 		}
 		break;
 	}
@@ -1702,10 +1692,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vrcpps(bld, dst_reg, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_LOG:
-			dst_reg = emit_call(bld, _ZGVdN8v___logf_finite);
+			dst_reg = builder_emit_call(bld, _ZGVdN8v___logf_finite);
 			break;
 		case BRW_MATH_FUNCTION_EXP:
-			dst_reg = emit_call(bld, _ZGVdN8v___expf_finite);
+			dst_reg = builder_emit_call(bld, _ZGVdN8v___expf_finite);
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
 			builder_emit_vsqrtps(bld, dst_reg, src0_reg);
@@ -1714,10 +1704,10 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vrsqrtps(bld, dst_reg, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SIN:
-			dst_reg = emit_call(bld, _ZGVdN8v_sinf);
+			dst_reg = builder_emit_call(bld, _ZGVdN8v_sinf);
 			break;
 		case BRW_MATH_FUNCTION_COS:
-			dst_reg = emit_call(bld, _ZGVdN8v_cosf);
+			dst_reg = builder_emit_call(bld, _ZGVdN8v_cosf);
 			break;
 		case BRW_MATH_FUNCTION_SINCOS:
 			ksim_unreachable("sincos only gen4/5");
@@ -1726,7 +1716,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			builder_emit_vdivps(bld, dst_reg, src0_reg, src1_reg);
 			break;
 		case BRW_MATH_FUNCTION_POW: {
-			dst_reg = emit_call(bld, _ZGVdN8vv___powf_finite);
+			dst_reg = builder_emit_call(bld, _ZGVdN8vv___powf_finite);
 			break;
 		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:

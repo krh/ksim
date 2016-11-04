@@ -445,6 +445,16 @@ builder_get_const_data(struct builder *bld, size_t size, size_t align)
 	return bld->shader->constant_pool + offset;
 }
 
+static inline int
+builder_emit_call(struct builder *bld, void *func)
+{
+	builder_emit_push_rdi(bld);
+	builder_emit_call_relative(bld, (uint8_t *) func - bld->p);
+	builder_emit_pop_rdi(bld);
+
+	return 0;
+}
+
 static inline uint32_t *
 builder_get_const_ud(struct builder *bld, uint32_t ud)
 {
