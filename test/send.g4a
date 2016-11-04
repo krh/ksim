@@ -73,7 +73,7 @@
   mov(8)	g32<1>UD         0D			{ align1 };	\
   mov(1)	g32.28<1>UD      -1D			{ align1 };	\
   mov(8)	g33<1>UW         0x76543210V		{ align1 };	\
-  shl(8)	g33<1>UD         g33<8,8,1>UW     3D	{ align1 };	\
+  shl(8)	g33<1>UD         g33<8,8,1>UW     5D	{ align1 };	\
   add(8)        g33<1>UD         g33<8,8,1>UD   offset	{ align1 };	\
   mov(8)	g34<1>UD         _r<8,8,1>UD		{ align1 };	\
   mov(8)	g35<1>UD         _g<8,8,1>UD		{ align1 };	\

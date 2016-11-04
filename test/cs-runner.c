@@ -346,9 +346,25 @@ int main(int argc, char *argv[])
 	struct device *device;
 	struct bo *batch, *state, *ssbo;
 	static const char device_path[] = "/dev/dri/renderD128";
+	bool output_float = false;
+	const char *filename;
+	int i;
 
-	if (argc != 2)
-		error(EXIT_FAILURE, 0, "usage: cs-runner INPUT.g4a");
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--") == 0)
+			break;
+		else if (strcmp(argv[i], "--float") == 0)
+			output_float = true;
+		else if (argv[i][0] == '-')
+			error(EXIT_FAILURE, 0, "unknown option: %s\n", argv[i]);
+		else
+			break;
+	}
+
+	if (i != argc - 1)
+		error(EXIT_FAILURE, 0, "usage: cs-runner [--float] INPUT.g4a");
+
+	filename = argv[i];
 
 	device = create_device(device_path);
 	if (device == NULL)
@@ -426,7 +442,7 @@ int main(int argc, char *argv[])
 	state->cursor = align_u64(state->cursor, 64);
 	uint32_t desc_offset = state->cursor;
 	bo_emit(state, GEN9_INTERFACE_DESCRIPTOR_DATA, idd) {
-		idd.KernelStartPointer = load_kernel(state, argv[1]);
+		idd.KernelStartPointer = load_kernel(state, filename);
 		idd.SamplerStatePointer = 0;
 		idd.SamplerCount = 0;
 		idd.BindingTablePointer = binding_table_offset;
@@ -482,13 +498,18 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, errno, "bo wait failed");
 
 	const uint32_t *map = ssbo->map;
+	const float *fmap = ssbo->map;
 	for (uint32_t i = 0; i < 128; i++) {
 		if ((i & 7) == 0)
 			printf("%08x:", i * 4);
-		printf("  %08x", map[i]);
+		if (output_float)
+			printf("  %8f", fmap[i]);
+		else
+			printf("  %08x", map[i]);
+
 		if ((i & 7) == 7)
 			printf("\n");
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
