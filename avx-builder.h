@@ -231,6 +231,12 @@ builder_emit_vpaddd(struct builder *bld, int dst, int src0, int src1)
 }
 
 static inline void
+builder_emit_vpaddw(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xfd, dst, src0, src1);
+}
+
+static inline void
 builder_emit_vpsubd(struct builder *bld, int dst, int src0, int src1)
 {
 	builder_emit_long_alu(bld, 0x0d, 0xfa, dst, src0, src1);
@@ -240,6 +246,12 @@ static inline void
 builder_emit_vpmulld(struct builder *bld, int dst, int src0, int src1)
 {
 	builder_emit_short_alu(bld, 0x40, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpmullw(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xd5, dst, src0, src1);
 }
 
 static inline void

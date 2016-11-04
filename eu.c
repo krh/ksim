@@ -1750,16 +1750,40 @@ compile_inst(struct builder *bld, struct inst *inst)
 		}
 		break;
 	case BRW_OPCODE_ADD:
-		if (is_integer(dst.file, dst.type))
+		switch (dst.type) {
+		case BRW_HW_REG_TYPE_UD:
+		case BRW_HW_REG_TYPE_D:
 			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
-		else
+			break;
+		case BRW_HW_REG_TYPE_UW:
+		case BRW_HW_REG_TYPE_W:
+			builder_emit_vpaddw(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		case BRW_HW_REG_TYPE_F:
 			builder_emit_vaddps(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		default:
+			stub("unhandled type for add");
+			break;
+		}
 		break;
 	case BRW_OPCODE_MUL:
-		if (is_integer(dst.file, dst.type))
+		switch (dst.type) {
+		case BRW_HW_REG_TYPE_UD:
+		case BRW_HW_REG_TYPE_D:
 			builder_emit_vpmulld(bld, dst_reg, src0_reg, src1_reg);
-		else
+			break;
+		case BRW_HW_REG_TYPE_UW:
+		case BRW_HW_REG_TYPE_W:
+			builder_emit_vpmullw(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		case BRW_HW_REG_TYPE_F:
 			builder_emit_vmulps(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		default:
+			stub("unhandled type for mul");
+			break;
+		}
 		break;
 	case BRW_OPCODE_AVG:
 		stub("BRW_OPCODE_AVG");
