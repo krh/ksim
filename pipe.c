@@ -481,6 +481,22 @@ dispatch_primitive(void)
 
 	prepare_shaders();
 
+	/* Configure csr to round toward zero to make vcvtps2dq match
+	 * the GEN EU behavior when converting from float to int. This
+	 * may disagree with the rounding mode programmed in
+	 * 3DSTATE_PS etc, which only affects rounding of internal
+	 * intermediate float results. */
+	const uint32_t csr_default =
+		_MM_MASK_INVALID |
+		_MM_MASK_DENORM |
+		_MM_MASK_DIV_ZERO |
+		_MM_MASK_OVERFLOW |
+		_MM_MASK_UNDERFLOW |
+		_MM_MASK_INEXACT |
+		_MM_ROUND_TOWARD_ZERO;
+
+	_mm_setcsr(csr_default);
+
 	for (iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (vid = 0; vid < gt.prim.vertex_count; vid++) {
 			vue[i++] = fetch_vertex(iid, vid);
