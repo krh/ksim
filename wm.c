@@ -550,6 +550,8 @@ invert_edge(struct edge *e)
 	e->a = -e->a;
 	e->b = -e->b;
 	e->c = -e->c;
+	e->min_x = 1 - e->min_x;
+	e->min_y = 1 - e->min_y;
 	e->bias = 1 - e->bias;
 }
 
