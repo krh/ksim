@@ -699,7 +699,7 @@ static const struct {
    [BRW_OPCODE_ADD]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_MUL]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_AVG]             = { },
-   [BRW_OPCODE_FRC]             = { },
+   [BRW_OPCODE_FRC]             = { .num_srcs = 1,. store_dst = true },
    [BRW_OPCODE_RNDU]            = { .num_srcs = 1,. store_dst = true },
    [BRW_OPCODE_RNDD]            = { .num_srcs = 1,. store_dst = true },
    [BRW_OPCODE_RNDE]            = { .num_srcs = 1,. store_dst = true },
@@ -1932,9 +1932,13 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_AVG:
 		stub("BRW_OPCODE_AVG");
 		break;
-	case BRW_OPCODE_FRC:
-		stub("BRW_OPCODE_FRC");
+	case BRW_OPCODE_FRC: {
+		int tmp_reg = builder_get_reg(bld);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+		builder_emit_vroundps(bld, tmp_reg, _MM_FROUND_TO_NEG_INF, src0_reg);
+		builder_emit_vsubps(bld, dst_reg, tmp_reg, src0_reg);
 		break;
+	}
 	case BRW_OPCODE_RNDU:
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
 		builder_emit_vroundps(bld, dst_reg, _MM_FROUND_TO_POS_INF, src0_reg);

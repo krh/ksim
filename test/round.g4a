@@ -20,4 +20,7 @@ rndz(8) g2<1>F g1<8,8,1>F	{ align1 };
 rnde(8) g3<1>F g1<8,8,1>F	{ align1 };
 write(16, g2, g3)
 
+frc(8) g2<1>F g1<8,8,1>F	{ align1 };
+write(16, g2, g2)
+
 terminate_thread
