@@ -217,6 +217,29 @@ builder_emit_vpinsrq(struct builder *bld, int dst, int src0, int idx)
 }
 
 static inline void
+builder_emit_vpinsrd_rdi_relative(struct builder *bld, int dst, int src1, int offset, int idx)
+{
+	int src0 = 0;
+
+	if (offset < 128)
+		emit(bld, 0xc4,
+		     0xe3 - (src0 & 8) * 4 - (dst & 8) * 16,
+		     0x79 - src1 * 8,
+		     0x22,
+		     0x47 + (src0 & 7) + (dst & 7) * 8,
+		     offset,
+		     idx);
+	else
+		emit(bld, 0xc4,
+		     0xe3 - (src0 & 8) * 4 - (dst & 8) * 16,
+		     0x79 - src1 * 8,
+		     0x22,
+		     0x87 + (src0 & 7) + (dst & 7) * 8,
+		     emit_uint32(offset),
+		     idx);
+}
+
+static inline void
 builder_emit_vinserti128(struct builder *bld, int dst, int src0, int src1, int idx)
 {
 	emit(bld, 0xc4, 0xe3 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,

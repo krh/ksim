@@ -784,6 +784,20 @@ builder_emit_da_src_load(struct builder *bld,
 			builder_emit_load_rsi(bld, offsetof(struct thread, grf[src->num].uw[subnum + y * src->vstride]));
 			builder_emit_vpinsrq(bld, reg, reg, y);
 		}
+	} else if (type_size(src->type) == 4) {
+		int offset, i = 0, tmp_reg = reg;
+
+		for (int y = 0; y < bld->exec_size / src->width; y++) {
+			for (int x = 0; x < src->width; x++) {
+				if (i == 4)
+					tmp_reg = builder_get_reg(bld);
+				offset = offsetof(struct thread, grf[src->num].ud[subnum + y * src->vstride + x * src->hstride]);
+				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
+				i++;
+			}
+		}
+		if (tmp_reg != reg)
+			builder_emit_vinserti128(bld, reg, tmp_reg, reg, 1);
 	} else {
 		stub("src: g%d.%d<%d,%d,%d>",
 		     src->num, subnum, src->vstride, src->width, src->hstride);
