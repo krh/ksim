@@ -1241,7 +1241,7 @@ sfid_sampler_ld_simd4x2_linear(struct thread *t, const struct sfid_sampler_args 
 static void
 load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, struct reg *dst)
 {
-	const __m256 zero = _mm256_set1_ps(0.0f);
+	const __m256i zero = _mm256_set1_epi32(0.0f);
 
 	/* Grr, _mm256_mask_i32gather_epi32() is a macro that doesn't
 	 * properly protect its arguments and casts the base pointer
