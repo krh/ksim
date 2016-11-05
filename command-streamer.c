@@ -842,6 +842,8 @@ handle_3dstate_ps(uint32_t *p)
 	struct GEN9_3DSTATE_PS v;
 	GEN9_3DSTATE_PS_unpack(p, &v);
 
+	gt.ps.rounding_mode = v.RoundingMode;
+	gt.ps.denormal_mode = v.SinglePrecisionDenormalMode;
 	gt.ps.ksp0 = v.KernelStartPointer0;
 	gt.ps.ksp1 = v.KernelStartPointer1;
 	gt.ps.ksp2 = v.KernelStartPointer2;

@@ -82,3 +82,10 @@ Can ignore outside control flow, inside control flow we can use avx2
 blend to implement write masking.
 
 ** Execution size greater than 8
+
+* Misc
+
+** Hybrid HW passthrough mode.
+
+Run on hw for a while, then switch to simulator when something
+triggers. Switch back.

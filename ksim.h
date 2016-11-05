@@ -334,6 +334,8 @@ struct gt {
 		uint32_t tid;
 		bool single_dispatch;
 		bool vector_mask;
+		uint32_t denormal_mode;
+		uint32_t rounding_mode;
 		uint32_t binding_table_entry_count;
 		bool priority;
 		bool alternate_fp;
