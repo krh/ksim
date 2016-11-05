@@ -1445,7 +1445,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 		} else if (d.simd_mode == SIMD_MODE_SIMD8) {
 			func = sfid_sampler_ld_simd8_linear;
 		} else {
-			stub("unhandled ld simd mode");
+			stub("ld simd mode %d", d.simd_mode);
 		}
 		break;
 	default:
