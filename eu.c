@@ -2106,10 +2106,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		stub("BRW_OPCODE_LRP");
 		break;
 	case BRW_OPCODE_NENOP:
-		stub("BRW_OPCODE_NENOP");
-		break;
 	case BRW_OPCODE_NOP:
-		stub("BRW_OPCODE_NOP");
 		break;
 	}
 
