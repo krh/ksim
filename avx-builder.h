@@ -405,6 +405,16 @@ builder_emit_short_alu_e3(struct builder *bld, int opcode, int dst, int src0, in
 }
 
 static inline void
+builder_emit_vpermilps(struct builder *bld, int dst, int imm, int src0)
+{
+	int src1 = 0;
+
+	builder_emit_short_alu_e3(bld, 0x04, dst, src0, src1);
+	emit(bld, imm);
+}
+
+
+static inline void
 builder_emit_vroundps(struct builder *bld, int dst, int op, int src1)
 {
 	int src0 = 0;

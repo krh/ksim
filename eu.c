@@ -714,10 +714,10 @@ static const struct {
    [BRW_OPCODE_SUBB]            = { },
    [BRW_OPCODE_SAD2]            = { },
    [BRW_OPCODE_SADA2]           = { },
-   [BRW_OPCODE_DP4]             = { },
-   [BRW_OPCODE_DPH]             = { },
-   [BRW_OPCODE_DP3]             = { },
-   [BRW_OPCODE_DP2]             = { },
+   [BRW_OPCODE_DP4]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_DPH]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_DP3]             = { .num_srcs = 2,. store_dst = true },
+   [BRW_OPCODE_DP2]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_LINE]            = { .num_srcs = 0, .store_dst = true },
    [BRW_OPCODE_PLN]             = { .num_srcs = 0, .store_dst = true },
    [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = true },
@@ -1981,18 +1981,55 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_SADA2:
 		stub("BRW_OPCODE_SADA2");
 		break;
-	case BRW_OPCODE_DP4:
-		stub("BRW_OPCODE_DP4");
+	case BRW_OPCODE_DP4: {
+		int tmp0_reg = builder_get_reg(bld);
+		int tmp1_reg = builder_get_reg(bld);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
+		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0xff, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
 		break;
-	case BRW_OPCODE_DPH:
-		stub("BRW_OPCODE_DPH");
+	}
+	case BRW_OPCODE_DPH: {
+		int tmp0_reg = builder_get_reg(bld);
+		int tmp1_reg = builder_get_reg(bld);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
+		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0xff, src1_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
 		break;
-	case BRW_OPCODE_DP3:
-		stub("BRW_OPCODE_DP3");
+	}
+	case BRW_OPCODE_DP3: {
+		int tmp0_reg = builder_get_reg(bld);
+		int tmp1_reg = builder_get_reg(bld);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
+		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
 		break;
-	case BRW_OPCODE_DP2:
-		stub("BRW_OPCODE_DP2");
+	}
+	case BRW_OPCODE_DP2: {
+		int tmp_reg = builder_get_reg(bld);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+		builder_emit_vmulps(bld, tmp_reg, src0_reg, src1_reg);
+		builder_emit_vpermilps(bld, dst_reg, 0, tmp_reg);
+		builder_emit_vpermilps(bld, tmp_reg, 0x55, tmp_reg);
+		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp_reg);
 		break;
+	}
 	case BRW_OPCODE_LINE: {
 		src0 = unpack_inst_2src_src0(inst);
 		src1 = unpack_inst_2src_src1(inst);
