@@ -1200,8 +1200,16 @@ unpack_message_header(const struct reg h)
 	};
 }
 
+struct sfid_sampler_args {
+	int src;
+	int dst;
+	int header;
+	int rlen;
+	struct surface tex;
+};
+
 static void
-sfid_sampler_ld_simd4x2(struct thread *t, const struct sfid_sampler_args *args)
+sfid_sampler_ld_simd4x2_linear(struct thread *t, const struct sfid_sampler_args *args)
 {
 	const struct message_header h = unpack_message_header(t->grf[args->header]);
 	struct reg u, sample;
@@ -1229,7 +1237,79 @@ sfid_sampler_ld_simd4x2(struct thread *t, const struct sfid_sampler_args *args)
 }
 
 static void
-sfid_sampler_ld_simd8(struct thread *t, const struct sfid_sampler_args *args)
+load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, struct reg *dst)
+{
+	const __m256 zero = _mm256_set1_ps(0.0f);
+
+	/* Grr, _mm256_mask_i32gather_epi32() is a macro that doesn't
+	 * properly protect its arguments and casts the base pointer
+	 * arg to an int pointer. We have to put () around where we
+	 * add the offset. */
+
+	switch (format) {
+	case SF_R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_SINT:
+	case SF_R32G32B32A32_UINT:
+		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		dst[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
+		dst[3].ireg = _mm256_mask_i32gather_epi32(zero, (p + 12), offsets, emask, 1);
+		break;
+	case SF_R16G16B16A16_UNORM: {
+		const __m256i mask = _mm256_set1_epi32(0xffff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 65535.0f);
+		struct reg rg, ba;
+
+		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+		rg.ireg = _mm256_srli_epi32(rg.ireg, 16);
+		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+		ba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask)), scale);
+		ba.ireg = _mm256_srli_epi32(ba.ireg, 16);
+		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask)), scale);
+		break;
+	}
+
+	case SF_R8G8B8X8_UNORM: {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+		struct reg rgbx;
+
+		rgbx.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
+		rgbx.ireg = _mm256_srli_epi32(rgbx.ireg, 8);
+		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
+		rgbx.ireg = _mm256_srli_epi32(rgbx.ireg, 8);
+		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+	}
+
+	case SF_R8G8B8A8_UNORM: {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+		struct reg rgba;
+
+		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
+		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
+		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
+		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		break;
+	}
+
+	default:
+		stub("sampler ld format %d", format);
+		break;
+	}
+}
+
+static void
+sfid_sampler_ld_simd8_linear(struct thread *t, const struct sfid_sampler_args *args)
 {
 	struct reg u, v;
 
@@ -1242,37 +1322,51 @@ sfid_sampler_ld_simd8(struct thread *t, const struct sfid_sampler_args *args)
 		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
-	const __m256i mask = _mm256_set1_epi32(0xffff);
-	const __m256 scale = _mm256_set1_ps(1.0f / 65535.0f);
-	struct reg rg;
-
-	switch (args->tex.format) {
-	case SF_R32G32B32A32_FLOAT:
-	case SF_R32G32B32A32_SINT:
-	case SF_R32G32B32A32_UINT:
-		t->grf[args->dst + 0].ireg = _mm256_i32gather_epi32(p, offsets.ireg, 1);
-		t->grf[args->dst + 1].ireg = _mm256_i32gather_epi32(p + 4, offsets.ireg, 1);
-		t->grf[args->dst + 2].ireg = _mm256_i32gather_epi32(p + 8, offsets.ireg, 1);
-		t->grf[args->dst + 3].ireg = _mm256_i32gather_epi32(p + 12, offsets.ireg, 1);
-		break;
-	case SF_R16G16B16A16_UNORM:
-		rg.ireg = _mm256_i32gather_epi32(args->tex.pixels, offsets.ireg, 1);
-		t->grf[args->dst + 0].reg =
-			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
-		rg.ireg = _mm256_srli_epi32(rg.ireg, 16);
-		t->grf[args->dst + 1].reg =
-			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
-
-		rg.ireg = _mm256_i32gather_epi32(args->tex.pixels + 4, offsets.ireg, 1);
-		t->grf[args->dst + 2].reg =
-			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
-		rg.ireg = _mm256_srli_epi32(rg.ireg, 16);
-		t->grf[args->dst + 3].reg =
-			_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
-
-		break;
-	}
+	load_format_simd8(p, args->tex.format,
+			  offsets.ireg, t->mask_full, &t->grf[args->dst]);
 }
+
+static void
+sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_args *args)
+{
+#if 0
+	/* Clamp */
+	struct reg u;
+	u.reg = _mm256_min_ps(t->grf[args->src].reg, _mm256_set1_ps(1.0f));
+	u.reg = _mm256_max_ps(u.reg, _mm256_setzero_ps());
+
+	struct reg v;
+	v.reg = _mm256_min_ps(t->grf[args->src + 1].reg, _mm256_set1_ps(1.0f));
+	v.reg = _mm256_max_ps(v.reg, _mm256_setzero_ps());
+#endif
+
+	/* Wrap */
+	struct reg u;
+	u.reg = _mm256_floor_ps(t->grf[args->src].reg);
+	u.reg = _mm256_sub_ps(t->grf[args->src].reg, u.reg);
+
+	struct reg v;
+	v.reg = _mm256_floor_ps(t->grf[args->src + 1].reg);
+	v.reg = _mm256_sub_ps(t->grf[args->src + 1].reg, v.reg);
+
+	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width - 1));
+	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height - 1));
+
+	u.ireg = _mm256_cvttps_epi32(u.reg);
+	v.ireg = _mm256_cvttps_epi32(v.reg);
+
+	struct reg offsets;
+	offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+
+	load_format_simd8(args->tex.pixels, args->tex.format,
+			  offsets.ireg, t->mask_full, &t->grf[args->dst]);
+}
+
+static void *
+builder_emit_sfid_render_cache_helper(struct builder *bld,
+				      uint32_t opcode, uint32_t type, uint32_t src, uint32_t surface);
 
 static void *
 builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
@@ -1280,6 +1374,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	struct inst_send send = unpack_inst_send(inst);
 	const int exec_size = 1 << unpack_inst_common(inst).exec_size;
 	struct sfid_sampler_args *args;
+	void *func;
 	int num;
 
 	const struct message_descriptor d =
@@ -1325,14 +1420,33 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			 * to be set. Assert we have a header. */
 			ksim_assert(d.header_present);
 			ksim_assert(exec_size == 4);
-			return sfid_sampler_ld_simd4x2;
+			func = sfid_sampler_ld_simd4x2_linear;
 		} else if (d.simd_mode == SIMD_MODE_SIMD8) {
-			return sfid_sampler_ld_simd8;
+			func = sfid_sampler_ld_simd8_linear;
+		} else {
+			stub("unhandled ld simd mode");
 		}
-		stub("unhandled ld simd mode");
-		return NULL;
+		break;
 	default:
-		return sfid_sampler;
+		func = sfid_sampler_sample_simd8_linear;
+		break;
+	}
+
+	args->rlen = send.rlen;
+	if (args->rlen == 0) {
+		const uint32_t bti = 0; /* Should be M0.2 from header */
+		const uint32_t opcode = 12;
+		const uint32_t type = 4;
+
+		/* dst is the null reg for rlen 0 messages, and so
+		 * we'll end up overwriting grf0 - grf3.  We need the
+		 * fragment x and y from grf1. so move it up. */
+		args->dst = 2;
+		builder_emit_call(bld, func);
+
+		return builder_emit_sfid_render_cache_helper(bld, opcode, type, args->dst, bti);
+	} else {
+		return func;
 	}
 }
 

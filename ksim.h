@@ -585,15 +585,6 @@ dispatch_shader(struct shader *shader, struct thread *t)
 	f(t);
 }
 
-struct sfid_sampler_args {
-	int src;
-	int dst;
-	int header;
-	struct surface tex;
-};
-
-void sfid_sampler(struct thread *t, const struct sfid_sampler_args *args);
-
 struct sfid_urb_args {
 	int src;
 	int offset;
