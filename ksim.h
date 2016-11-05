@@ -609,8 +609,12 @@ struct sfid_render_cache_args {
 	struct surface rt;
 };
 
-void sfid_render_cache_rt_write_simd8(struct thread *t,
-				      const struct sfid_render_cache_args *args);
+void sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
+							 const struct sfid_render_cache_args *args);
+void sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
+							 const struct sfid_render_cache_args *args);
+void sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
+							  const struct sfid_render_cache_args *args);
 void sfid_render_cache_rt_write_simd16(struct thread *t,
 				       const struct sfid_render_cache_args *args);
 

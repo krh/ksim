@@ -98,39 +98,39 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 }
 
 void
-sfid_render_cache_rt_write_simd8(struct thread *t,
-				 const struct sfid_render_cache_args *args)
+sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
+						    const struct sfid_render_cache_args *args)
 {
-	int x = t->grf[1].ud[2] & 0xffff;
-	int y = t->grf[1].ud[2] >> 16;
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5];
 	__m256i r, g, b, a, shift;
-	struct reg argb;
-	__m256 scale;
-	scale = _mm256_set1_ps(255.0f);
+	__m256i argb;
+	const __m256 scale = _mm256_set1_ps(255.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
 	struct reg *src = &t->grf[args->src];
 
 	if (x >= args->rt.width || y >= args->rt.height)
 		return;
 
-	r = _mm256_cvtps_epi32(_mm256_mul_ps(src[0].reg, scale));
-	g = _mm256_cvtps_epi32(_mm256_mul_ps(src[1].reg, scale));
-	b = _mm256_cvtps_epi32(_mm256_mul_ps(src[2].reg, scale));
-	a = _mm256_cvtps_epi32(_mm256_mul_ps(src[3].reg, scale));
+	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
 	shift = _mm256_set1_epi32(8);
-	argb.ireg = _mm256_sllv_epi32(a, shift);
-	argb.ireg = _mm256_or_si256(argb.ireg, r);
-	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
-	argb.ireg = _mm256_or_si256(argb.ireg, g);
-	argb.ireg = _mm256_sllv_epi32(argb.ireg, shift);
-	argb.ireg = _mm256_or_si256(argb.ireg, b);
+	argb = _mm256_sllv_epi32(a, shift);
+	argb = _mm256_or_si256(argb, r);
+	argb = _mm256_sllv_epi32(argb, shift);
+	argb = _mm256_or_si256(argb, g);
+	argb = _mm256_sllv_epi32(argb, shift);
+	argb = _mm256_or_si256(argb, b);
 
 #define SWIZZLE(x, y, z, w) \
 	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
 
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
-	argb.ireg = _mm256_permute4x64_epi64(argb.ireg, SWIZZLE(0, 2, 1, 3));
+	argb = _mm256_permute4x64_epi64(argb, SWIZZLE(0, 2, 1, 3));
 	__m256i mask = _mm256_permute4x64_epi64(t->mask_full, SWIZZLE(0, 2, 1, 3));
 
 	const int tile_x = x * args->rt.cpp / 512;
@@ -145,10 +145,56 @@ sfid_render_cache_rt_write_simd8(struct thread *t,
 
 	_mm_maskstore_epi32(base,
 			    _mm256_extractf128_si256(mask, 0),
-			    _mm256_extractf128_si256(argb.ireg, 0));
+			    _mm256_extractf128_si256(argb, 0));
 	_mm_maskstore_epi32(base + 512,
 			    _mm256_extractf128_si256(mask, 1),
-			    _mm256_extractf128_si256(argb.ireg, 1));
+			    _mm256_extractf128_si256(argb, 1));
+}
+
+void
+sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5];
+	__m256i r, g, b, a, shift;
+	__m256i rgba;
+	const __m256 scale = _mm256_set1_ps(255.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
+	struct reg *src = &t->grf[args->src];
+
+	if (x >= args->rt.width || y >= args->rt.height)
+		return;
+
+	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+
+	shift = _mm256_set1_epi32(8);
+	rgba = _mm256_sllv_epi32(a, shift);
+	rgba = _mm256_or_si256(rgba, b);
+	rgba = _mm256_sllv_epi32(rgba, shift);
+	rgba = _mm256_or_si256(rgba, g);
+	rgba = _mm256_sllv_epi32(rgba, shift);
+	rgba = _mm256_or_si256(rgba, r);
+
+#define SWIZZLE(x, y, z, w) \
+	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
+
+	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	rgba = _mm256_permute4x64_epi64(rgba, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_full, SWIZZLE(0, 2, 1, 3));
+
+	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
+
+	_mm_maskstore_epi32(base,
+			    _mm256_extractf128_si256(mask, 0),
+			    _mm256_extractf128_si256(rgba, 0));
+	_mm_maskstore_epi32(base + args->rt.stride,
+			    _mm256_extractf128_si256(mask, 1),
+			    _mm256_extractf128_si256(rgba, 1));
 }
 
 void
@@ -156,6 +202,55 @@ sfid_render_cache_rt_write_simd16(struct thread *t,
 				 const struct sfid_render_cache_args *args)
 {
 	stub("sfid_render_cache_rt_write_simd16");
+}
+
+void
+sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
+						     const struct sfid_render_cache_args *args)
+{
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5];
+	__m256i r, g, b, a, shift;
+	__m256i rg, ba;
+	const __m256 scale = _mm256_set1_ps(65535.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
+	struct reg *src = &t->grf[args->src];
+
+	if (x >= args->rt.width || y >= args->rt.height)
+		return;
+
+	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+
+	shift = _mm256_set1_epi32(16);
+	rg = _mm256_sllv_epi32(g, shift);
+	rg = _mm256_or_si256(rg, r);
+	ba = _mm256_sllv_epi32(a, shift);
+	ba = _mm256_or_si256(ba, b);
+
+	__m256i p0 = _mm256_unpacklo_epi32(rg, ba);
+	__m256i m0 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_full, 0));
+
+	__m256i p1 = _mm256_unpackhi_epi32(rg, ba);
+	__m256i m1 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_full, 1));
+
+	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
+
+	_mm_maskstore_epi64(base,
+			    _mm256_extractf128_si256(m0, 0),
+			    _mm256_extractf128_si256(p0, 0));
+	_mm_maskstore_epi64((base + 16),
+			    _mm256_extractf128_si256(m1, 0),
+			    _mm256_extractf128_si256(p0, 1));
+
+	_mm_maskstore_epi64((base + args->rt.stride),
+			    _mm256_extractf128_si256(m0, 1),
+			    _mm256_extractf128_si256(p1, 0));
+	_mm_maskstore_epi64((base + args->rt.stride + 16),
+			    _mm256_extractf128_si256(m1, 1),
+			    _mm256_extractf128_si256(p1, 1));
 }
 
 static uint32_t

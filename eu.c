@@ -1337,17 +1337,14 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 }
 
 static void *
-builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
+builder_emit_sfid_render_cache_helper(struct builder *bld,
+				      uint32_t opcode, uint32_t type, uint32_t src, uint32_t surface)
 {
-	struct inst_send send = unpack_inst_send(inst);
-	uint32_t opcode = field(send.function_control, 14, 17);
-	uint32_t type = field(send.function_control, 8, 10);
-	uint32_t surface = field(send.function_control, 0, 7);
 	struct sfid_render_cache_args *args;
 	bool rt_valid;
 
 	args = builder_get_const_data(bld, sizeof *args, 32);
-	args->src = unpack_inst_2src_src0(inst).num;
+	args->src = src;
 
 	rt_valid = get_surface(bld->binding_table_address, surface, &args->rt);
 	ksim_assert(rt_valid);
@@ -1371,10 +1368,27 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 			return sfid_render_cache_rt_write_simd16;
 		case 1:
 			stub("rep16 rt write");
-			return sfid_render_cache_rt_write_simd8;
+			return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
 
 		case 4: /* simd8 */
-			return sfid_render_cache_rt_write_simd8;
+			if (args->rt.format == SF_R16G16B16A16_UNORM &&
+			    args->rt.tile_mode == LINEAR)
+				return sfid_render_cache_rt_write_simd8_rgba_unorm16_linear;
+			else if (args->rt.format == SF_R8G8B8A8_UNORM &&
+				 args->rt.tile_mode == LINEAR)
+				return sfid_render_cache_rt_write_simd8_rgba_unorm8_linear;
+			else if (args->rt.format == SF_B8G8R8A8_UNORM &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_B8G8R8X8_UNORM &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_B8G8R8A8_UNORM_SRGB &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+			else
+				stub("simd8 rt write format/tile_mode: %d %d",
+				     args->rt.format, args->rt.tile_mode);
 		default:
 			stub("rt write type %d", type);
 			return NULL;
@@ -1383,6 +1397,18 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 		stub("render cache message opcode %d", opcode);
 		return NULL;
 	}
+}
+
+static void *
+builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	uint32_t opcode = field(send.function_control, 14, 17);
+	uint32_t type = field(send.function_control, 8, 10);
+	uint32_t surface = field(send.function_control, 0, 7);
+	uint32_t src = unpack_inst_2src_src0(inst).num;
+
+	return builder_emit_sfid_render_cache_helper(bld, opcode, type, src, surface);
 }
 
 static void *
