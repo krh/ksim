@@ -503,7 +503,7 @@ int main(int argc, char *argv[])
 		if ((i & 7) == 0)
 			printf("%08x:", i * 4);
 		if (output_float)
-			printf("  %8f", fmap[i]);
+			printf("  %8.2f", fmap[i]);
 		else
 			printf("  %08x", map[i]);
 

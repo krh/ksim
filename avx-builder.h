@@ -398,15 +398,33 @@ builder_emit_vminps(struct builder *bld, int dst, int src0, int src1)
 }
 
 static inline void
+builder_emit_short_alu_e3(struct builder *bld, int opcode, int dst, int src0, int src1)
+{
+	emit(bld, 0xc4, 0xe3 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,
+	     opcode, 0xc0 + (src0 & 7) + (dst & 7) * 8);
+}
+
+static inline void
+builder_emit_vroundps(struct builder *bld, int dst, int op, int src1)
+{
+	int src0 = 0;
+
+	builder_emit_short_alu_e3(bld, 0x08, dst, src0, src1);
+	emit(bld, op);
+}
+
+static inline void
 builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src1)
 {
-	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x4c, 0xc0 + dst * 8 + src0, mask * 16);
+	builder_emit_short_alu_e3(bld, 0x4c, dst, src0, src1);
+	emit(bld, mask);
 }
 
 static inline void
 builder_emit_vpblendd(struct builder *bld, int dst, int mask, int src0, int src1)
 {
-	emit(bld, 0xc4, 0xe3, 0x7d - src1 * 8, 0x02, 0xc0 + dst * 8 + src0, mask);
+	builder_emit_short_alu_e3(bld, 0x02, dst, src0, src1);
+	emit(bld, mask);
 }
 
 static inline void

@@ -12,4 +12,12 @@ mov(8)  g2<1>D g1<8,8,1>F	{ align1 };
 
 write(0, g1, g2)
 
+rndd(8) g2<1>F g1<8,8,1>F	{ align1 };
+rndu(8) g3<1>F g1<8,8,1>F	{ align1 };
+write(8, g2, g3)
+
+rndz(8) g2<1>F g1<8,8,1>F	{ align1 };
+rnde(8) g3<1>F g1<8,8,1>F	{ align1 };
+write(16, g2, g3)
+
 terminate_thread
