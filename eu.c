@@ -917,7 +917,9 @@ builder_emit_src_load(struct builder *bld,
 
 		case BRW_HW_REG_IMM_TYPE_VF:
 			/* packed float immediate vector */
-			stub("float imm vector");
+			p = builder_get_const_data(bld, 4 * 4, 4);
+			memcpy(p, unpack_inst_imm(inst).vf, 4 * 4);
+			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
 			src_type = BRW_HW_REG_TYPE_F;
 			break;
 
