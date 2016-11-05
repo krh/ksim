@@ -85,6 +85,7 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 	s->stride = v.SurfacePitch + 1;
 	s->format = v.SurfaceFormat;
 	s->cpp = format_size(s->format);
+	s->tile_mode = v.TileMode;
 
 	offset = v.SurfaceBaseAddress;
 	s->pixels = map_gtt_offset(offset, &range);

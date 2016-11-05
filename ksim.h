@@ -539,6 +539,7 @@ struct surface {
 	int height;
 	int stride;
 	int cpp;
+	int tile_mode;
 };
 
 bool
