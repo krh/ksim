@@ -1303,6 +1303,23 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		break;
 	}
+	case SF_R8_UNORM: {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+		struct reg rgba;
+
+		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		break;
+	}
+	case SF_R8_UINT: {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		struct reg rgba;
+
+		rgba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[0].ireg = _mm256_and_si256(rgba.ireg, mask);
+		break;
+	}
 
 	default:
 		stub("sampler ld format %d", format);
@@ -1405,6 +1422,8 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	case SF_R16G16B16A16_SNORM:
 	case SF_R16G16B16A16_SINT:
 	case SF_R16G16B16A16_UINT:
+	case SF_R8_UNORM:
+	case SF_R8_UINT:
 		break;
 	default:
 		stub("surface format: %d", args->tex.format);
