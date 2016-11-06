@@ -199,9 +199,16 @@ sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
 
 void
 sfid_render_cache_rt_write_simd16(struct thread *t,
-				 const struct sfid_render_cache_args *args)
+				  const struct sfid_render_cache_args *args)
 {
 	stub("sfid_render_cache_rt_write_simd16");
+}
+
+void
+sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	stub("sfid_render_cache_rt_write_simd8_rgba_uint32_linear");
 }
 
 void

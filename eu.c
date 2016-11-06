@@ -1521,6 +1521,9 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else if (args->rt.format == SF_B8G8R8A8_UNORM_SRGB &&
 				 args->rt.tile_mode == XMAJOR)
 				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_R32G32B32A32_UINT &&
+				 args->rt.tile_mode == LINEAR)
+				return sfid_render_cache_rt_write_simd8_rgba_uint32_linear;
 			else
 				stub("simd8 rt write format/tile_mode: %d %d",
 				     args->rt.format, args->rt.tile_mode);
