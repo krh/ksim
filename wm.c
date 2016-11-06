@@ -260,13 +260,14 @@ sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
 			    _mm256_extractf128_si256(p1, 1));
 }
 
-static uint32_t
-depth_test(struct payload *p, uint32_t mask, int x, int y)
+static struct reg
+depth_test(struct payload *p, struct reg mask, int x, int y)
 {
 	uint32_t cpp = depth_format_size(gt.depth.format);
+	struct reg zero = { .ireg = _mm256_set1_epi32(0) };
 
 	if (x >= gt.depth.width || y >= gt.depth.height + 1)
-		return 0;
+		return zero;
 
 	/* early depth test */
 	struct reg w, w_unorm;
@@ -308,25 +309,23 @@ depth_test(struct payload *p, uint32_t mask, int x, int y)
 
 	if (gt.depth.test_enable) {
 		cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
-		cmp.ireg = _mm256_and_si256(cmp.ireg, p->t.mask_full);
-		p->t.mask_full = cmp.ireg;
-		mask = _mm256_movemask_ps(cmp.reg);
+		mask.ireg = _mm256_and_si256(cmp.ireg, mask.ireg);
 	}
 
 	if (gt.depth.write_enable) {
 		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
 		w_unorm.ireg = _mm256_permute4x64_epi64(w_unorm.ireg,
 							SWIZZLE(0, 2, 1, 3));
-		__m256i mask = _mm256_permute4x64_epi64(p->t.mask_full,
+		__m256i m = _mm256_permute4x64_epi64(mask.ireg,
 							SWIZZLE(0, 2, 1, 3));
-		_mm256_maskstore_epi32(base, mask, w_unorm.ireg);
+		_mm256_maskstore_epi32(base, m, w_unorm.ireg);
 	}
 
 	return mask;
 }
 
 static void
-dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
+dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 {
 	uint32_t g;
 
@@ -338,7 +337,9 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	p->t.mask = mask;
+	p->t.mask_full = mask.ireg;
+	p->t.mask = _mm256_movemask_ps(mask.reg);
+
 	/* Fixed function header */
 	p->t.grf[0] = (struct reg) {
 		.ud = {
@@ -379,7 +380,7 @@ dispatch_ps(struct payload *p, uint32_t mask, int x, int y)
 			/* R1.6: MBZ */
 			0 | 0,
 			/* R1.7: Pixel sample mask and copy */
-			mask | (mask << 16)
+			p->t.mask | (p->t.mask << 16)
 
 		}
 	};
@@ -569,23 +570,21 @@ rasterize_rectlist_tile(struct payload *p)
 		w2 = _mm256_sub_epi32(c, iter.w0);
 		w3 = _mm256_sub_epi32(c, iter.w1);
 
-		struct reg det;
-		det.ireg = _mm256_and_si256(_mm256_and_si256(iter.w1, iter.w0),
-					    _mm256_and_si256(w2, w3));
+		struct reg mask;
+		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w1, iter.w0),
+					     _mm256_and_si256(w2, w3));
 
-		uint32_t mask = _mm256_movemask_ps(det.reg);
-		if (mask == 0)
+		if (_mm256_movemask_ps(mask.reg) == 0)
 			continue;
 
 		/* Some pixels are covered and we have to
 		 * calculate barycentric coordinates. */
 		compute_barycentric_coords(&iter, p);
 
-		p->t.mask_full = det.ireg;
 		if (gt.depth.test_enable || gt.depth.write_enable)
 			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 
-		if (mask && gt.ps.enable)
+		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
 			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
 }
@@ -598,27 +597,25 @@ rasterize_triangle_tile(struct payload *p)
 	for (tile_iterator_init(&iter, p);
 	     !tile_iterator_done(&iter);
 	     tile_iterator_next(&iter, p)) {
-		struct reg det;
-		det.ireg =
+		struct reg mask;
+		mask.ireg =
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
 							  iter.w0), iter.w2);
 
 		/* Determine coverage: this is an e < 0 test,
 		 * where we've subtracted 1 from top-left
 		 * edges to include pixels on those edges. */
-		uint32_t mask = _mm256_movemask_ps(det.reg);
-		if (mask == 0)
+		if (_mm256_movemask_ps(mask.reg) == 0)
 			continue;
 
 		/* Some pixels are covered and we have to
 		 * calculate barycentric coordinates. */
 		compute_barycentric_coords(&iter, p);
 
-		p->t.mask_full = det.ireg;
 		if (gt.depth.test_enable || gt.depth.write_enable)
 			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 
-		if (mask && gt.ps.enable)
+		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
 			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
 }
