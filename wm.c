@@ -55,7 +55,6 @@ struct payload {
 
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
-	struct thread t;
 };
 
 /* Decode this at jit time and put in constant pool. */
@@ -328,6 +327,7 @@ static void
 dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 {
 	uint32_t g;
+	struct thread t;
 
 	if (!gt.ps.enable_simd8)
 		return;
@@ -337,11 +337,11 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	p->t.mask_full = mask.ireg;
-	p->t.mask = _mm256_movemask_ps(mask.reg);
+	t.mask_full = mask.ireg;
+	t.mask = _mm256_movemask_ps(mask.reg);
 
 	/* Fixed function header */
-	p->t.grf[0] = (struct reg) {
+	t.grf[0] = (struct reg) {
 		.ud = {
 			/* R0.0 */
 			gt.ia.topology |
@@ -364,7 +364,7 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 		}
 	};
 
-	p->t.grf[1] = (struct reg) {
+	t.grf[1] = (struct reg) {
 		.ud = {
 			/* R1.0-1: MBZ */
 			0,
@@ -380,29 +380,29 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 			/* R1.6: MBZ */
 			0 | 0,
 			/* R1.7: Pixel sample mask and copy */
-			p->t.mask | (p->t.mask << 16)
+			t.mask | (t.mask << 16)
 
 		}
 	};
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		p->t.grf[g].reg = p->w1.reg;
-		p->t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = p->w1.reg;
+		t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		p->t.grf[g].reg = p->w1.reg;
-		p->t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = p->w1.reg;
+		t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		p->t.grf[g].reg = p->w1.reg;
-		p->t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = p->w1.reg;
+		t.grf[g + 1].reg = p->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
@@ -444,19 +444,19 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 	}
 
 	if (gt.ps.push_constant_enable)
-		g = load_constants(&p->t, &gt.ps.curbe, gt.ps.grf_start0);
+		g = load_constants(&t, &gt.ps.curbe, gt.ps.grf_start0);
 	else
 		g = gt.ps.grf_start0;
 
 	if (gt.ps.attribute_enable) {
-		memcpy(&p->t.grf[g], p->attribute_deltas,
-		       gt.sbe.num_attributes * 2 * sizeof(p->t.grf[0]));
+		memcpy(&t.grf[g], p->attribute_deltas,
+		       gt.sbe.num_attributes * 2 * sizeof(t.grf[0]));
 	}
 
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	dispatch_shader(gt.ps.avx_shader_simd8, &p->t);
+	dispatch_shader(gt.ps.avx_shader_simd8, &t);
 }
 
 const int tile_width = 512 / 4;
