@@ -37,6 +37,12 @@ struct edge {
 	int32_t min_x, min_y;
 };
 
+struct dispatch {
+	struct reg w2, w1;
+	struct reg mask;
+	int x, y;
+};
+
 struct payload {
 	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
@@ -55,6 +61,8 @@ struct payload {
 
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
+
+	struct dispatch queue[2];
 };
 
 /* Decode this at jit time and put in constant pool. */
@@ -324,7 +332,7 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 }
 
 static void
-dispatch_ps(struct payload *p, struct reg mask, int x, int y)
+dispatch_ps(struct payload *p, struct dispatch *d)
 {
 	uint32_t g;
 	struct thread t;
@@ -337,8 +345,8 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t.mask_full = mask.ireg;
-	t.mask = _mm256_movemask_ps(mask.reg);
+	t.mask_full = d->mask.ireg;
+	t.mask = _mm256_movemask_ps(d->mask.reg);
 
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
@@ -370,9 +378,9 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 			0,
 			0,
 			/* R1.2: x, y for subspan 0  */
-			(y << 16) | x,
+			(d->y << 16) | d->x,
 			/* R1.3: x, y for subspan 1  */
-			(y << 16) | (x + 2),
+			(d->y << 16) | (d->x + 2),
 			/* R1.4: x, y for subspan 2 (SIMD16) */
 			0 | 0,
 			/* R1.5: x, y for subspan 3 (SIMD16) */
@@ -387,22 +395,22 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		t.grf[g].reg = p->w1.reg;
-		t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = d->w1.reg;
+		t.grf[g + 1].reg = d->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		t.grf[g].reg = p->w1.reg;
-		t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = d->w1.reg;
+		t.grf[g + 1].reg = d->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		t.grf[g].reg = p->w1.reg;
-		t.grf[g + 1].reg = p->w2.reg;
+		t.grf[g].reg = d->w1.reg;
+		t.grf[g + 1].reg = d->w2.reg;
 		g += 2;
 		/* if (simd16) ... */
 	}
@@ -457,6 +465,22 @@ dispatch_ps(struct payload *p, struct reg mask, int x, int y)
 		gt.ps_invocation_count++;
 
 	dispatch_shader(gt.ps.avx_shader_simd8, &t);
+}
+
+static void
+queue_ps_dispatch(struct payload *p, struct reg mask, int x, int y)
+{
+	struct dispatch *d;
+
+	d = &p->queue[0];
+	d->w1 = p->w1;
+	d->w2 = p->w2;
+	d->mask = mask;
+	d->x = x;
+	d->y = y;
+
+	dispatch_ps(p, d);
+
 }
 
 const int tile_width = 512 / 4;
@@ -585,7 +609,7 @@ rasterize_rectlist_tile(struct payload *p)
 			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 
 		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
-			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
 }
 
@@ -616,7 +640,7 @@ rasterize_triangle_tile(struct payload *p)
 			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 
 		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
-			dispatch_ps(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
 }
 
