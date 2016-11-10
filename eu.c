@@ -1502,8 +1502,21 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 		case 0:
 			return sfid_render_cache_rt_write_simd16;
 		case 1:
-			stub("rep16 rt write");
-			return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+			if (args->rt.format == SF_B8G8R8A8_UNORM &&
+			    args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_B8G8R8A8_UNORM_SRGB &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_B8G8R8X8_UNORM &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_B8G8R8X8_UNORM_SRGB &&
+				 args->rt.tile_mode == XMAJOR)
+				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
+			else
+				stub("rep16 rt write format/tile_mode: %d %d",
+				     args->rt.format, args->rt.tile_mode);
 
 		case 4: /* simd8 */
 			if (args->rt.format == SF_R16G16B16A16_UNORM &&

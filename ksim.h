@@ -601,6 +601,8 @@ struct sfid_render_cache_args {
 	struct surface rt;
 };
 
+void sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled(struct thread *t,
+							 const struct sfid_render_cache_args *args);
 void sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 							 const struct sfid_render_cache_args *args);
 void sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,

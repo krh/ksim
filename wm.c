@@ -106,6 +106,61 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 }
 
 void
+sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	const __m128 scale = _mm_set1_ps(255.0f);
+	const __m128 half =  _mm_set1_ps(0.5f);
+	 struct reg *src = &t->grf[args->src];
+
+#define SWIZZLE(x, y, z, w) \
+	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
+
+	__m128 bgra = _mm_shuffle_ps(_mm256_castps256_ps128(src[0].reg),
+				     _mm256_castps256_ps128(src[0].reg),
+				     SWIZZLE(2, 1, 0, 3));
+
+	bgra = _mm_mul_ps(bgra, scale);
+	bgra = _mm_add_ps(bgra, half);
+
+	__m128i bgra_i = _mm_cvtps_epi32(bgra);
+	bgra_i = _mm_packus_epi32(bgra_i, bgra_i);
+	bgra_i = _mm_packus_epi16(bgra_i, bgra_i);
+
+	/* Swizzle two middle mask pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+
+	const int cpp = 4;
+	const int x0 = t->grf[1].uw[4];
+	const int y0 = t->grf[1].uw[5];
+
+	/* We assume all pixels are inside same tile. */
+	const int tile_x = x0 * cpp / 512;
+	const int tile_y = y0 / 8;
+	const int tile_stride = args->rt.stride / 512;
+	void *tile_base =
+		args->rt.pixels + (tile_x + tile_y * tile_stride) * 4096;
+
+	const int ix0 = x0 & (512 / cpp - 1);
+	const int iy0 = y0 & 7;
+	void *base = tile_base + ix0 * cpp + iy0 * 512;
+
+	_mm_maskstore_epi32(base, _mm256_extractf128_si256(mask, 0), bgra_i);
+	_mm_maskstore_epi32(base + 512, _mm256_extractf128_si256(mask, 1), bgra_i);
+
+	const int x1 = t->grf[1].uw[8];
+	const int y1 = t->grf[1].uw[9];
+	const int ix1 = x1 & (512 / cpp - 1);
+	const int iy1 = y1 & 7;
+	void *base1 = tile_base + ix1 * cpp + iy1 * 512;
+	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
+
+	_mm_maskstore_epi32(base1, _mm256_extractf128_si256(mask1, 0), bgra_i);
+	_mm_maskstore_epi32(base1 + 512, _mm256_extractf128_si256(mask1, 1), bgra_i);
+}
+
+void
 sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 						    const struct sfid_render_cache_args *args)
 {
@@ -132,9 +187,6 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 	argb = _mm256_or_si256(argb, g);
 	argb = _mm256_sllv_epi32(argb, shift);
 	argb = _mm256_or_si256(argb, b);
-
-#define SWIZZLE(x, y, z, w) \
-	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
 
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
