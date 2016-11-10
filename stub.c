@@ -311,8 +311,13 @@ dispatch_getparam(int fd, unsigned long request,
 		return 0;
 
 	case I915_PARAM_REVISION:
+		*getparam->value = 0;
+		return 0;
 	case I915_PARAM_SUBSLICE_TOTAL:
+		*getparam->value = 3;
+		return 0;
 	case I915_PARAM_EU_TOTAL:
+		*getparam->value = 24;
 		return 0;
 
 	default:
