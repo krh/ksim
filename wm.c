@@ -63,6 +63,7 @@ struct payload {
 	struct reg attribute_deltas[64];
 
 	struct dispatch queue[2];
+	int queue_length;
 };
 
 /* Decode this at jit time and put in constant pool. */
@@ -138,7 +139,7 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
 	argb = _mm256_permute4x64_epi64(argb, SWIZZLE(0, 2, 1, 3));
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_full, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
 
 	const int tile_x = x * args->rt.cpp / 512;
 	const int tile_y = y / 8;
@@ -192,7 +193,7 @@ sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
 	rgba = _mm256_permute4x64_epi64(rgba, SWIZZLE(0, 2, 1, 3));
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_full, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
 
 	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 
@@ -245,10 +246,10 @@ sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
 	ba = _mm256_or_si256(ba, b);
 
 	__m256i p0 = _mm256_unpacklo_epi32(rg, ba);
-	__m256i m0 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_full, 0));
+	__m256i m0 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_q1, 0));
 
 	__m256i p1 = _mm256_unpackhi_epi32(rg, ba);
-	__m256i m1 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_full, 1));
+	__m256i m1 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_q1, 1));
 
 	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 
@@ -332,21 +333,22 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 }
 
 static void
-dispatch_ps(struct payload *p, struct dispatch *d)
+dispatch_ps(struct payload *p, struct dispatch *d, int count)
 {
 	uint32_t g;
 	struct thread t;
+	bool simd8 = (count == 1);
+	bool simd16 = (count == 2);
 
-	if (!gt.ps.enable_simd8)
-		return;
-
-	assert(gt.ps.enable_simd8);
+	ksim_assert(gt.ps.enable_simd8 || !simd8);
+	ksim_assert(gt.ps.enable_simd16 || !simd16);
 
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t.mask_full = d->mask.ireg;
-	t.mask = _mm256_movemask_ps(d->mask.reg);
+	t.mask_q1 = d[0].mask.ireg;
+	if (count == 2)
+		t.mask_q2 = d[1].mask.ireg;
 
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
@@ -378,13 +380,13 @@ dispatch_ps(struct payload *p, struct dispatch *d)
 			0,
 			0,
 			/* R1.2: x, y for subspan 0  */
-			(d->y << 16) | d->x,
+			(d[0].y << 16) | d[0].x,
 			/* R1.3: x, y for subspan 1  */
-			(d->y << 16) | (d->x + 2),
+			(d[0].y << 16) | (d[0].x + 2),
 			/* R1.4: x, y for subspan 2 (SIMD16) */
-			0 | 0,
+			(d[1].y << 16) | d[1].x,
 			/* R1.5: x, y for subspan 3 (SIMD16) */
-			0 | 0,
+			(d[1].y << 16) | (d[1].x + 2),
 			/* R1.6: MBZ */
 			0 | 0,
 			/* R1.7: Pixel sample mask and copy */
@@ -395,42 +397,57 @@ dispatch_ps(struct payload *p, struct dispatch *d)
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		t.grf[g].reg = d->w1.reg;
-		t.grf[g + 1].reg = d->w2.reg;
+		t.grf[g].reg = d[0].w1.reg;
+		t.grf[g + 1].reg = d[0].w2.reg;
 		g += 2;
-		/* if (simd16) ... */
+		if (simd16) {
+			t.grf[g].reg = d[1].w1.reg;
+			t.grf[g + 1].reg = d[1].w2.reg;
+			g += 2;
+		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
 		t.grf[g].reg = d->w1.reg;
 		t.grf[g + 1].reg = d->w2.reg;
 		g += 2;
-		/* if (simd16) ... */
+		if (simd16) {
+			t.grf[g].reg = d[1].w1.reg;
+			t.grf[g + 1].reg = d[1].w2.reg;
+			g += 2;
+		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
 		t.grf[g].reg = d->w1.reg;
 		t.grf[g + 1].reg = d->w2.reg;
 		g += 2;
-		/* if (simd16) ... */
+		if (simd16) {
+			t.grf[g].reg = d[1].w1.reg;
+			t.grf[g + 1].reg = d[1].w2.reg;
+			g += 2;
+		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
 		g++; /* barycentric[1], slots 0-7 */
 		g++; /* barycentric[2], slots 0-7 */
-		/* if (simd16) ... */
+		if (simd16)
+			g += 2;
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_CENTROID) {
 		g++; /* barycentric[1], slots 0-7 */
 		g++; /* barycentric[2], slots 0-7 */
-		/* if (simd16) ... */
+		if (simd16)
+			g += 2;
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_SAMPLE) {
 		g++; /* barycentric[1], slots 0-7 */
 		g++; /* barycentric[2], slots 0-7 */
-		/* if (simd16) ... */
+		if (simd16)
+			g += 2;
 	}
 
 	if (gt.ps.uses_source_depth) {
@@ -464,7 +481,10 @@ dispatch_ps(struct payload *p, struct dispatch *d)
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	dispatch_shader(gt.ps.avx_shader_simd8, &t);
+	if (count == 1)
+		dispatch_shader(gt.ps.avx_shader_simd8, &t);
+	else
+		dispatch_shader(gt.ps.avx_shader_simd16, &t);
 }
 
 static void
@@ -472,15 +492,17 @@ queue_ps_dispatch(struct payload *p, struct reg mask, int x, int y)
 {
 	struct dispatch *d;
 
-	d = &p->queue[0];
+	d = &p->queue[p->queue_length++];
 	d->w1 = p->w1;
 	d->w2 = p->w2;
 	d->mask = mask;
 	d->x = x;
 	d->y = y;
 
-	dispatch_ps(p, d);
-
+	if (gt.ps.enable_simd8 || p->queue_length == 2) {
+		dispatch_ps(p, &p->queue[0], p->queue_length);
+		p->queue_length = 0;
+	}
 }
 
 const int tile_width = 512 / 4;
@@ -611,6 +633,11 @@ rasterize_rectlist_tile(struct payload *p)
 		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
 			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
 	}
+
+	if (p->queue_length > 0) {
+		dispatch_ps(p, &p->queue[0], p->queue_length);
+		p->queue_length = 0;
+	}
 }
 
 static void
@@ -641,6 +668,11 @@ rasterize_triangle_tile(struct payload *p)
 
 		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
 			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+	}
+
+	if (p->queue_length > 0) {
+		dispatch_ps(p, &p->queue[0], p->queue_length);
+		p->queue_length = 0;
 	}
 }
 
@@ -765,6 +797,7 @@ rasterize_primitive(struct primitive *prim)
 	init_edge(&p.e12, p1, p2);
 	init_edge(&p.e20, p2, p0);
 	p.area = eval_edge(&p.e01, p2);
+	p.queue_length = 0;
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||

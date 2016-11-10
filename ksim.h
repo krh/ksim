@@ -568,7 +568,8 @@ struct reg {
 
 struct thread {
 	struct reg grf[128];
-	__m256i mask_full;
+	__m256i mask_q1;
+	__m256i mask_q2;
 	uint32_t mask;
 };
 

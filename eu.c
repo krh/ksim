@@ -1342,7 +1342,7 @@ sfid_sampler_ld_simd8_linear(struct thread *t, const struct sfid_sampler_args *a
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(p, args->tex.format,
-			  offsets.ireg, t->mask_full, &t->grf[args->dst]);
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
 }
 
 static void
@@ -1380,7 +1380,7 @@ sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_arg
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(args->tex.pixels, args->tex.format,
-			  offsets.ireg, t->mask_full, &t->grf[args->dst]);
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
 }
 
 static void *
