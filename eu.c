@@ -2162,7 +2162,7 @@ do_compile_inst(struct builder *bld, struct inst *inst)
 	return eot;
 }
 
-#include <common/gen_device_info.h>
+#include "external/gen_device_info.h"
 
 void brw_init_compaction_tables(const struct gen_device_info *devinfo);
 int brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
