@@ -43,24 +43,6 @@ memfd_create(const char *name, unsigned int flags)
    return syscall(SYS_memfd_create, name, flags);
 }
 
-enum {
-	MSG_GEM_CREATE,
-	MSG_GEM_CLOSE,
-	MSG_GEM_BIND,
-	MSG_GEM_EXEC_RENDER,
-	MSG_GEM_EXEC_BLIT,
-	MSG_GEM_SET_DOMAIN,
-	MSG_GEM_REPLY,
-	MSG_GEM_PRIME
-};
-
-struct message {
-	uint32_t type;
-	uint32_t handle;
-	uint64_t offset;
-	uint64_t size;
-};
-
 static inline void
 __ksim_assert(int cond, const char *file, int line, const char *msg)
 {
