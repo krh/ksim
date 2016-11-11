@@ -1345,6 +1345,33 @@ sfid_sampler_ld_simd8_linear(struct thread *t, const struct sfid_sampler_args *a
 }
 
 static void
+sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *args)
+{
+	struct reg u, v;
+	void *p = args->tex.pixels;
+	struct reg offsets;
+
+	u.ireg = t->grf[args->src].ireg;
+	v.ireg = t->grf[args->src + 1].ireg;
+	offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+
+	load_format_simd8(p, args->tex.format,
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
+
+	u.ireg = t->grf[args->src + 2].ireg;
+	v.ireg = t->grf[args->src + 3].ireg;
+	offsets.ireg =
+		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+
+	uint32_t dst1 = args->dst + format_channels(args->tex.format);
+	load_format_simd8(p, args->tex.format,
+			  offsets.ireg, t->mask_q2, &t->grf[dst1]);
+}
+
+static void
 sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_args *args)
 {
 #if 0
@@ -1443,6 +1470,8 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			func = sfid_sampler_ld_simd4x2_linear;
 		} else if (d.simd_mode == SIMD_MODE_SIMD8) {
 			func = sfid_sampler_ld_simd8_linear;
+		} else if (d.simd_mode == SIMD_MODE_SIMD16) {
+			func = sfid_sampler_ld_simd16_linear;
 		} else {
 			stub("ld simd mode %d", d.simd_mode);
 		}
