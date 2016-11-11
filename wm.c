@@ -389,11 +389,7 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 {
 	uint32_t g;
 	struct thread t;
-	bool simd8 = (count == 1);
 	bool simd16 = (count == 2);
-
-	ksim_assert(gt.ps.enable_simd8 || !simd8);
-	ksim_assert(gt.ps.enable_simd16 || !simd16);
 
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
@@ -401,6 +397,8 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 	t.mask_q1 = d[0].mask.ireg;
 	if (count == 2)
 		t.mask_q2 = d[1].mask.ireg;
+	else
+		t.mask_q2 = _mm256_set1_epi32(0);
 
 	/* Fixed function header */
 	t.grf[0] = (struct reg) {
@@ -533,10 +531,12 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
-	if (count == 1)
+	if (count == 1 && gt.ps.enable_simd8) {
 		dispatch_shader(gt.ps.avx_shader_simd8, &t);
-	else
+	} else {
+		ksim_assert(gt.ps.enable_simd16);
 		dispatch_shader(gt.ps.avx_shader_simd16, &t);
+	}
 }
 
 static void
@@ -665,11 +665,11 @@ rasterize_rectlist_tile(struct payload *p)
 		 * the bias on the original edge, or to add it to the
 		 * oppoiste edge if the original doesn't have bias. */
 		c = _mm256_set1_epi32(p->area - 1);
-		w2 = _mm256_sub_epi32(c, iter.w0);
-		w3 = _mm256_sub_epi32(c, iter.w1);
+		w2 = _mm256_sub_epi32(c, iter.w2);
+		w3 = _mm256_sub_epi32(c, iter.w0);
 
 		struct reg mask;
-		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w1, iter.w0),
+		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w2, iter.w0),
 					     _mm256_and_si256(w2, w3));
 
 		if (_mm256_movemask_ps(mask.reg) == 0)

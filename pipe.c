@@ -424,9 +424,35 @@ assemble_primitives(struct value **vue, int count)
 
 	case _3DPRIM_RECTLIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			struct value *vue[3] = {
+				gt.ia.queue.vue[(tail + 0) & 15],
+				gt.ia.queue.vue[(tail + 1) & 15],
+				gt.ia.queue.vue[(tail + 2) & 15]
+			};
+
+			/* The documentation requires a specific
+			 * vertex ordering, but the hw doesn't
+			 * actually care.  Our rasterizer does though,
+			 * so rotate vertices to make sure the first
+			 * to edges are axis parallel. */
+			if (vue[0][1].vec4.x != vue[1][1].vec4.x &&
+			    vue[0][1].vec4.y != vue[1][1].vec4.y) {
+				ksim_warn("invalid rect list vertex order\n");
+				prim.vue[0] = vue[1];
+				prim.vue[1] = vue[2];
+				prim.vue[2] = vue[0];
+			} else if (vue[1][1].vec4.x != vue[2][1].vec4.x &&
+				   vue[1][1].vec4.y != vue[2][1].vec4.y) {
+				ksim_warn("invalid rect list vertex order\n");
+				prim.vue[0] = vue[2];
+				prim.vue[1] = vue[0];
+				prim.vue[2] = vue[1];
+			} else {
+				prim.vue[0] = vue[0];
+				prim.vue[1] = vue[1];
+				prim.vue[2] = vue[2];
+			}
+
 			setup_prim(&prim);
 			tail += 3;
 		}
