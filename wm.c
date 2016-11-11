@@ -97,7 +97,11 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 
 	offset = v.SurfaceBaseAddress;
 	s->pixels = map_gtt_offset(offset, &range);
-	if (range < s->height * s->stride) {
+
+	const uint32_t block_size = format_block_size(s->format);
+	const uint32_t height_in_blocks = DIV_ROUND_UP(s->height, block_size);
+
+	if (range < height_in_blocks * s->stride) {
 		ksim_warn("surface state out-of-range for bo\n");
 		return false;
 	}

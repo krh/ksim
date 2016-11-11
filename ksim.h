@@ -34,6 +34,7 @@
 #include <immintrin.h>
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
+#define DIV_ROUND_UP(a, d) ( ((a) + (d) - 1) / (d) )
 
 #define MEMFD_INITIAL_SIZE 4096
 
