@@ -499,6 +499,8 @@ void dispatch_compute(void);
 
 bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
+uint32_t format_channels(uint32_t format);
+uint32_t format_block_size(uint32_t format);
 struct value fetch_format(uint64_t offset, uint32_t format);
 uint32_t depth_format_size(uint32_t format);
 
