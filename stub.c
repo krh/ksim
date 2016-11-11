@@ -839,7 +839,8 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 	return p;
 }
 
-uint32_t trace_mask = ~0;
+uint32_t trace_mask = TRACE_WARN;
+uint32_t breakpoint_mask = 0;
 FILE *trace_file;
 char *framebuffer_filename;
 bool use_threads;
@@ -861,26 +862,31 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "all",	~0 },
 };
 
-static void
+static uint32_t
 parse_trace_flags(const char *value)
 {
+	uint32_t mask = 0;
+
 	for (uint32_t i = 0, start = 0; ; i++) {
 		if (value[i] != ',' && value[i] != ';')
 			continue;
 		for (uint32_t j = 0; j < ARRAY_LENGTH(debug_tags); j++) {
 			if (strlen(debug_tags[j].name) == i - start &&
 			    memcmp(debug_tags[j].name, &value[start], i - start) == 0) {
-				trace_mask |= debug_tags[j].flag;
+				mask |= debug_tags[j].flag;
 			}
 		}
 		if (value[i] == ';')
 			break;
 		start = i + 1;
 	}
+
+	return mask;
 }
 
 
-static bool is_prefix(const char *s, const char *prefix, const char **arg)
+static bool
+is_prefix(const char *s, const char *prefix, const char **arg)
 {
 	const int len = strlen(prefix);
 
@@ -921,7 +927,10 @@ ksim_stub_init(void)
 		} else if (is_prefix(s, "framebuffer", &value)) {
 			framebuffer_filename = strndup(value, end - value);
 		} else if (is_prefix(s, "trace", &value)) {
-			parse_trace_flags(value);
+			trace_mask = parse_trace_flags(value);
+		} else if (is_prefix(s, "breakpoint", &value)) {
+			breakpoint_mask = parse_trace_flags(value);
+			trace_mask |= breakpoint_mask;
 		}
 	}
 

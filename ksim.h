@@ -89,6 +89,7 @@ enum {
 };
 
 extern uint32_t trace_mask;
+extern uint32_t breakpoint_mask;
 extern FILE *trace_file;
 extern char *framebuffer_filename;
 extern bool use_threads;
@@ -104,6 +105,9 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 	va_start(va, fmt);
 	vfprintf(trace_file, fmt, va);
 	va_end(va);
+
+	if (tag & breakpoint_mask)
+		raise(SIGTRAP);
 }
 
 #define trace(tag, format, ...)			\

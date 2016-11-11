@@ -18,6 +18,7 @@ Run COMMAND with ARGUMENTS and under the ksim simulator.
                                 'cs', 'vf', 'vs', 'ps', 'eu', 'stub', 'all'.
                                 Default value is 'stub,warn'.  With no argument,
                                 turn on all tags.
+      --breakpoint[=TAGS]     Trigger a breakpoint on the given message tags.
       --help           Display this help message and exit.
 
 EOF
@@ -92,6 +93,10 @@ while true; do
 	      ;;
 	  --trace)
 	      args="${args}trace=all;"
+	      shift
+	      ;;
+	  --breakpoint=*)
+	      args="${args}breakpoint=${1##--breakpoint=};"
 	      shift
 	      ;;
 	  --stub=*)
