@@ -983,7 +983,6 @@ builder_emit_src_load(struct builder *bld,
 	if (src->negate) {
 		uint32_t *ud = builder_get_const_ud(bld, 0);
 		int tmp_reg = builder_get_reg(bld);
-		reg = builder_get_reg(bld);
 
 		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
 						       builder_offset(bld, ud));
