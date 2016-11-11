@@ -602,6 +602,8 @@ void sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 							 const struct sfid_render_cache_args *args);
 void sfid_render_cache_rt_write_simd16(struct thread *t,
 				       const struct sfid_render_cache_args *args);
+void sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
+						     const struct sfid_render_cache_args *args);
 
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
