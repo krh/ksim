@@ -79,9 +79,10 @@ dispatch_compute(void)
 	 * end_y. */
 	uint32_t x = gt.compute.start_x;
 	uint32_t y = gt.compute.start_y;
+	uint32_t z = gt.compute.start_z;
 	goto resume;
 
-	for (uint32_t z = gt.compute.start_z; z < gt.compute.end_z; z++) {
+	for (; z < gt.compute.end_z; z++) {
 		for (y = 0; y < gt.compute.end_y; y++) {
 			for (x = 0; x < gt.compute.end_x; x++) {
 			resume:
