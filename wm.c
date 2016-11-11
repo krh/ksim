@@ -193,15 +193,16 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 	argb = _mm256_permute4x64_epi64(argb, SWIZZLE(0, 2, 1, 3));
 	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
 
-	const int tile_x = x * args->rt.cpp / 512;
+	const int cpp = 4;
+	const int tile_x = x * cpp / 512;
 	const int tile_y = y / 8;
 	const int tile_stride = args->rt.stride / 512;
 	void *tile_base =
 		args->rt.pixels + (tile_x + tile_y * tile_stride) * 4096;
 
-	const int ix = x & (512 / args->rt.cpp - 1);
+	const int ix = x & (512 / cpp - 1);
 	const int iy = y & 7;
-	void *base = tile_base + ix * args->rt.cpp + iy * 512;
+	void *base = tile_base + ix * cpp + iy * 512;
 
 	_mm_maskstore_epi32(base,
 			    _mm256_extractf128_si256(mask, 0),
