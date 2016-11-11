@@ -124,7 +124,6 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 		}
 
 		uint32_t offset = index * vb->pitch + ve->offset;
-		ksim_assert(valid_vertex_format(ve->format));
 		if (offset + format_size(ve->format) > vb->size) {
 			ksim_trace(TRACE_WARN, "vertex element %d overflows vertex buffer %d\n",
 				   i, ve->vb);
@@ -231,6 +230,7 @@ validate_vf_state(void)
 
 	vb_used = 0;
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
+		ksim_assert(valid_vertex_format(gt.vf.ve[i].format));
 		if (gt.vf.ve[i].valid)
 			vb_used |= 1 << gt.vf.ve[i].vb;
 	}
