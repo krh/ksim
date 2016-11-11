@@ -434,7 +434,14 @@ static inline void
 builder_emit_vpblendd(struct builder *bld, int dst, int mask, int src0, int src1)
 {
 	builder_emit_short_alu_e3(bld, 0x02, dst, src0, src1);
-	emit(bld, mask);
+	emit(bld, mask); /* imm mask */
+}
+
+static inline void
+builder_emit_vpblendvps(struct builder *bld, int dst, int mask, int src0, int src1)
+{
+	builder_emit_short_alu_e3(bld, 0x4a, dst, src0, src1);
+	emit(bld, mask * 16); /* mask register */
 }
 
 static inline void

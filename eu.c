@@ -1725,7 +1725,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		builder_emit_cmp(bld, modifier, tmp_reg, src0_reg, src1_reg);
 		/* AVX2 blendv is opposite of the EU sel order, so we
 		 * swap src0 and src1 operands. */
-		builder_emit_vpblendvb(bld, dst_reg, tmp_reg, src1_reg, src0_reg);
+		builder_emit_vpblendvps(bld, dst_reg, tmp_reg, src1_reg, src0_reg);
 		break;
 	}
 	case BRW_OPCODE_NOT: {
