@@ -1371,42 +1371,85 @@ sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *
 			  offsets.ireg, t->mask_q2, &t->grf[dst1]);
 }
 
+struct sample_position {
+	struct reg u;
+	struct reg v;
+};
+
 static void
-sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_args *args)
+transform_sample_position(const struct sfid_sampler_args *args, struct reg *src,
+			  struct sample_position *coords)
 {
 #if 0
 	/* Clamp */
 	struct reg u;
-	u.reg = _mm256_min_ps(t->grf[args->src].reg, _mm256_set1_ps(1.0f));
+	u.reg = _mm256_min_ps(src[0].reg, _mm256_set1_ps(1.0f));
 	u.reg = _mm256_max_ps(u.reg, _mm256_setzero_ps());
 
 	struct reg v;
-	v.reg = _mm256_min_ps(t->grf[args->src + 1].reg, _mm256_set1_ps(1.0f));
+	v.reg = _mm256_min_ps(src[1].reg, _mm256_set1_ps(1.0f));
 	v.reg = _mm256_max_ps(v.reg, _mm256_setzero_ps());
 #endif
 
 	/* Wrap */
 	struct reg u;
-	u.reg = _mm256_floor_ps(t->grf[args->src].reg);
-	u.reg = _mm256_sub_ps(t->grf[args->src].reg, u.reg);
+	u.reg = _mm256_floor_ps(src[0].reg);
+	u.reg = _mm256_sub_ps(src[0].reg, u.reg);
 
 	struct reg v;
-	v.reg = _mm256_floor_ps(t->grf[args->src + 1].reg);
-	v.reg = _mm256_sub_ps(t->grf[args->src + 1].reg, v.reg);
+	v.reg = _mm256_floor_ps(src[1].reg);
+	v.reg = _mm256_sub_ps(src[1].reg, v.reg);
 
 	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width - 1));
 	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height - 1));
 
-	u.ireg = _mm256_cvttps_epi32(u.reg);
-	v.ireg = _mm256_cvttps_epi32(v.reg);
+	coords->u.ireg = _mm256_cvttps_epi32(u.reg);
+	coords->v.ireg = _mm256_cvttps_epi32(v.reg);
+}
+
+static void
+sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_args *args)
+{
+	struct sample_position pos;
+
+	transform_sample_position(args, &t->grf[args->src], &pos);
 
 	struct reg offsets;
 	offsets.ireg =
-		_mm256_add_epi32(_mm256_mullo_epi32(u.ireg, _mm256_set1_epi32(args->tex.cpp)),
-				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
+		_mm256_add_epi32(_mm256_mullo_epi32(pos.u.ireg, _mm256_set1_epi32(args->tex.cpp)),
+				 _mm256_mullo_epi32(pos.v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(args->tex.pixels, args->tex.format,
 			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
+}
+
+static void
+sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_args *args)
+{
+	struct sample_position pos;
+
+	transform_sample_position(args, &t->grf[args->src], &pos);
+
+	/* This is for cpp == 1 */
+	__m256i tile_x = _mm256_srli_epi32(pos.u.ireg, 7);
+	__m256i tile_y = _mm256_srli_epi32(pos.v.ireg, 5);
+	__m256i stride_in_tiles = _mm256_set1_epi32(args->tex.stride / 128);
+
+	__m256i tile_base =
+		_mm256_mullo_epi32(tile_y, stride_in_tiles);
+	tile_base = _mm256_add_epi32(tile_base, tile_x);
+	tile_base = _mm256_slli_epi32(tile_base, 12);
+
+	__m256i oword_offset = _mm256_and_si256(pos.u.ireg, _mm256_set1_epi32(0xf));
+	__m256i column_offset = _mm256_slli_epi32(_mm256_srli_epi32(pos.u.ireg, 4), 9);
+	__m256i row = _mm256_and_si256(pos.v.ireg, _mm256_set1_epi32(0x1f));
+	__m256i row_offset = _mm256_slli_epi32(row, 4);
+
+	__m256i offset = _mm256_add_epi32(_mm256_add_epi32(tile_base, row_offset),
+					  _mm256_add_epi32(oword_offset, column_offset));
+
+	load_format_simd8(args->tex.pixels, args->tex.format,
+			  offset, t->mask_q1, &t->grf[args->dst]);
 }
 
 static void *
@@ -1461,23 +1504,32 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	switch (d.message_type) {
 	case SAMPLE_MESSAGE_LD:
 	case SAMPLE_MESSAGE_LD_LZ:
-		if (d.simd_mode == SIMD_MODE_SIMD8D_SIMD4x2) {
+		if (d.simd_mode == SIMD_MODE_SIMD8D_SIMD4x2 &&
+		    args->tex.tile_mode == LINEAR) {
 			/* We only handle 4x2, which on SKL requires
 			 * the simd mode extension bit in the header
 			 * to be set. Assert we have a header. */
 			ksim_assert(d.header_present);
 			ksim_assert(exec_size == 4);
 			func = sfid_sampler_ld_simd4x2_linear;
-		} else if (d.simd_mode == SIMD_MODE_SIMD8) {
+		} else if (d.simd_mode == SIMD_MODE_SIMD8 &&
+			   args->tex.tile_mode == LINEAR) {
 			func = sfid_sampler_ld_simd8_linear;
-		} else if (d.simd_mode == SIMD_MODE_SIMD16) {
+		} else if (d.simd_mode == SIMD_MODE_SIMD16 &&
+			   args->tex.tile_mode == LINEAR) {
 			func = sfid_sampler_ld_simd16_linear;
 		} else {
 			stub("ld simd mode %d", d.simd_mode);
 		}
 		break;
 	default:
-		func = sfid_sampler_sample_simd8_linear;
+		if (args->tex.tile_mode == LINEAR) {
+			func = sfid_sampler_sample_simd8_linear;
+		} else if (args->tex.tile_mode == YMAJOR) {
+			func = sfid_sampler_sample_simd8_ymajor;
+		} else {
+			stub("x tiled surface");
+		}
 		break;
 	}
 
