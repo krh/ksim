@@ -329,7 +329,31 @@ void
 sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
 						const struct sfid_render_cache_args *args)
 {
-	stub("sfid_render_cache_rt_write_simd8_r_uint8_ymajor");
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5];
+	const int cpp = 1;
+	const int tile_x = x * cpp / 128;
+	const int tile_y = y / 32;
+	const int tile_stride = args->rt.stride / 128;
+	void *tile_base =
+		args->rt.pixels + (tile_x + tile_y * tile_stride) * 4096;
+
+	const int ix = x * cpp & 15;
+	const int column = (x * cpp / 16) & 7;
+	const int iy = y & 31;
+	void *base = tile_base + ix + column * 16 * 32 + iy * 16;
+
+	struct reg *src = &t->grf[args->src];
+
+	__m256i r32 = _mm256_permute4x64_epi64(src[0].ireg, SWIZZLE(0, 2, 1, 3));
+
+	__m128i hi = _mm256_extractf128_si256(r32, 1);
+	__m128i r16 = _mm_packus_epi32(_mm256_castsi256_si128(r32), hi);
+	__m128i r8 = _mm_packus_epi16(r16, r16);
+
+	/* FIXME: Needs masking. */
+	*(uint32_t *) (base +  0) = _mm_extract_epi32(r8, 0);
+	*(uint32_t *) (base + 16) = _mm_extract_epi32(r8, 1);
 }
 
 static struct reg
