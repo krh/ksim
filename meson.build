@@ -51,7 +51,7 @@ ksim_files = files(
 
 shared_library('ksim-stub',
 	ksim_files, disasm_files,
-	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm', '-D_GNU_SOURCE' ],
+	c_args : [ '-fvisibility=hidden', '-march=core-avx2', '-D_GNU_SOURCE' ],
 	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads, mathlib ],
 	link_args : [ '-ldl' ],
 	name_prefix : '',
