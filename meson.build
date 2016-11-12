@@ -47,7 +47,7 @@ ksim_files = files(
 
 shared_library('ksim-stub',
 	ksim_files, disasm_files,
-	c_args : [ '-fvisibility=hidden', '-Wall', '-march=native', '-mrtm', '-D_GNU_SOURCE' ],
+	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm', '-D_GNU_SOURCE' ],
 	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes ],
 	link_args : [ '-ldl', '-pthread', '-lm' ],
 	name_prefix : '',
@@ -55,13 +55,13 @@ shared_library('ksim-stub',
 
 executable('cs-runner',
 	files('test/cs-runner.c'),
-	c_args : [ '-fvisibility=hidden', '-Wall', '-march=native', '-mrtm' ],
+	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm' ],
 	dependencies : [ libdrm_intel ],
 	link_args : [ '-lm' ],
 	install : false)
 
 executable('test-avx-builder',
 	files('avx-builder.c'),
-	c_args : [ '-Wall', '-march=native', '-mrtm',  '-DTEST_AVX_BUILDER' ],
+	c_args : [ '-march=native', '-mrtm',  '-DTEST_AVX_BUILDER' ],
 	dependencies : [ opcodes ],
 	install : false)
