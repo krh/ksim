@@ -6,6 +6,7 @@ opcodes = c.find_library('opcodes')
 libdrm = dependency('libdrm')
 libdrm_intel = dependency('libdrm_intel')
 libpng16 = dependency('libpng16')
+threads = dependency('threads')
 
 conf = configuration_data()
 conf.set('prefix', get_option('prefix'))
@@ -48,8 +49,8 @@ ksim_files = files(
 shared_library('ksim-stub',
 	ksim_files, disasm_files,
 	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm', '-D_GNU_SOURCE' ],
-	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes ],
-	link_args : [ '-ldl', '-pthread', '-lm' ],
+	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads ],
+	link_args : [ '-ldl', '-lm' ],
 	name_prefix : '',
 	install : true)
 
