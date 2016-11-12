@@ -63,8 +63,10 @@ executable('cs-runner',
 	dependencies : [ libdrm_intel, mathlib ],
 	install : false)
 
-executable('test-avx-builder',
+avxbuilder_test = executable('test-avx-builder',
 	files('avx-builder.c'),
 	c_args : [ '-march=native', '-mrtm',  '-DTEST_AVX_BUILDER' ],
 	dependencies : [ opcodes ],
 	install : false)
+
+test('avx-builder', avxbuilder_test)
