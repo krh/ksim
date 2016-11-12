@@ -7,6 +7,9 @@ libdrm = dependency('libdrm')
 libdrm_intel = dependency('libdrm_intel')
 libpng16 = dependency('libpng16')
 threads = dependency('threads')
+# This is the portable way of using mathlib, it does
+# not exist on all platforms.
+mathlib = c.find_library('m', required : false)
 
 conf = configuration_data()
 conf.set('prefix', get_option('prefix'))
@@ -49,16 +52,15 @@ ksim_files = files(
 shared_library('ksim-stub',
 	ksim_files, disasm_files,
 	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm', '-D_GNU_SOURCE' ],
-	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads ],
-	link_args : [ '-ldl', '-lm' ],
+	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads, mathlib ],
+	link_args : [ '-ldl' ],
 	name_prefix : '',
 	install : true)
 
 executable('cs-runner',
 	files('test/cs-runner.c'),
 	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm' ],
-	dependencies : [ libdrm_intel ],
-	link_args : [ '-lm' ],
+	dependencies : [ libdrm_intel, mathlib ],
 	install : false)
 
 executable('test-avx-builder',
