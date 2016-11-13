@@ -35,6 +35,8 @@
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 #define DIV_ROUND_UP(a, d) ( ((a) + (d) - 1) / (d) )
+#define SWIZZLE(x, y, z, w) \
+	( ((x) << 0) | ((y) << 2) | ((z) << 4) | ((w) << 6) )
 
 #define MEMFD_INITIAL_SIZE 4096
 
@@ -583,27 +585,14 @@ struct sfid_urb_args {
 
 void sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args);
 
+struct builder;
+struct inst;
+void *builder_emit_sfid_render_cache_helper(struct builder *bld,
+					    uint32_t opcode, uint32_t type,
+					    uint32_t src, uint32_t surface);
+void *builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
 
-struct sfid_render_cache_args {
-	struct reg offsets;
-	int src;
-	struct surface rt;
-};
-
-void sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled(struct thread *t,
-							 const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
-							 const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
-							 const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
-							  const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
-							 const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd16(struct thread *t,
-				       const struct sfid_render_cache_args *args);
-void sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
-						     const struct sfid_render_cache_args *args);
+void *builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
 
 void prepare_shaders(void);
 bool execute_inst(void *inst, struct thread *t);
