@@ -28,6 +28,8 @@ RT tile (page) in cache the whole time.
 
 * JIT
 
+** Special case sel.ge and sel.lt as min and max
+
 ** Basic register allocator
 
 We have 16 AVX2 regs, we should use them. Instead of loading and writing back for every
