@@ -546,6 +546,8 @@ struct reg {
 	union {
 		__m256 reg;
 		__m256i ireg;
+		__m128 hreg;
+		__m128i ihreg;
 		float f[8];
 		uint32_t ud[8];
 		int32_t d[8];

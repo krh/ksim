@@ -159,11 +159,31 @@ sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args)
 		}
 	}
 
+	static const struct reg offsets = { .d = {  0, 32, 64, 96, 128, 160, 192, 224 } };
+	uint32_t *handles = t->grf[args->src].ud;
+	uint32_t *values = t->grf[args->src + 1].ud;
 	uint32_t c;
-	for_each_bit (c, t->mask) {
-		struct value *vue = urb_handle_to_entry(t->grf[args->src].ud[c]);
-		for (int i = 0; i < args->len - 1; i++)
-			vue[args->offset + i / 4].v[i % 4] =
-				t->grf[args->src + 1 + i].ud[c];
+
+	if (args->len == 9) {
+		for_each_bit (c, t->mask) {
+			struct value *vue = urb_handle_to_entry(handles[c]);
+			__m256i e = _mm256_i32gather_epi32((void *) &values[c],
+							   offsets.ireg, 1);
+			_mm256_storeu_si256((void *) &vue[args->offset], e);
+		}
+	} else if (args->len == 5) {
+		for_each_bit (c, t->mask) {
+			struct value *vue = urb_handle_to_entry(handles[c]);
+			__m128i e = _mm_i32gather_epi32((void *) &values[c],
+							offsets.ihreg, 1);
+			_mm_storeu_si128((void *) &vue[args->offset], e);
+		}
+	} else {
+		for_each_bit (c, t->mask) {
+			struct value *vue = urb_handle_to_entry(handles[c]);
+			for (int i = 0; i < args->len - 1; i++)
+				vue[args->offset + i / 4].v[i % 4] =
+					t->grf[args->src + 1 + i].ud[c];
+		}
 	}
 }
