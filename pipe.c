@@ -129,7 +129,7 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 				   i, ve->vb);
 			v = vec4(0, 0, 0, 0);
 		} else {
-			v = fetch_format(vb->address + offset, ve->format);
+			v = fetch_format(vb->data + offset, ve->format);
 		}
 
 		for (uint32_t c = 0; c < 4; c++)
@@ -223,7 +223,8 @@ dispatch_vs(struct value **vue, uint32_t mask)
 static void
 validate_vf_state(void)
 {
-	uint32_t vb_used;
+	uint32_t vb_used, b;
+	uint64_t range;
 
 	/* Make sure vue is big enough to hold all vertex elements */
 	ksim_assert(gt.vf.ve_count * 16 <= gt.vs.urb.size);
@@ -237,6 +238,11 @@ validate_vf_state(void)
 
 	/* Check all VEs reference valid VBs. */
 	ksim_assert((vb_used & gt.vf.vb_valid) == vb_used);
+
+	for_each_bit(b, vb_used) {
+		gt.vf.vb[b].data = map_gtt_offset(gt.vf.vb[b].address, &range);
+		ksim_assert(gt.vf.vb[b].size <= range);
+	}
 
 	/* Check that SGVs are written within bounds */
 	ksim_assert(gt.vf.iid_element * 16 < gt.vs.urb.size);

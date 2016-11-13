@@ -208,6 +208,7 @@ struct gt {
 			uint64_t address;
 			uint32_t size;
 			uint32_t pitch;
+			void *data;
 		} vb[32];
 		uint32_t vb_valid;
 		struct ve {
@@ -490,7 +491,7 @@ bool valid_vertex_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 uint32_t format_channels(uint32_t format);
 uint32_t format_block_size(uint32_t format);
-struct value fetch_format(uint64_t offset, uint32_t format);
+struct value fetch_format(void *p, uint32_t format);
 uint32_t depth_format_size(uint32_t format);
 
 struct primitive {

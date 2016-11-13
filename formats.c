@@ -287,15 +287,9 @@ format_block_size(uint32_t format)
 }
 
 struct value
-fetch_format(uint64_t offset, uint32_t format)
+fetch_format(void *p, uint32_t format)
 {
-	struct value *v;
-	uint64_t range;
-
-	v = map_gtt_offset(offset, &range);
-
-	/* check that we're within the bo */
-	ksim_assert(range > format_size(format));
+	struct value *v = p;
 
 	switch (format) {
 	case SF_R32_FLOAT:
