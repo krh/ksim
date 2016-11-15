@@ -544,6 +544,12 @@ static void
 handle_3dstate_clear_params(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_CLEAR_PARAMS\n");
+
+	struct GEN9_3DSTATE_CLEAR_PARAMS v;
+	GEN9_3DSTATE_CLEAR_PARAMS_unpack(p, &v);
+
+	if (v.DepthClearValueValid)
+		gt.depth.clear_value = v.DepthClearValue;
 }
 
 static void

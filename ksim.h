@@ -380,6 +380,7 @@ struct gt {
 		bool hiz_enable;
 		uint64_t hiz_address;
 		uint32_t hiz_stride;
+		float clear_value;
 	} depth;
 
 	char urb[URB_SIZE];

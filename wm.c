@@ -796,12 +796,28 @@ hiz_clear(void)
 {
 	uint64_t range;
 	void *depth;
+	struct reg clear_value;
+	int i;
 
 	if (!gt.depth.write_enable)
 		return;
 
+	switch (gt.depth.format) {
+	case D32_FLOAT:
+		clear_value.reg = _mm256_set1_ps(gt.depth.clear_value);
+		break;
+	case D24_UNORM_X8_UINT:
+		clear_value.ireg = _mm256_set1_epi32(gt.depth.clear_value * 16777215.0f);
+		break;
+	case D16_UNORM:
+		stub("D16_UNORM clear");
+	default:
+		ksim_unreachable("invalid depth format");
+	}
+
 	depth = map_gtt_offset(gt.depth.address, &range);
 	int height = (gt.depth.height + 31) & ~31;
 
-	memset(depth, 0, gt.depth.stride * height);
+	for (i = 0; i < gt.depth.stride * height; i += 32)
+		_mm256_store_si256((depth + i), clear_value.ireg);
 }
