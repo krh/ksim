@@ -54,7 +54,8 @@ ksim_files = files(
 
 shared_library('ksim-stub',
 	ksim_files, disasm_files,
-	c_args : [ '-fvisibility=hidden', '-march=core-avx2', '-D_GNU_SOURCE' ],
+	c_args : [ '-fvisibility=hidden', '-march=core-avx2', '-D_GNU_SOURCE',
+		   '-DKSIM_BUILD_' + get_option('buildtype').to_upper() ],
 	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads, mathlib ],
 	link_args : [ '-ldl' ],
 	name_prefix : '',

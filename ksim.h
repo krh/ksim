@@ -56,7 +56,11 @@ __ksim_assert(int cond, const char *file, int line, const char *msg)
 	}
 }
 
+#ifdef KSIM_BUILD_RELEASE
+#define ksim_assert(cond) do { (void) (cond); } while (0)
+#else
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
+#endif
 
 static inline void
 __ksim_unreachable(const char *fmt, ...)
@@ -100,6 +104,7 @@ extern bool use_threads;
 static inline void
 ksim_trace(uint32_t tag, const char *fmt, ...)
 {
+#ifndef KSIM_BUILD_RELEASE
 	va_list va;
 
 	if ((tag & trace_mask) == 0)
@@ -111,6 +116,7 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 
 	if (tag & breakpoint_mask)
 		raise(SIGTRAP);
+#endif
 }
 
 #define trace(tag, format, ...)			\
