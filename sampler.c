@@ -389,6 +389,11 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 			  offset, t->mask_q1, &t->grf[args->dst]);
 }
 
+static void
+sfid_sampler_noop_stub(struct thread *t, const struct sfid_sampler_args *args)
+{
+}
+
 void *
 builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 {
@@ -453,6 +458,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			func = sfid_sampler_ld_simd16_linear;
 		} else {
 			stub("ld simd mode %d", d.simd_mode);
+			func = sfid_sampler_noop_stub;
 		}
 		break;
 	default:
@@ -462,6 +468,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			func = sfid_sampler_sample_simd8_ymajor;
 		} else {
 			stub("x tiled surface");
+			func = sfid_sampler_noop_stub;
 		}
 		break;
 	}
