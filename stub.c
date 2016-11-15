@@ -344,11 +344,6 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	ksim_assert(execbuffer2->DR1 == 0);
 	ksim_assert(execbuffer2->DR4 == 0);
 
-	/* FIXME: Do relocs and send bo handle and offset for batch
-	 * start.  Maybe add a bind message to bind a bo at a given
-	 * gtt offset.  Send a bunch of those as we bind bos in the
-	 * gtt, then send the exec msg. */
-
 	bool all_matches = true, all_bound = true;
 	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
 		bo = get_bo(buffers[i].handle);

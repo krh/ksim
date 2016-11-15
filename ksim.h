@@ -176,16 +176,6 @@ max_u64(uint64_t a, uint64_t b)
 
 void start_batch_buffer(uint64_t address, uint32_t ring);
 
-enum {
-	KSIM_VERTEX_STAGE,
-	KSIM_GEOMETRY_STAGE,
-	KSIM_HULL_STAGE,
-	KSIM_DOMAIN_STAGE,
-	KSIM_FRAGMENT_STAGE,
-	KSIM_COMPUTE_STAGE,
-	NUM_STAGES
-};
-
 /* bdw gt3 */
 #define URB_SIZE (384 * 1024)
 
