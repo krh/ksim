@@ -157,7 +157,32 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 	d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
 
 	if (gt.depth.test_enable) {
-		cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
+		switch (gt.depth.test_function) {
+		case COMPAREFUNCTION_ALWAYS:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_TRUE_US);
+			break;
+		case COMPAREFUNCTION_NEVER:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_FALSE_OS);
+			break;
+		case COMPAREFUNCTION_LESS:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
+			break;
+		case COMPAREFUNCTION_EQUAL:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_EQ_OS);
+			break;
+		case COMPAREFUNCTION_LEQUAL:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LE_OS);
+			break;
+		case COMPAREFUNCTION_GREATER:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_GT_OS);
+			break;
+		case COMPAREFUNCTION_NOTEQUAL:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_NEQ_OS);
+			break;
+		case COMPAREFUNCTION_GEQUAL:
+			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_GE_OS);
+			break;
+		}
 		mask.ireg = _mm256_and_si256(cmp.ireg, mask.ireg);
 	}
 
