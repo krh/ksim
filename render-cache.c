@@ -196,7 +196,7 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 	const struct reg *src = &t->grf[args->src];
 
 	__m128i *base0 = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
-	__m128i *base1 = base0 + args->rt.stride;
+	__m128i *base1 = (void *) base0 + args->rt.stride;
 
 	__m256i rg0145 = _mm256_unpacklo_epi32(src[0].ireg, src[1].ireg);
 	__m256i rg2367 = _mm256_unpackhi_epi32(src[0].ireg, src[1].ireg);
@@ -209,15 +209,25 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 	__m256i rgba26 = _mm256_unpacklo_epi64(rg2367, ba2367);
 	__m256i rgba37 = _mm256_unpackhi_epi64(rg2367, ba2367);
 
-	base0[0] = _mm256_extractf128_si256(rgba04, 0);
-	base0[1] = _mm256_extractf128_si256(rgba15, 0);
-	base1[0] = _mm256_extractf128_si256(rgba26, 0);
-	base1[1] = _mm256_extractf128_si256(rgba37, 0);
+	struct reg mask = { .ireg = t->mask_q1 };
 
-	base0[2] = _mm256_extractf128_si256(rgba04, 1);
-	base0[3] = _mm256_extractf128_si256(rgba15, 1);
-	base1[2] = _mm256_extractf128_si256(rgba26, 1);
-	base1[3] = _mm256_extractf128_si256(rgba37, 1);
+	if (mask.d[0] < 0)
+		base0[0] = _mm256_extractf128_si256(rgba04, 0);
+	if (mask.d[1] < 0)
+		base0[1] = _mm256_extractf128_si256(rgba15, 0);
+	if (mask.d[2] < 0)
+		base1[0] = _mm256_extractf128_si256(rgba26, 0);
+	if (mask.d[3] < 0)
+		base1[1] = _mm256_extractf128_si256(rgba37, 0);
+
+	if (mask.d[4] < 0)
+		base0[2] = _mm256_extractf128_si256(rgba04, 1);
+	if (mask.d[5] < 0)
+		base0[3] = _mm256_extractf128_si256(rgba15, 1);
+	if (mask.d[6] < 0)
+		base1[2] = _mm256_extractf128_si256(rgba26, 1);
+	if (mask.d[7] < 0)
+		base1[3] = _mm256_extractf128_si256(rgba37, 1);
 }
 
 static void
