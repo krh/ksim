@@ -133,9 +133,12 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 	void *tile_base =
 		p->depth.buffer + (tile_x + tile_y * tile_stride) * 4096;
 
+	/* This simplified y-tile calulation work because x is always
+	 * a multiple of 4 pixels, each 4 bytes. */
 	const int ix = x & (128 / cpp - 1);
 	const int iy = y & 31;
 	void *base = tile_base + ix * cpp * 32 + iy * 16;
+	const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
 
 	switch (gt.depth.format) {
 	case D32_FLOAT:
@@ -143,8 +146,7 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 		break;
 	case D24_UNORM_X8_UINT:
 		d24x8.ireg = _mm256_load_si256(base);
-		d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
-					_mm256_set1_ps(1.0f / 16777216.0f));
+		d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg), inv_scale);
 		break;
 	case D16_UNORM:
 		stub("D16_UNORM");
@@ -187,7 +189,10 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 	}
 
 	if (gt.depth.write_enable) {
-		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_mul_ps(w.reg, _mm256_set1_ps((1 << 24) - 1)));
+		const __m256 scale = _mm256_set1_ps(16777215.0f);
+		const __m256 half =  _mm256_set1_ps(0.5f);
+
+		w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(w.reg, scale), half));
 		w_unorm.ireg = _mm256_permute4x64_epi64(w_unorm.ireg,
 							SWIZZLE(0, 2, 1, 3));
 		__m256i m = _mm256_permute4x64_epi64(mask.ireg,
