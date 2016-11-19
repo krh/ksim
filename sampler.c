@@ -254,6 +254,16 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		break;
 	}
 
+	case SF_R24_UNORM_X8_TYPELESS: {
+		const __m256i mask = _mm256_set1_epi32(0xffffff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 16777215.0f);
+		struct reg r;
+
+		r.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(r.ireg, mask)), scale);
+		break;
+	}
+
 	default:
 		stub("sampler ld format %d", format);
 		break;
