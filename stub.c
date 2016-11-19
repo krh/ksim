@@ -557,6 +557,18 @@ dispatch_set_tiling(int fd, unsigned long request,
 	return 0;
 }
 
+static int
+dispatch_get_tiling(int fd, unsigned long request,
+		    struct drm_i915_gem_get_tiling *get_tiling)
+{
+	struct stub_bo *bo = get_bo(get_tiling->handle);
+
+	get_tiling->tiling_mode = bo->stride & 3u;
+	get_tiling->swizzle_mode = 0;
+	get_tiling->phys_swizzle_mode = 0;
+
+	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING\n");
+
 	return 0;
 }
 
@@ -744,8 +756,7 @@ ioctl(int fd, unsigned long request, ...)
 		return dispatch_set_tiling(fd, request, argp);
 
 	case DRM_IOCTL_I915_GEM_GET_TILING:
-		trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_GET_TILING\n");
-		return 0;
+		return dispatch_get_tiling(fd, request, argp);
 
 	case DRM_IOCTL_I915_GEM_GET_APERTURE: {
 		struct drm_i915_gem_get_aperture *get_aperture = argp;
