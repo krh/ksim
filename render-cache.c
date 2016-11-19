@@ -140,7 +140,7 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 {
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
-	__m256i r, g, b, a, shift;
+	__m256i r, g, b, a;
 	__m256i argb;
 	const __m256 scale = _mm256_set1_ps(255.0f);
 	const __m256 half =  _mm256_set1_ps(0.5f);
@@ -154,12 +154,11 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
 	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
-	shift = _mm256_set1_epi32(8);
-	argb = _mm256_sllv_epi32(a, shift);
+	argb = _mm256_slli_epi32(a, 8);
 	argb = _mm256_or_si256(argb, r);
-	argb = _mm256_sllv_epi32(argb, shift);
+	argb = _mm256_slli_epi32(argb, 8);
 	argb = _mm256_or_si256(argb, g);
-	argb = _mm256_sllv_epi32(argb, shift);
+	argb = _mm256_slli_epi32(argb, 8);
 	argb = _mm256_or_si256(argb, b);
 
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
@@ -192,7 +191,7 @@ sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
 {
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
-	__m256i r, g, b, a, shift;
+	__m256i r, g, b, a;
 	__m256i rgba;
 	const __m256 scale = _mm256_set1_ps(255.0f);
 	const __m256 half =  _mm256_set1_ps(0.5f);
@@ -206,12 +205,11 @@ sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
 	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
 	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
-	shift = _mm256_set1_epi32(8);
-	rgba = _mm256_sllv_epi32(a, shift);
+	rgba = _mm256_slli_epi32(a, 8);
 	rgba = _mm256_or_si256(rgba, b);
-	rgba = _mm256_sllv_epi32(rgba, shift);
+	rgba = _mm256_slli_epi32(rgba, 8);
 	rgba = _mm256_or_si256(rgba, g);
-	rgba = _mm256_sllv_epi32(rgba, shift);
+	rgba = _mm256_slli_epi32(rgba, 8);
 	rgba = _mm256_or_si256(rgba, r);
 
 #define SWIZZLE(x, y, z, w) \
@@ -288,7 +286,7 @@ sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
 {
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
-	__m256i r, g, b, a, shift;
+	__m256i r, g, b, a;
 	__m256i rg, ba;
 	const __m256 scale = _mm256_set1_ps(65535.0f);
 	const __m256 half =  _mm256_set1_ps(0.5f);
@@ -302,10 +300,9 @@ sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
 	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
 	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
-	shift = _mm256_set1_epi32(16);
-	rg = _mm256_sllv_epi32(g, shift);
+	rg = _mm256_slli_epi32(g, 16);
 	rg = _mm256_or_si256(rg, r);
-	ba = _mm256_sllv_epi32(a, shift);
+	ba = _mm256_slli_epi32(a, 16);
 	ba = _mm256_or_si256(ba, b);
 
 	__m256i p0 = _mm256_unpacklo_epi32(rg, ba);
