@@ -49,6 +49,7 @@
 static int (*libc_close)(int fd);
 static int (*libc_ioctl)(int fd, unsigned long request, void *argp);
 static void *(*libc_mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+static int (*libc_munmap)(void *addr, size_t length);
 
 static int drm_fd = -1;
 static int memfd = -1;
@@ -75,6 +76,19 @@ struct stub_bo {
 struct gtt_entry {
 	uint32_t handle;
 };
+
+struct gtt_map {
+	struct stub_bo *bo;
+	void *virtual;
+	size_t length;
+	off_t offset;
+	int prot;
+	struct list link;
+};
+
+static LIST_INITIALIZER(pending_map_list);
+static LIST_INITIALIZER(dirty_map_list);
+static LIST_INITIALIZER(clean_map_list);
 
 static struct stub_bo bos[1024], *bo_free_list;
 static int next_handle = 1;
@@ -195,6 +209,14 @@ close_bo(struct stub_bo *bo)
 
 		bo->map = NULL;
 		bo->kernel_handle = 0;
+	}
+
+	/* Anything on the dirty or clean list will be freed when at
+	 * munmap time. */
+	struct gtt_map *m;
+	if (list_find(m, &pending_map_list, link, m->bo == bo)) {
+		list_remove(&m->link);
+		free(m);
 	}
 
 	if (bo->offset != STUB_BO_USERPTR)
@@ -329,6 +351,88 @@ dispatch_getparam(int fd, unsigned long request,
 	}
 }
 
+static void
+tile_xmajor(struct stub_bo *bo, void *shadow)
+{
+	int stride = bo->stride & ~3u;
+	int height = bo->size / stride;
+	int tile_stride = stride / 512;
+
+	ksim_assert((height & 7) == 0);
+	ksim_assert((stride & 511) == 0);
+
+	for (int y = 0; y < height; y++) {
+		int tile_y = y / 8;
+		int iy = y & 7;
+		void *src = shadow + y * stride;
+		void *dst = bo->map + tile_y * tile_stride * 4096 + iy * 512;
+
+		for (int x = 0; x < tile_stride; x++) {
+			for (int c = 0; c < 512; c += 32) {
+				__m256i m = _mm256_load_si256(src + x * 512 + c);
+				_mm256_store_si256(dst + x * 4096 + c, m);
+			}
+		}
+	}
+}
+
+static void
+tile_ymajor(struct stub_bo *bo, void *shadow)
+{
+	int stride = bo->stride & ~3u;
+	int height = bo->size / stride;
+	int tile_stride = stride / 128;
+	const int column_stride = 32 * 16;
+	int columns = stride / 16;
+
+	ksim_assert((height & 31) == 0);
+	ksim_assert((stride & 127) == 0);
+
+	for (int y = 0; y < height; y += 2) {
+		int tile_y = y / 32;
+		int iy = y & 31;
+		void *src = shadow + y * stride;
+		void *dst = bo->map + tile_y * tile_stride * 4096 + iy * 16;
+
+		for (int x = 0; x < columns; x++) {
+			__m128i lo = _mm_load_si128((src + x * 16));
+			__m128i hi = _mm_load_si128((src + x * 16 + stride));
+			__m256i p = _mm256_inserti128_si256(_mm256_castsi128_si256(lo), hi, 1);
+			_mm256_store_si256((dst + x * column_stride), p);
+		}
+	}
+}
+
+static void
+flush_gtt_map(struct gtt_map *m)
+{
+	switch (m->bo->stride & 3) {
+	case I915_TILING_X:
+		tile_xmajor(m->bo, m->virtual);
+		break;
+	case I915_TILING_Y:
+		tile_ymajor(m->bo, m->virtual);
+		break;
+	default:
+		ksim_unreachable();
+	}
+
+	mprotect(m->virtual, m->length, m->prot & ~PROT_WRITE);
+	trace(TRACE_GEM, "remapping bo %d as read-only\n", get_handle(m->bo));
+}
+
+static void
+flush_dirty_maps(void)
+{
+	struct gtt_map *m;
+
+	list_for_each_entry(m, &dirty_map_list, link)
+		flush_gtt_map(m);
+
+	list_insert_list(clean_map_list.prev, &dirty_map_list);
+	list_init(&dirty_map_list);
+}
+
 static int
 dispatch_execbuffer2(int fd, unsigned long request,
 		     struct drm_i915_gem_execbuffer2 *execbuffer2)
@@ -344,6 +448,8 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	ksim_assert(execbuffer2->num_cliprects == 0);
 	ksim_assert(execbuffer2->DR1 == 0);
 	ksim_assert(execbuffer2->DR4 == 0);
+
+	flush_dirty_maps();
 
 	bool all_matches = true, all_bound = true;
 	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
@@ -520,14 +626,28 @@ dispatch_mmap_gtt(int fd, unsigned long request,
 {
 	struct stub_bo *bo = get_bo(map_gtt->handle);
 
-	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP_GTT\n");
+	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP_GTT: handle %d\n",
+	      map_gtt->handle);
 
-#if 0
-	if (bo->tiling_mode != I915_TILING_NONE)
-		trace(TRACE_WARN, "gtt mapping tiled buffer\n");
-#endif
+	uint32_t tiling = bo->stride & 3;
+	uint32_t stride = bo->stride & ~3u;
+	if (tiling != I915_TILING_NONE) {
+		ksim_assert(tiling == I915_TILING_Y);
+		ksim_assert((stride & 127) == 0);
+		uint32_t tile_stride = stride / 128;
+		uint32_t tile_stride_bytes = tile_stride * 4096;
+		ksim_assert(bo->size % tile_stride_bytes == 0);
 
-	map_gtt->offset = bo->offset;
+		struct gtt_map *m = malloc(sizeof(*m));
+		if (m == NULL)
+			return -1;
+		m->offset = alloc_range(bo->size);
+		m->bo = bo;
+		list_insert(pending_map_list.prev, &m->link);
+		map_gtt->offset = m->offset;
+	} else {
+		map_gtt->offset = bo->offset;
+	}
 
 	return 0;
 }
@@ -847,7 +967,34 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 
 	p = libc_mmap(addr, length, prot, flags, memfd, offset);
 
+	struct gtt_map *m;
+	if (list_find(m, &pending_map_list, link, m->offset == offset)) {
+		m->virtual = p;
+		m->length = length;
+		m->prot = prot;
+		list_remove(&m->link);
+		list_insert(dirty_map_list.prev, &m->link);
+		trace(TRACE_GEM, "mapping shadow buffer for tiled bo %d\n", get_handle(m->bo));
+	}
+
 	return p;
+}
+
+__attribute__ ((visibility ("default"))) int
+munmap(void *addr, size_t length)
+{
+	struct gtt_map *m;
+
+	if (list_find(m, &dirty_map_list, link, m->virtual == addr)) {
+		flush_gtt_map(m);
+		list_remove(&m->link);
+		free(m);
+	} else if (list_find(m, &clean_map_list, link, m->virtual == addr)) {
+		list_remove(&m->link);
+		free(m);
+	}
+
+	return libc_munmap(addr, length);
 }
 
 uint32_t trace_mask = TRACE_WARN;
@@ -950,7 +1097,9 @@ ksim_stub_init(void)
 	libc_close = dlsym(RTLD_NEXT, "close");
 	libc_ioctl = dlsym(RTLD_NEXT, "ioctl");
 	libc_mmap = dlsym(RTLD_NEXT, "mmap");
-	if (libc_close == NULL || libc_ioctl == NULL || libc_mmap == NULL)
+	libc_munmap = dlsym(RTLD_NEXT, "munmap");
+	if (libc_close == NULL || libc_ioctl == NULL ||
+	    libc_mmap == NULL || libc_munmap == NULL)
 		error(-1, 0, "ksim: failed to get libc ioctl or close\n");
 
 	if (trace_file == NULL)

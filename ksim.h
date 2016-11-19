@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -636,6 +637,8 @@ struct list {
 	struct list *next;
 };
 
+#define LIST_INITIALIZER(l) struct list l = { &l, &l }
+
 static inline void
 list_init(struct list *list)
 {
@@ -683,3 +686,19 @@ list_insert_list(struct list *list, struct list *other)
 #define container_of(ptr, sample, member)				\
 	(__typeof__(sample))((char *)(ptr) -				\
 			     offsetof(__typeof__(*sample), member))
+
+#define list_for_each_entry(e, list, field)				\
+	for (e = container_of((list)->next, e, field);			\
+	     &e->field != (list);					\
+	     e = container_of(e->field.next, e, field))
+
+#define list_find(e, list, field, cond)					\
+	({								\
+		for (e = container_of((list)->next, e, field);		\
+		     &e->field != (list);				\
+		     e = container_of(e->field.next, e, field))		\
+			if (cond)					\
+				break;					\
+		&e->link != list;					\
+	})
+
