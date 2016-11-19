@@ -65,6 +65,8 @@ handle_mi_math(uint32_t *p)
 #define GPGPU_DISPATCHDIMY		0x2504
 #define GPGPU_DISPATCHDIMZ		0x2508
 
+#define BCS_SWCTRL                      0x22200
+
 static void
 write_register(uint32_t reg, uint32_t value)
 {
@@ -94,6 +96,10 @@ write_register(uint32_t reg, uint32_t value)
 		break;
 	case GPGPU_DISPATCHDIMZ:
 		gt.dispatch.dimz = value;
+		break;
+	case BCS_SWCTRL:
+		gt.blt.swctrl =
+			(gt.blt.swctrl & ~(value >> 16)) | (value & 0xffff);
 		break;
 	}
 }
@@ -220,6 +226,36 @@ handle_xy_mono_pat_blt(uint32_t *p)
 static void
 handle_xy_src_copy_blt(uint32_t *p)
 {
+	struct blit b;
+
+#define BCS_SWCTRL_SRC_Y               (1 << 0)
+#define BCS_SWCTRL_DST_Y               (1 << 1)
+
+	b.raster_op = field(p[1], 16, 23);
+	b.cpp_log2 = (int[]){ 0, 1, 1, 2 } [field(p[1], 24, 25)];
+
+	b.dst_pitch = field(p[1], 0, 15);
+	b.dst_x0 = field(p[2], 0, 15);
+	b.dst_y0 = field(p[2], 16, 31);
+	b.dst_x1 = field(p[3], 0, 15);
+	b.dst_y1 = field(p[3], 16, 31);
+	b.dst_offset = get_u64(&p[4]);
+	if (field(p[0], 11, 11))
+		b.dst_tile_mode = (gt.blt.swctrl & BCS_SWCTRL_DST_Y ? YMAJOR : XMAJOR);
+	else
+		b.dst_tile_mode = LINEAR;
+
+	b.src_x = field(p[6], 0, 15);
+	b.src_y = field(p[6], 16, 31);
+	b.src_pitch = field(p[7], 0, 15);
+	b.src_offset = get_u64(&p[8]);
+	if (field(p[0], 15, 15))
+		b.src_tile_mode = (gt.blt.swctrl & BCS_SWCTRL_SRC_Y ? YMAJOR : XMAJOR);
+	else
+		b.src_tile_mode = LINEAR;
+
+	blitter_copy(&b);
+
 	ksim_trace(TRACE_CS, "XY_SRC_COPY_BLT\n");
 }
 

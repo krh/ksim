@@ -436,6 +436,10 @@ struct gt {
 		struct shader *avx_shader;
 	} compute;
 
+	struct {
+		uint32_t swctrl;
+	} blt;
+
 	uint32_t vs_invocation_count;
 	uint32_t ia_vertices_count;
 	uint32_t ia_primitives_count;
@@ -495,6 +499,19 @@ struct primitive {
 	struct { float x, y, z, w; } v[3];
 	struct value *vue[3];
 };
+
+struct blit {
+	int32_t raster_op;
+	int32_t cpp_log2;
+	int32_t dst_x0, dst_y0, dst_x1, dst_y1, dst_pitch;
+	int32_t dst_tile_mode;
+	uint64_t dst_offset;
+	int32_t src_x, src_y, src_pitch;
+	uint64_t src_offset;
+	int32_t src_tile_mode;
+};
+
+void blitter_copy(struct blit *b);
 
 void rasterize_primitive(struct primitive *prim);
 
