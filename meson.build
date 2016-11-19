@@ -49,9 +49,7 @@ ksim_files = files(
 	'stub.c',
 	'thread.c',
 	'wm.c',
-	'blitter.c',
-	'write-png.c',
-	'write-png.h')
+	'blitter.c')
 
 shared_library('ksim-stub',
 	ksim_files, disasm_files,

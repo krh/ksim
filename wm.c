@@ -28,9 +28,9 @@
 #include <math.h>
 #include <pthread.h>
 #include <sched.h>
+#include <libpng16/png.h>
 
 #include "ksim.h"
-#include "write-png.h"
 
 struct edge {
 	int32_t a, b, c, bias;
@@ -107,6 +107,137 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 	}
 
 	return true;
+}
+
+static char *
+detile_xmajor(struct surface *s, __m256i alpha)
+{
+	int height = align_u64(s->height, 8);
+	void *pixels;
+	int tile_stride = s->stride / 512;
+	int ret;
+
+	ret = posix_memalign(&pixels, 32, s->stride * height);
+	ksim_assert(ret == 0);
+
+	ksim_assert((s->stride & 511) == 0);
+
+	for (int y = 0; y < height; y++) {
+		int tile_y = y / 8;
+		int iy = y & 7;
+		void *src = s->pixels + tile_y * tile_stride * 4096 + iy * 512;
+		void *dst = pixels + y * s->stride;
+
+		for (int x = 0; x < tile_stride; x++) {
+			for (int c = 0; c < 512; c += 32) {
+				__m256i m = _mm256_load_si256(src + x * 4096 + c);
+				m = _mm256_or_si256(m, alpha);
+				_mm256_store_si256(dst + x * 512 + c, m);
+			}
+		}
+	}
+
+	return pixels;
+}
+
+static char *
+detile_ymajor(struct surface *s, __m256i alpha)
+{
+	int height = align_u64(s->height, 8);
+	void *pixels;
+	int tile_stride = s->stride / 128;
+	const int column_stride = 32 * 16;
+	const int columns = s->stride / 16;
+	int ret;
+
+	ret = posix_memalign(&pixels, 32, s->stride * height);
+	ksim_assert(ret == 0);
+
+	ksim_assert((s->stride & 127) == 0);
+
+	for (int y = 0; y < height; y += 2) {
+		int tile_y = y / 32;
+		int iy = y & 31;
+		void *src = s->pixels + tile_y * tile_stride * 4096 + iy * 16;
+		void *dst = pixels + y * s->stride;
+
+		for (int x = 0; x < columns ; x++) {
+			__m256i m = _mm256_load_si256(src + x * column_stride);
+			m = _mm256_or_si256(m, alpha);
+			_mm_store_si128(dst + x * 16, _mm256_extractf128_si256(m, 0));
+			_mm_store_si128(dst + x * 16 + s->stride, _mm256_extractf128_si256(m, 1));
+		}
+	}
+
+	return pixels;
+}
+
+void
+dump_surface(const char *filename, uint32_t binding_table_offset, int i)
+{
+	struct surface s;
+	char *linear;
+	__m256i alpha;
+
+	get_surface(binding_table_offset, i, &s);
+
+	int png_format;
+	switch (s.format) {
+	case SF_R8G8B8X8_UNORM:
+	case SF_R8G8B8A8_UNORM:
+		png_format = PNG_FORMAT_RGBA;
+		break;
+	case SF_B8G8R8A8_UNORM:
+	case SF_B8G8R8X8_UNORM:
+		png_format = PNG_FORMAT_BGRA;
+		break;
+	default:
+		stub("image format");
+		return;
+	}
+
+	switch (s.format) {
+	case SF_R8G8B8X8_UNORM:
+	case SF_B8G8R8X8_UNORM:
+		alpha = _mm256_set1_epi32(0xff000000);
+		break;
+	default:
+		alpha = _mm256_set1_epi32(0);
+		break;
+	}
+
+	switch (s.tile_mode) {
+	case LINEAR:
+		linear = s.pixels;
+		break;
+	case XMAJOR:
+		linear = detile_xmajor(&s, alpha);
+		break;
+	case YMAJOR:
+		linear = detile_ymajor(&s, alpha);
+		break;
+	default:
+		linear = s.pixels;
+		stub("detile wmajor");
+		break;
+	}
+
+	FILE *f = fopen(filename, "wb");
+	ksim_assert(f != NULL);
+
+	png_image pi = {
+		.version = PNG_IMAGE_VERSION,
+		.width = s.width,
+		.height = s.height,
+		.format = png_format
+	};
+
+	ksim_assert(png_image_write_to_stdio(&pi, f, 0, linear, s.stride, NULL));
+
+	fclose(f);
+
+	if (linear != s.pixels)
+		free(linear);
 }
 
 static struct reg
@@ -794,12 +925,8 @@ rasterize_primitive(struct primitive *prim)
 void
 wm_flush(void)
 {
-	struct surface rt;
-
-	if (framebuffer_filename &&
-	    get_surface(gt.ps.binding_table_address, 0, &rt))
-		write_png(framebuffer_filename,
-			  rt.width, rt.height, rt.stride, rt.pixels);
+	if (framebuffer_filename)
+		dump_surface(framebuffer_filename, gt.ps.binding_table_address, 0);
 }
 
 void
