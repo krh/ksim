@@ -552,7 +552,11 @@ dispatch_set_tiling(int fd, unsigned long request,
 	if (bo->kernel_handle)
 		set_kernel_tiling(bo);
 
-	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_TILING\n");
+	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_SET_TILING: bo %d, mode %d, stride %d\n",
+	      set_tiling->handle, set_tiling->tiling_mode, set_tiling->stride);
+	return 0;
+}
+
 	return 0;
 }
 
