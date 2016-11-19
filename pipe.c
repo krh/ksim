@@ -377,6 +377,7 @@ assemble_primitives(struct value **vue, int count)
 		}
 		break;
 
+	case _3DPRIM_POLYGON:
 	case _3DPRIM_TRIFAN:
 		if (gt.ia.trifan_first_vertex == NULL) {
 			/* We always have at least one vertex
