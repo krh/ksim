@@ -186,24 +186,16 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 }
 
 static void
-sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
-						    const struct sfid_render_cache_args *args)
+write_uint8_linear(struct thread *t,
+		   const struct sfid_render_cache_args *args,
+		   __m256i r, __m256i g, __m256i b, __m256i a)
 {
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
-	__m256i r, g, b, a;
 	__m256i rgba;
-	const __m256 scale = _mm256_set1_ps(255.0f);
-	const __m256 half =  _mm256_set1_ps(0.5f);
-	struct reg *src = &t->grf[args->src];
 
 	if (x >= args->rt.width || y >= args->rt.height)
 		return;
-
-	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
-	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
-	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
-	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
 	rgba = _mm256_slli_epi32(a, 8);
 	rgba = _mm256_or_si256(rgba, b);
@@ -228,6 +220,38 @@ sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
 	_mm_maskstore_epi32(base + args->rt.stride,
 			    _mm256_extractf128_si256(mask, 1),
 			    _mm256_extractf128_si256(rgba, 1));
+}
+
+static void
+sfid_render_cache_rt_write_simd8_rgba_unorm8_linear(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	__m256i r, g, b, a;
+	const __m256 scale = _mm256_set1_ps(255.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
+	struct reg *src = &t->grf[args->src];
+
+	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+
+	write_uint8_linear(t, args, r, g, b, a);
+}
+
+static void
+sfid_render_cache_rt_write_simd8_rgba_uint8_linear(struct thread *t,
+						   const struct sfid_render_cache_args *args)
+{
+	__m256i r, g, b, a;
+	struct reg *src = &t->grf[args->src];
+
+	r = src[0].ireg;
+	g = src[1].ireg;
+	b = src[2].ireg;
+	a = src[3].ireg;
+
+	write_uint8_linear(t, args, r, g, b, a);
 }
 
 static void
@@ -281,24 +305,16 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 }
 
 static void
-sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
-						     const struct sfid_render_cache_args *args)
+write_uint16_linear(struct thread *t,
+		    const struct sfid_render_cache_args *args,
+		    __m256i r, __m256i g, __m256i b, __m256i a)
 {
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
-	__m256i r, g, b, a;
 	__m256i rg, ba;
-	const __m256 scale = _mm256_set1_ps(65535.0f);
-	const __m256 half =  _mm256_set1_ps(0.5f);
-	struct reg *src = &t->grf[args->src];
 
 	if (x >= args->rt.width || y >= args->rt.height)
 		return;
-
-	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
-	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
-	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
-	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
 
 	rg = _mm256_slli_epi32(g, 16);
 	rg = _mm256_or_si256(rg, r);
@@ -326,6 +342,38 @@ sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
 	_mm_maskstore_epi64((base + args->rt.stride + 16),
 			    _mm256_extractf128_si256(m1, 1),
 			    _mm256_extractf128_si256(p1, 1));
+}
+
+static void
+sfid_render_cache_rt_write_simd8_rgba_unorm16_linear(struct thread *t,
+						     const struct sfid_render_cache_args *args)
+{
+	__m256i r, g, b, a;
+	const __m256 scale = _mm256_set1_ps(65535.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
+	struct reg *src = &t->grf[args->src];
+
+	r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+	g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+	b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+	a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+
+	write_uint16_linear(t, args, r, g, b, a);
+}
+
+static void
+sfid_render_cache_rt_write_simd8_rgba_uint16_linear(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	__m256i r, g, b, a;
+	struct reg *src = &t->grf[args->src];
+
+	r = src[0].ireg;
+	g = src[1].ireg;
+	b = src[2].ireg;
+	a = src[3].ireg;
+
+	write_uint16_linear(t, args, r, g, b, a);
 }
 
 static void
@@ -455,6 +503,9 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else if (args->rt.format == SF_R8G8B8A8_UNORM &&
 				 args->rt.tile_mode == LINEAR)
 				return sfid_render_cache_rt_write_simd8_rgba_unorm8_linear;
+			else if (args->rt.format == SF_R8G8B8A8_UINT &&
+				 args->rt.tile_mode == LINEAR)
+				return sfid_render_cache_rt_write_simd8_rgba_uint8_linear;
 			else if (args->rt.format == SF_B8G8R8A8_UNORM &&
 				 args->rt.tile_mode == XMAJOR)
 				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
@@ -467,6 +518,9 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else if (args->rt.format == SF_R32G32B32A32_UINT &&
 				 args->rt.tile_mode == LINEAR)
 				return sfid_render_cache_rt_write_simd8_rgba_uint32_linear;
+			else if (args->rt.format == SF_R16G16B16A16_UINT &&
+				 args->rt.tile_mode == LINEAR)
+				return sfid_render_cache_rt_write_simd8_rgba_uint16_linear;
 			else if (args->rt.format == SF_R8_UINT &&
 				 args->rt.tile_mode == YMAJOR)
 				return sfid_render_cache_rt_write_simd8_r_uint8_ymajor;
