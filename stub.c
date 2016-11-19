@@ -499,7 +499,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		for (uint32_t j = 0; j < buffers[i].relocation_count; j++) {
 			uint32_t handle;
 			struct stub_bo *target;
-			uint32_t *dst;
+			uint64_t *dst;
 
 			if (execbuffer2->flags & I915_EXEC_HANDLE_LUT) {
 				ksim_assert(relocs[j].target_handle <
