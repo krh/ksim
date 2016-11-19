@@ -354,6 +354,59 @@ sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
 	*(uint32_t *) (base + 16) = _mm_extract_epi32(r8, 1);
 }
 
+static void
+sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
+					       const struct sfid_render_cache_args *args)
+{
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5];
+	const int cpp = 1;
+	struct reg *src = &t->grf[args->src];
+	const __m256 scale = _mm256_set1_ps(255.0f);
+	const __m256 half =  _mm256_set1_ps(0.5f);
+	__m256i r, g, b, a;
+	__m256i rgba;
+
+	switch (args->rt.format) {
+	case SF_R8G8B8A8_UNORM:
+		r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+		g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+		b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+		a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+		break;
+	case SF_B8G8R8A8_UNORM:
+		b = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[0].reg, scale), half));
+		g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
+		r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
+		a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+		break;
+	default:
+		stub("unorm8 ymajor format");
+		return;
+	}
+
+	rgba = _mm256_slli_epi32(r, 8);
+	rgba = _mm256_or_si256(rgba, g);
+	rgba = _mm256_slli_epi32(rgba, 8);
+	rgba = _mm256_or_si256(rgba, b);
+	rgba = _mm256_slli_epi32(rgba, 8);
+	rgba = _mm256_or_si256(rgba, a);
+
+	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	rgba = _mm256_permute4x64_epi64(rgba, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+
+	void *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
+
+	_mm_maskstore_epi32(base,
+			    _mm256_extractf128_si256(mask, 0),
+			    _mm256_extractf128_si256(rgba, 0));
+	_mm_maskstore_epi32(base + 16,
+			    _mm256_extractf128_si256(mask, 1),
+			    _mm256_extractf128_si256(rgba, 1));
+}
+
 void *
 builder_emit_sfid_render_cache_helper(struct builder *bld,
 				      uint32_t opcode, uint32_t type, uint32_t src, uint32_t surface)
@@ -419,9 +472,16 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else if (args->rt.format == SF_R8_UINT &&
 				 args->rt.tile_mode == YMAJOR)
 				return sfid_render_cache_rt_write_simd8_r_uint8_ymajor;
+			else if (args->rt.format == SF_R8G8B8A8_UNORM &&
+				 args->rt.tile_mode == YMAJOR)
+				return sfid_render_cache_rt_write_simd8_unorm8_ymajor;
+			else if (args->rt.format == SF_B8G8R8A8_UNORM &&
+				 args->rt.tile_mode == YMAJOR)
+				return sfid_render_cache_rt_write_simd8_unorm8_ymajor;
 			else
 				stub("simd8 rt write format/tile_mode: %d %d",
 				     args->rt.format, args->rt.tile_mode);
+			break;
 		default:
 			stub("rt write type %d", type);
 			return NULL;
