@@ -40,6 +40,20 @@
 
 #define MEMFD_INITIAL_SIZE 4096
 
+#define __gen_address_type uint64_t
+#define __gen_combine_address(data, dst, address, delta) delta
+#define __gen_user_data void
+#define __gen_unpack_address(qw, start, end) __gen_unpack_offset(qw, start, end)
+
+#include "gen9_pack.h"
+
+#define BIM_PERSPECTIVE_PIXEL		 1
+#define BIM_PERSPECTIVE_CENTROID	 2
+#define BIM_PERSPECTIVE_SAMPLE		 4
+#define BIM_LINEAR_PIXEL		 8
+#define BIM_LINEAR_CENTROID		16
+#define BIM_LINEAR_SAMPLE		32
+
 static inline int
 memfd_create(const char *name, unsigned int flags)
 {
@@ -540,12 +554,12 @@ urb_handle_to_entry(uint32_t handle)
 
 struct surface {
 	void *pixels;
-	int format;
+	enum GEN9_SURFACE_FORMAT format;
 	int width;
 	int height;
 	int stride;
 	int cpp;
-	int tile_mode;
+	enum GEN9_TileMode tile_mode;
 };
 
 bool
@@ -621,20 +635,6 @@ struct shader *compile_shader(uint64_t kernel_offset,
 			      uint64_t surfaces, uint64_t samplers);
 void print_avx(struct shader *shader, int start, int end);
 
-
-#define __gen_address_type uint64_t
-#define __gen_combine_address(data, dst, address, delta) delta
-#define __gen_user_data void
-#define __gen_unpack_address(qw, start, end) __gen_unpack_offset(qw, start, end)
-
-#include "gen9_pack.h"
-
-#define BIM_PERSPECTIVE_PIXEL		 1
-#define BIM_PERSPECTIVE_CENTROID	 2
-#define BIM_PERSPECTIVE_SAMPLE		 4
-#define BIM_LINEAR_PIXEL		 8
-#define BIM_LINEAR_CENTROID		16
-#define BIM_LINEAR_SAMPLE		32
 
 struct list {
 	struct list *prev;
