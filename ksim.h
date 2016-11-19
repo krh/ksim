@@ -626,15 +626,10 @@ void *builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
 void *builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
 
 void prepare_shaders(void);
-bool execute_inst(void *inst, struct thread *t);
-void print_inst(void *p);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
-void run_thread(struct thread *t, void *kernel, uint32_t trace_flag);
 void reset_shader_pool(void);
 struct shader *compile_shader(uint64_t kernel_offset,
 			      uint64_t surfaces, uint64_t samplers);
-void print_avx(struct shader *shader, int start, int end);
-
 
 struct list {
 	struct list *prev;
