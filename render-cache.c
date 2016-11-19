@@ -81,6 +81,59 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled(struct thread *t,
 	_mm_maskstore_epi32(base1 + 512, _mm256_extractf128_si256(mask1, 1), bgra_i);
 }
 
+static inline void *
+ymajor_offset(void *base, int x, int y, int stride, int cpp)
+{
+	const int tile_y = y / 32;
+	const int tile_stride = stride / 128;
+
+	const int ix = (x * cpp) & 15;
+	const int column = x * cpp / 16;
+	const int column_stride = 16 * 32;
+	const int iy = y & 31;
+
+	return base + (tile_y * tile_stride) * 4096 +
+		ix + column * column_stride + iy * 16;
+}
+
+static void
+sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	const __m128 scale = _mm_set1_ps(255.0f);
+	const __m128 half =  _mm_set1_ps(0.5f);
+	struct reg *src = &t->grf[args->src];
+
+	__m128 rgba = _mm256_castps256_ps128(src[0].reg);
+
+	rgba = _mm_mul_ps(rgba, scale);
+	rgba = _mm_add_ps(rgba, half);
+
+	__m128i rgba_i = _mm_cvtps_epi32(rgba);
+	rgba_i = _mm_packus_epi32(rgba_i, rgba_i);
+	rgba_i = _mm_packus_epi16(rgba_i, rgba_i);
+
+	/* Swizzle two middle mask pairs so that dword 0-3 and 4-7
+	 * form linear owords of pixels. */
+	__m256i mask0 = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+
+	const int cpp = 4;
+	const int x0 = t->grf[1].uw[4];
+	const int y0 = t->grf[1].uw[5];
+	void *base0 = ymajor_offset(args->rt.pixels, x0, y0, args->rt.stride, cpp);
+
+	_mm_maskstore_epi32(base0, _mm256_extractf128_si256(mask0, 0), rgba_i);
+	_mm_maskstore_epi32(base0 + 16, _mm256_extractf128_si256(mask0, 1), rgba_i);
+
+	const int x1 = t->grf[1].uw[8];
+	const int y1 = t->grf[1].uw[9];
+	void *base1 = ymajor_offset(args->rt.pixels, x1, y1, args->rt.stride, cpp);
+	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
+
+	_mm_maskstore_epi32(base1, _mm256_extractf128_si256(mask1, 0), rgba_i);
+	_mm_maskstore_epi32(base1 + 16, _mm256_extractf128_si256(mask1, 1), rgba_i);
+}
+
 static void
 sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled(struct thread *t,
 						    const struct sfid_render_cache_args *args)
@@ -285,16 +338,8 @@ sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5];
 	const int cpp = 1;
-	const int tile_x = x * cpp / 128;
-	const int tile_y = y / 32;
-	const int tile_stride = args->rt.stride / 128;
-	void *tile_base =
-		args->rt.pixels + (tile_x + tile_y * tile_stride) * 4096;
 
-	const int ix = x * cpp & 15;
-	const int column = (x * cpp / 16) & 7;
-	const int iy = y & 31;
-	void *base = tile_base + ix + column * 16 * 32 + iy * 16;
+	void *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
 
 	struct reg *src = &t->grf[args->src];
 
@@ -332,7 +377,7 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 		switch (type) {
 		case 0:
 			return sfid_render_cache_rt_write_simd16;
-		case 1:
+		case 1: /* rep16 */
 			if (args->rt.format == SF_B8G8R8A8_UNORM &&
 			    args->rt.tile_mode == XMAJOR)
 				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
@@ -345,6 +390,9 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else if (args->rt.format == SF_B8G8R8X8_UNORM_SRGB &&
 				 args->rt.tile_mode == XMAJOR)
 				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xtiled;
+			else if (args->rt.format == SF_R8G8B8A8_UNORM &&
+				 args->rt.tile_mode == YMAJOR)
+				return sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor;
 			else
 				stub("rep16 rt write format/tile_mode: %d %d",
 				     args->rt.format, args->rt.tile_mode);
