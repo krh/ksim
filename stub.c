@@ -119,6 +119,7 @@ create_bo(uint64_t size)
 
 	bo->gtt_offset = NOT_BOUND;
 	bo->size = size;
+	bo->stride = 0;
 
 	return bo;
 }
