@@ -419,23 +419,6 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	bool tex_valid = get_surface(bld->binding_table_address,
 				     d.binding_table_index, &args->tex);
 	ksim_assert(tex_valid);
-	switch (args->tex.format) {
-	case SF_R32G32B32A32_FLOAT:
-	case SF_R32G32B32A32_SINT:
-	case SF_R32G32B32A32_UINT:
-	case SF_R8G8B8X8_UNORM:
-	case SF_R8G8B8A8_UNORM:
-	case SF_R16G16B16A16_UNORM:
-	case SF_R16G16B16A16_SNORM:
-	case SF_R16G16B16A16_SINT:
-	case SF_R16G16B16A16_UINT:
-	case SF_R8_UNORM:
-	case SF_R8_UINT:
-		break;
-	default:
-		stub("surface format: %d", args->tex.format);
-		break;
-	}
 
 	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
