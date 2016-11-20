@@ -185,10 +185,14 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 	switch (s.format) {
 	case SF_R8G8B8X8_UNORM:
 	case SF_R8G8B8A8_UNORM:
+	case SF_R8G8B8X8_UNORM_SRGB:
+	case SF_R8G8B8A8_UNORM_SRGB:
 		png_format = PNG_FORMAT_RGBA;
 		break;
 	case SF_B8G8R8A8_UNORM:
 	case SF_B8G8R8X8_UNORM:
+	case SF_B8G8R8A8_UNORM_SRGB:
+	case SF_B8G8R8X8_UNORM_SRGB:
 		png_format = PNG_FORMAT_BGRA;
 		break;
 	default:
@@ -199,6 +203,8 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 	switch (s.format) {
 	case SF_R8G8B8X8_UNORM:
 	case SF_B8G8R8X8_UNORM:
+	case SF_R8G8B8X8_UNORM_SRGB:
+	case SF_B8G8R8X8_UNORM_SRGB:
 		alpha = _mm256_set1_epi32(0xff000000);
 		break;
 	default:
