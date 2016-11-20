@@ -504,13 +504,13 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 				return sfid_render_cache_rt_write_simd8_rgba_uint8_linear;
 			else if (args->rt.format == SF_B8G8R8A8_UNORM &&
 				 args->rt.tile_mode == XMAJOR)
-				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor;
 			else if (args->rt.format == SF_B8G8R8X8_UNORM &&
 				 args->rt.tile_mode == XMAJOR)
-				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor;
 			else if (args->rt.format == SF_B8G8R8A8_UNORM_SRGB &&
 				 args->rt.tile_mode == XMAJOR)
-				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xtiled;
+				return sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor;
 			else if (args->rt.format == SF_R32G32B32A32_UINT &&
 				 args->rt.tile_mode == LINEAR)
 				return sfid_render_cache_rt_write_simd8_rgba_uint32_linear;
