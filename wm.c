@@ -955,9 +955,6 @@ hiz_clear(void)
 	struct reg clear_value;
 	int i;
 
-	if (!gt.depth.write_enable)
-		return;
-
 	switch (gt.depth.format) {
 	case D32_FLOAT:
 		clear_value.reg = _mm256_set1_ps(gt.depth.clear_value);
