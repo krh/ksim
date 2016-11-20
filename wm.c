@@ -777,6 +777,9 @@ bbox_iter_next(struct payload *p)
 void
 rasterize_rectlist(struct payload *p)
 {
+	gt.depth.test_enable = false;
+	gt.depth.write_enable = false;
+
 	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p))
 		rasterize_rectlist_tile(p);
 }
