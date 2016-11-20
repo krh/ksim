@@ -948,25 +948,6 @@ wm_flush(void)
 }
 
 void
-wm_clear(void)
-{
-	struct surface rt;
-	void *depth;
-	uint64_t range;
-
-	if (gt.ps.resolve_type == RESOLVE_DISABLED &&
-	    get_surface(gt.ps.binding_table_address, 0, &rt)) {
-		int height = (rt.height + 7) & ~7;
-		memset(rt.pixels, 0, height * rt.stride);
-		if (gt.depth.write_enable) {
-			depth = map_gtt_offset(gt.depth.address, &range);
-			height = (gt.depth.height + 31) & ~31;
-			memset(depth, 0, gt.depth.stride * height);
-		}
-	}
-}
-
-void
 hiz_clear(void)
 {
 	uint64_t range;
