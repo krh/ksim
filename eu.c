@@ -279,8 +279,12 @@ builder_emit_src_load(struct builder *bld,
 		switch (src->type) {
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
-			p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
-			builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
+			if (unpack_inst_imm(inst).ud == 0) {
+				builder_emit_vpxor(bld, reg, reg, reg);
+			} else {
+				p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
+				builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
+			}
 			break;
 
 		case BRW_HW_REG_TYPE_UW:
@@ -313,8 +317,12 @@ builder_emit_src_load(struct builder *bld,
 			break;
 
 		case BRW_HW_REG_TYPE_F:
-			p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
-			builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
+			if (unpack_inst_imm(inst).f == 0.0f) {
+				builder_emit_vpxor(bld, reg, reg, reg);
+			} else {
+				p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
+				builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
+			}
 			break;
 
 		case GEN8_HW_REG_TYPE_UQ:
