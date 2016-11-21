@@ -284,6 +284,9 @@ int main(int argc, char *argv[])
 	check_reg_imm_emit_function("vmovdqa 0x%2$x(%%rip),%%ymm%1$d",
 				    builder_emit_m256i_load_rip_relative, 8);
 
+	check_reg_imm_emit_function("vmovd %%xmm%1$d, 0x%2$x(%%rdi)",
+				    builder_emit_u32_store, 0);
+
 	check_triop_emit_function("vpaddd", builder_emit_vpaddd);
 	check_triop_emit_function("vpsubd", builder_emit_vpsubd);
 	check_triop_emit_function("vpmulld", builder_emit_vpmulld);

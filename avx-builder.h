@@ -131,7 +131,7 @@ builder_emit_m128i_store(struct builder *bld, int src, int32_t offset)
 static inline void
 builder_emit_u32_store(struct builder *bld, int src, int32_t offset)
 {
-	emit(bld, 0x66, 0x0f, 0x7e, 0x87 + src * 0x08, emit_uint32(offset));
+	emit(bld, 0xc5, 0xf9 - (src & 8) * 16, 0x7e, 0x87 + (src & 7) * 0x08, emit_uint32(offset));
 }
 
 static inline void
