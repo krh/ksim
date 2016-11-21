@@ -196,7 +196,7 @@ check_reg_imm_emit_function(const char *fmt,
 }
 
 void
-check_binop_emit_function(const char *name,
+check_binop_emit_function(const char *fmt,
 			  void (*func)(struct builder *bld, int reg, int imm))
 {
 	struct builder bld;
@@ -204,7 +204,6 @@ check_binop_emit_function(const char *name,
 	for (int dst = 0; dst < 16; dst++) {
 		for (int src = 0; src < 16; src++) {
 			int count, actual_dst, actual_src;
-			char actual_name[16];
 
 			reset_shader_pool();
 			builder_init(&bld, 0, 0);
@@ -212,14 +211,13 @@ check_binop_emit_function(const char *name,
 			func(&bld, dst, src);
 			builder_disasm(&bld);
 
-			count = sscanf(bld.disasm_output,
-				       " %16s %%ymm%d,%%ymm%d",
-				       actual_name, &actual_src, &actual_dst);
+			count = sscanf(bld.disasm_output, fmt,
+				       &actual_src, &actual_dst);
 
-			if (count != 3 || strcmp(name, actual_name) != 0 ||
+			if (count != 2 ||
 			    dst != actual_dst || src != actual_src) {
 				const int size = bld.p - bld.shader->code;
-				printf("%s dst=%d src=%d:\n    ", name, dst, src);
+				printf("fmt='%s' dst=%d src=%d:\n    ", fmt, dst, src);
 				for (int i = 0; i < size; i++)
 					printf("%02x ", bld.shader->code[i]);
 				printf("%s", bld.disasm_output);
@@ -302,10 +300,10 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vfmadd132ps", builder_emit_vfmadd132ps);
 	check_triop_emit_function("vfmadd231ps", builder_emit_vfmadd231ps);
 
-	check_binop_emit_function("vpabsd", builder_emit_vpabsd);
-	check_binop_emit_function("vrsqrtps", builder_emit_vrsqrtps);
-	check_binop_emit_function("vsqrtps", builder_emit_vsqrtps);
-	check_binop_emit_function("vrcpps", builder_emit_vrcpps);
+	check_binop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
+	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
+	check_binop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
+	check_binop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 
