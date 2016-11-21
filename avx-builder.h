@@ -481,13 +481,15 @@ builder_emit_vpackssdw(struct builder *bld, int dst, int src0, int src1)
 static inline void
 builder_emit_vpmovsxwd(struct builder *bld, int dst, int src)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d, 0x23, 0xc0 + dst * 8 + src);
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16 - (src & 8) * 4,
+	     0x7d, 0x23, 0xc0 + (dst & 7) * 8 + (src & 7));
 }
 
 static inline void
 builder_emit_vpmovzxwd(struct builder *bld, int dst, int src)
 {
-	emit(bld, 0xc4, 0xe2, 0x7d, 0x33, 0xc0 + dst * 8 + src);
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16 - (src & 8) * 4,
+	     0x7d, 0x33, 0xc0 + (dst & 7) * 8 + (src & 7));
 }
 
 static inline void

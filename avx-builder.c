@@ -315,9 +315,9 @@ int main(int argc, char *argv[])
 #if 0
 	/* xmm regs */
 	check_triop_emit_function("vpackssdw", builder_emit_vpackssdw);
-	check_binop_emit_function("vpmovsxwd", builder_emit_vpmovsxwd);
-	check_binop_emit_function("vpmovzxwd", builder_emit_vpmovzxwd);
 #endif
+	check_binop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
+	check_binop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
 
 	/* builder_emit_vextractf128 */
 
