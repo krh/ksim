@@ -58,7 +58,7 @@ prepare_shaders(void)
 	reset_shader_pool();
 
 	if (gt.vs.enable) {
-		ksim_trace(TRACE_VS, "jit vs\n");
+		ksim_trace(TRACE_EU | TRACE_AVX, "jit vs\n");
 		gt.vs.avx_shader =
 			compile_shader(gt.vs.ksp,
 				       gt.vs.binding_table_address,
@@ -89,21 +89,21 @@ prepare_shaders(void)
 		}
 
 		if (ksp_simd8 != NO_KERNEL) {
-			ksim_trace(TRACE_PS, "jit simd8 ps\n");
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd8 ps\n");
 			gt.ps.avx_shader_simd8 =
 				compile_shader(ksp_simd8,
 					       gt.ps.binding_table_address,
 					       gt.ps.sampler_state_address);
 		}
 		if (ksp_simd16 != NO_KERNEL) {
-			ksim_trace(TRACE_PS, "jit simd16 ps\n");
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd16 ps\n");
 			gt.ps.avx_shader_simd16 =
 				compile_shader(ksp_simd16,
 					       gt.ps.binding_table_address,
 					       gt.ps.sampler_state_address);
 		}
 		if (ksp_simd32 != NO_KERNEL) {
-			ksim_trace(TRACE_PS, "jit simd32 ps\n");
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd32 ps\n");
 			gt.ps.avx_shader_simd32 =
 				compile_shader(ksp_simd32,
 					       gt.ps.binding_table_address,
