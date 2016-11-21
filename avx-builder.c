@@ -130,7 +130,7 @@ builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 int
 builder_get_reg(struct builder *bld)
 {
-	struct avx2_reg *reg = container_of(bld->regs_lru_list.prev, reg, link);
+	struct avx2_reg *reg = container_of(bld->regs_lru_list.next, reg, link);
 
 	ksim_assert(!list_empty(&bld->regs_lru_list));
 
