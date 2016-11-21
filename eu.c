@@ -275,25 +275,23 @@ builder_emit_src_load(struct builder *bld,
 			break;
 		}
 	} else if (src->file == BRW_IMMEDIATE_VALUE) {
-		reg = builder_get_reg(bld);
 		switch (src->type) {
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
-			if (unpack_inst_imm(inst).ud == 0) {
-				builder_emit_vpxor(bld, reg, reg, reg);
-			} else {
-				p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
-				builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
-			}
+		case BRW_HW_REG_TYPE_F: {
+			uint32_t ud = unpack_inst_imm(inst).ud;
+			reg = builder_get_reg_with_uniform(bld, ud);
 			break;
-
+		}
 		case BRW_HW_REG_TYPE_UW:
 		case BRW_HW_REG_TYPE_W:
+			reg = builder_get_reg(bld);
 			stub("unhandled imm type in src load");
 			break;
 
 		case BRW_HW_REG_IMM_TYPE_UV:
 			/* Gen6+ packed unsigned immediate vector */
+			reg = builder_get_reg(bld);
 			p = builder_get_const_data(bld, 8 * 2, 16);
 			memcpy(p, unpack_inst_imm(inst).uv, 8 * 2);
 			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
@@ -302,6 +300,7 @@ builder_emit_src_load(struct builder *bld,
 
 		case BRW_HW_REG_IMM_TYPE_VF:
 			/* packed float immediate vector */
+			reg = builder_get_reg(bld);
 			p = builder_get_const_data(bld, 4 * 4, 4);
 			memcpy(p, unpack_inst_imm(inst).vf, 4 * 4);
 			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
@@ -310,19 +309,11 @@ builder_emit_src_load(struct builder *bld,
 
 		case BRW_HW_REG_IMM_TYPE_V:
 			/* packed int imm. vector; uword dest only */
+			reg = builder_get_reg(bld);
 			p = builder_get_const_data(bld, 8 * 2, 16);
 			memcpy(p, unpack_inst_imm(inst).v, 8 * 2);
 			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
 			src_type = BRW_HW_REG_TYPE_W;
-			break;
-
-		case BRW_HW_REG_TYPE_F:
-			if (unpack_inst_imm(inst).f == 0.0f) {
-				builder_emit_vpxor(bld, reg, reg, reg);
-			} else {
-				p = builder_get_const_ud(bld, unpack_inst_imm(inst).ud);
-				builder_emit_vpbroadcastd_rip_relative(bld, reg, builder_offset(bld, p));
-			}
 			break;
 
 		case GEN8_HW_REG_TYPE_UQ:
@@ -358,11 +349,7 @@ builder_emit_src_load(struct builder *bld,
 
 	if (src->abs) {
 		if (src->type == BRW_HW_REG_TYPE_F) {
-			uint32_t *ud = builder_get_const_ud(bld, 0x7fffffff);
-			int tmp_reg = builder_get_reg(bld);
-
-			builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
-							       builder_offset(bld, ud));
+			int tmp_reg = builder_get_reg_with_uniform(bld, 0x7fffffff);
 			builder_emit_vpand(bld, reg, reg, tmp_reg);
 		} else {
 			builder_emit_vpabsd(bld, reg, reg);
@@ -370,11 +357,7 @@ builder_emit_src_load(struct builder *bld,
 	}
 
 	if (src->negate) {
-		uint32_t *ud = builder_get_const_ud(bld, 0);
-		int tmp_reg = builder_get_reg(bld);
-
-		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
-						       builder_offset(bld, ud));
+		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
 
 		if (is_logic_instruction(inst)) {
 			builder_emit_vpxor(bld, reg, reg, tmp_reg);
@@ -437,19 +420,11 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		stub("eu: dst hstride %d is > 1", dst->hstride);
 
 	if (common.saturate) {
-		int tmp_reg = builder_get_reg(bld);
+		int zero = builder_get_reg_with_uniform(bld, 0);
+		int one = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
 		ksim_assert(is_float(dst->file, dst->type));
-		uint32_t *zero = builder_get_const_ud(bld, 0);
-		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
-						       builder_offset(bld, zero));
-
-		builder_emit_vmaxps(bld, avx_reg, avx_reg, tmp_reg);
-
-
-		uint32_t *one = builder_get_const_ud(bld, float_to_u32(1.0f));
-		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
-						       builder_offset(bld, one));
-		builder_emit_vminps(bld, avx_reg, avx_reg, tmp_reg);
+		builder_emit_vmaxps(bld, avx_reg, avx_reg, zero);
+		builder_emit_vminps(bld, avx_reg, avx_reg, one);
 	}
 
 	switch (bld->exec_size * type_size(dst->type)) {
@@ -646,10 +621,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		break;
 	}
 	case BRW_OPCODE_NOT: {
-		uint32_t *ud = builder_get_const_ud(bld, 0);
-		int tmp_reg = builder_get_reg(bld);
-		builder_emit_vpbroadcastd_rip_relative(bld, tmp_reg,
-						       builder_offset(bld, ud));
+		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
 		builder_emit_vpxor(bld, dst_reg, src0_reg, tmp_reg);
 		break;
 	}

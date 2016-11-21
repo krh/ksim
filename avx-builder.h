@@ -1,7 +1,16 @@
 #include <bfd.h>
 #include <dis-asm.h>
 
+enum builder_reg_contents {
+	BUILDER_REG_CONTENTS_UNDEF,
+	BUILDER_REG_CONTENTS_UNIFORM
+};
+
 struct avx2_reg {
+	enum builder_reg_contents contents;
+	union {
+		uint32_t uniform;
+	};
         struct list link;
 };
 
@@ -533,6 +542,9 @@ builder_finish(struct builder *bld);
 
 int
 builder_get_reg(struct builder *bld);
+
+int
+builder_get_reg_with_uniform(struct builder *bld, uint32_t d);
 
 void
 builder_release_regs(struct builder *bld);

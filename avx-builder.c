@@ -97,6 +97,37 @@ builder_finish(struct builder *bld)
 }
 
 int
+builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
+{
+	struct avx2_reg *reg;
+	void *p;
+	int reg_num;
+
+	if (list_find(reg, &bld->regs_lru_list, link,
+		      reg->contents == BUILDER_REG_CONTENTS_UNIFORM &&
+		      reg->uniform == ud)) {
+		list_remove(&reg->link);
+		list_insert(&bld->used_regs_list, &reg->link);
+
+		return reg - bld->regs;
+	}
+
+	reg_num = builder_get_reg(bld);
+	reg = &bld->regs[reg_num];
+	reg->contents = BUILDER_REG_CONTENTS_UNIFORM;
+	reg->uniform = ud;
+
+	if (ud == 0) {
+		builder_emit_vpxor(bld, reg_num, reg_num, reg_num);
+	} else {
+		p = builder_get_const_ud(bld, ud);
+		builder_emit_vpbroadcastd_rip_relative(bld, reg_num, builder_offset(bld, p));
+	}
+
+	return reg_num;
+}
+
+int
 builder_get_reg(struct builder *bld)
 {
 	struct avx2_reg *reg = container_of(bld->regs_lru_list.prev, reg, link);
@@ -105,6 +136,8 @@ builder_get_reg(struct builder *bld)
 
 	list_remove(&reg->link);
 	list_insert(&bld->used_regs_list, &reg->link);
+
+	reg->contents = BUILDER_REG_CONTENTS_UNDEF;
 
 	return reg - bld->regs;
 }
