@@ -216,13 +216,26 @@ builder_emit_short_alu(struct builder *bld, int opcode, int dst, int src0, int s
 }
 
 static inline void
-builder_emit_vpinsrq(struct builder *bld, int dst, int src0, int idx)
+builder_emit_vpinsrq_rdi_relative(struct builder *bld, int dst, int src1, int offset, int idx)
 {
-	int src1 = 0;
+	int src0 = 0;
 
-	emit(bld, 0xc4, 0xe3 - (src0 & 8) * 4 - (dst & 8) * 16, 0xf9 - src1 * 8,
-	     0x22, 0xc6 + (src0 & 7) + (dst & 7) * 8);
-	emit(bld, idx);
+	if (offset < 128)
+		emit(bld, 0xc4,
+		     0xe3 - (src0 & 8) * 4 - (dst & 8) * 16,
+		     0xf9 - src1 * 8,
+		     0x22,
+		     0x47 + (src0 & 7) + (dst & 7) * 8,
+		     offset,
+		     idx);
+	else
+		emit(bld, 0xc4,
+		     0xe3 - (src0 & 8) * 4 - (dst & 8) * 16,
+		     0xf9 - src1 * 8,
+		     0x22,
+		     0x87 + (src0 & 7) + (dst & 7) * 8,
+		     emit_uint32(offset),
+		     idx);
 }
 
 static inline void

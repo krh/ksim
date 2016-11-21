@@ -161,9 +161,9 @@ builder_emit_da_src_load(struct builder *bld,
 
 		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
 	} else if (src->hstride == 1 && src->width * src->type == 8) {
-		for (int y = 0; y < bld->exec_size / src->width; y++) {
-			builder_emit_load_rsi(bld, offsetof(struct thread, grf[src->num].uw[subnum + y * src->vstride]));
-			builder_emit_vpinsrq(bld, reg, reg, y);
+		for (int i = 0; i < bld->exec_size / src->width; i++) {
+			int offset = offsetof(struct thread, grf[src->num].uw[subnum + i * src->vstride]);
+			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
 		}
 	} else if (type_size(src->type) == 4) {
 		int offset, i = 0, tmp_reg = reg;
