@@ -290,6 +290,10 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 	}
 
 	default:
+		dst[0].reg = _mm256_set1_ps(1.0f);
+		dst[1].reg = _mm256_set1_ps(0.0f);
+		dst[2].reg = _mm256_set1_ps(0.0f);
+		dst[3].reg = _mm256_set1_ps(1.0f);
 		stub("sampler ld format %d", format);
 		break;
 	}
@@ -422,6 +426,12 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 static void
 sfid_sampler_noop_stub(struct thread *t, const struct sfid_sampler_args *args)
 {
+	struct reg *dst = &t->grf[args->dst];
+
+	dst[0].reg = _mm256_set1_ps(1.0f);
+	dst[1].reg = _mm256_set1_ps(0.0f);
+	dst[2].reg = _mm256_set1_ps(0.0f);
+	dst[3].reg = _mm256_set1_ps(1.0f);
 }
 
 void *
