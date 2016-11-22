@@ -47,6 +47,26 @@ enum brw_eu_type {
 	GEN8_HW_REG_IMM_TYPE_HF		= 11,
 };
 
+static inline const char *
+eu_type_to_string(uint32_t type)
+{
+	static const char * const reg_encoding[] = {
+		[BRW_HW_REG_TYPE_UD]          = "UD",
+		[BRW_HW_REG_TYPE_D]           = "D",
+		[BRW_HW_REG_TYPE_UW]          = "UW",
+		[BRW_HW_REG_TYPE_W]           = "W",
+		[BRW_HW_REG_NON_IMM_TYPE_UB]  = "UB",
+		[BRW_HW_REG_NON_IMM_TYPE_B]   = "B",
+		[GEN7_HW_REG_NON_IMM_TYPE_DF] = "DF",
+		[BRW_HW_REG_TYPE_F]           = "F",
+		[GEN8_HW_REG_TYPE_UQ]         = "UQ",
+		[GEN8_HW_REG_TYPE_Q]          = "Q",
+		[GEN8_HW_REG_NON_IMM_TYPE_HF] = "HF",
+	};
+
+	return reg_encoding[type];
+}
+
 enum brw_opcode {
 	BRW_OPCODE_MOV			= 1,
 	BRW_OPCODE_SEL			= 2,
@@ -373,6 +393,7 @@ unpack_inst_common(struct inst *packed)
 {
 	return (struct inst_common) {
 		.opcode                   = get_inst_bits(packed,  0,   6),
+		/* EU_INSTRUCTION_CONTROLS_A */
 		.access_mode              = get_inst_bits(packed,  8,   8),
 		.no_dd_clear              = get_inst_bits(packed,  9,   9),
 		.no_dd_check              = get_inst_bits(packed, 10,  10),

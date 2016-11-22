@@ -98,6 +98,18 @@ builder_finish(struct builder *bld)
 	ksim_assert(shader_end - shader_pool < shader_pool_size);
 }
 
+void
+builder_invalidate_all(struct builder *bld)
+{
+	list_init(&bld->regs_lru_list);
+	list_init(&bld->used_regs_list);
+
+	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
+		list_insert(&bld->regs_lru_list, &bld->regs[i].link);
+		bld->regs[i].contents = BUILDER_REG_CONTENTS_UNDEF;
+	}
+}
+
 int
 builder_use_reg(struct builder *bld, struct avx2_reg *reg)
 {
@@ -137,7 +149,7 @@ builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 int
 builder_get_reg(struct builder *bld)
 {
-	struct avx2_reg *reg = container_of(bld->regs_lru_list.next, reg, link);
+	struct avx2_reg *reg = container_of(bld->regs_lru_list.prev, reg, link);
 
 	ksim_assert(!list_empty(&bld->regs_lru_list));
 
@@ -149,7 +161,7 @@ builder_get_reg(struct builder *bld)
 void
 builder_release_regs(struct builder *bld)
 {
-	list_insert_list(bld->regs_lru_list.prev, &bld->used_regs_list);
+	list_insert_list(&bld->regs_lru_list, &bld->used_regs_list);
 	list_init(&bld->used_regs_list);
 }
 

@@ -3,13 +3,18 @@
 
 enum builder_reg_contents {
 	BUILDER_REG_CONTENTS_UNDEF,
-	BUILDER_REG_CONTENTS_UNIFORM
+	BUILDER_REG_CONTENTS_UNIFORM,
+	BUILDER_REG_CONTENTS_EU_REG
 };
 
 struct avx2_reg {
 	enum builder_reg_contents contents;
 	union {
 		uint32_t uniform;
+		struct {
+			uint32_t offset; /* num * 32 + subnum */
+			uint32_t region;
+		};
 	};
         struct list link;
 };
@@ -554,6 +559,9 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers);
 
 void
 builder_finish(struct builder *bld);
+
+void
+builder_invalidate_all(struct builder *bld);
 
 int
 builder_use_reg(struct builder *bld, struct avx2_reg *reg);

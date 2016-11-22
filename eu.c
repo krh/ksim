@@ -107,14 +107,54 @@ static const struct {
    [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
 };
 
+static uint32_t
+region_tag(uint32_t vstride, uint32_t width, uint32_t hstride,
+	   uint32_t type_size, uint32_t exec_size)
+{
+	if (width == vstride && hstride == 1)
+		return (type_size << 24) | (exec_size << 16) | (exec_size << 8) | 1;
+
+	return (type_size << 24) | (vstride << 16) | (width << 8) | hstride;
+}
+
 static int
 builder_emit_da_src_load(struct builder *bld,
 			 struct inst *inst, struct inst_src *src, int subnum_bytes)
 {
 	int subnum = subnum_bytes / type_size(src->type);
-        int reg = builder_get_reg(bld);
+	struct avx2_reg *areg;
 
 	subnum += bld->exec_offset / src->width * src->vstride;
+
+	uint32_t offset = src->num * 32 + subnum * type_size(src->type);
+	uint32_t region = region_tag(src->vstride, src->width, src->hstride,
+				     type_size(src->type), bld->exec_size);
+	if (list_find(areg, &bld->regs_lru_list, link,
+		      areg->contents == BUILDER_REG_CONTENTS_EU_REG &&
+		      areg->offset == offset &&
+		      areg->region == region)) {
+
+		int reg = areg - bld->regs;
+		if (trace_mask & TRACE_AVX) {
+			char subnum_str[16];
+
+			subnum_str[0] = '\0';
+			if (subnum > 0)
+				snprintf(subnum_str, sizeof(subnum_str), ".%d", subnum);
+
+			ksim_trace(TRACE_AVX, "*** found match for reg g%d%s<%d,%d,%d>%s: %%ymm%d\n",
+				   src->num, subnum_str,
+				   src->vstride, src->width, src->hstride,
+				   eu_type_to_string(src->type), reg);
+		}
+
+		return builder_use_reg(bld, areg);
+	}
+
+	int reg = builder_get_reg(bld);
+	bld->regs[reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+	bld->regs[reg].offset = offset;
+	bld->regs[reg].region = region;
 
 	if (src->hstride == 1 && src->width == src->vstride) {
 		switch (type_size(src->type) * bld->exec_size) {
@@ -415,6 +455,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		       struct inst *inst, struct inst_dst *dst)
 {
 	struct inst_common common = unpack_inst_common(inst);
+	int subnum;
 
 	/* FIXME: write masks */
 
@@ -429,20 +470,39 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		builder_emit_vminps(bld, avx_reg, avx_reg, one);
 	}
 
+	if (common.access_mode == BRW_ALIGN_1)
+		subnum = dst->da1_subnum;
+	else
+		subnum = dst->da16_subnum;
+
+	uint32_t offset = offsetof(struct thread, grf[dst->num]) + subnum;
 	switch (bld->exec_size * type_size(dst->type)) {
 	case 32:
 		builder_emit_m256i_store(bld, avx_reg,
-					 bld->exec_offset * type_size(dst->type) +
-					 offsetof(struct thread, grf[dst->num]));
+					 bld->exec_offset * type_size(dst->type) + offset);
+
+		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].offset = offset;
+		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
+						       type_size(dst->type), bld->exec_size);
+
 		break;
 	case 16:
-		builder_emit_m128i_store(bld, avx_reg,
-					 offsetof(struct thread, grf[dst->num]));
+		builder_emit_m128i_store(bld, avx_reg, offset);
+
+		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].offset = offset;
+		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
+						       type_size(dst->type), bld->exec_size);
+
 		break;
 	case 4:
-		builder_emit_u32_store(bld, avx_reg,
-				       offsetof(struct thread, grf[dst->num]) +
-				       dst->da1_subnum);
+		builder_emit_u32_store(bld, avx_reg, offset);
+
+		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].offset = offset;
+		bld->regs[avx_reg].region = region_tag(0, 1, 0,
+						       type_size(dst->type), bld->exec_size);
 		break;
 	default:
 		stub("eu: type size %d in dest store", type_size(dst->type));
@@ -777,6 +837,8 @@ compile_inst(struct builder *bld, struct inst *inst)
 		} else {
 			builder_emit_call(bld, p);
 		}
+
+		builder_invalidate_all(bld);
 		break;
 	}
 	case BRW_OPCODE_MATH:
@@ -786,9 +848,11 @@ compile_inst(struct builder *bld, struct inst *inst)
 			break;
 		case BRW_MATH_FUNCTION_LOG:
 			dst_reg = builder_emit_call(bld, _ZGVdN8v___logf_finite);
+			builder_invalidate_all(bld);
 			break;
 		case BRW_MATH_FUNCTION_EXP:
 			dst_reg = builder_emit_call(bld, _ZGVdN8v___expf_finite);
+			builder_invalidate_all(bld);
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
 			builder_emit_vsqrtps(bld, dst_reg, src0_reg);
@@ -798,9 +862,11 @@ compile_inst(struct builder *bld, struct inst *inst)
 			break;
 		case BRW_MATH_FUNCTION_SIN:
 			dst_reg = builder_emit_call(bld, _ZGVdN8v_sinf);
+			builder_invalidate_all(bld);
 			break;
 		case BRW_MATH_FUNCTION_COS:
 			dst_reg = builder_emit_call(bld, _ZGVdN8v_cosf);
+			builder_invalidate_all(bld);
 			break;
 		case BRW_MATH_FUNCTION_SINCOS:
 			ksim_unreachable("sincos only gen4/5");
@@ -810,6 +876,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 			break;
 		case BRW_MATH_FUNCTION_POW: {
 			dst_reg = builder_emit_call(bld, _ZGVdN8vv___powf_finite);
+			builder_invalidate_all(bld);
 			break;
 		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
