@@ -187,70 +187,72 @@ builder_emit_da_src_load(struct builder *bld,
 	return reg;
 }
 
-static void
+static int
 builder_emit_type_conversion(struct builder *bld, int reg, int dst_type, int src_type)
 {
 	switch (dst_type) {
 	case BRW_HW_REG_TYPE_UD:
-	case BRW_HW_REG_TYPE_D:
+	case BRW_HW_REG_TYPE_D: {
 		if (src_type == BRW_HW_REG_TYPE_UD || src_type == BRW_HW_REG_TYPE_D)
-			break;
+			return reg;
 
+		int new_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UW)
-			builder_emit_vpmovzxwd(bld, reg, reg);
+			builder_emit_vpmovzxwd(bld, new_reg, reg);
 		else if (src_type == BRW_HW_REG_TYPE_W)
-			builder_emit_vpmovsxwd(bld, reg, reg);
+			builder_emit_vpmovsxwd(bld, new_reg, reg);
 		else if (src_type == BRW_HW_REG_TYPE_F)
-			builder_emit_vcvtps2dq(bld, reg, reg);
+			builder_emit_vcvtps2dq(bld, new_reg, reg);
 		else
 			stub("src type %d for ud/d dst type\n", src_type);
-		break;
-
+		return new_reg;
+	}
 	case BRW_HW_REG_TYPE_UW:
 	case BRW_HW_REG_TYPE_W: {
-		int tmp_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UW || src_type == BRW_HW_REG_TYPE_W)
-			break;
+			return reg;
 
+		int tmp_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UD) {
 			stub("not sure this pack is right");
 			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
-			builder_emit_vpackusdw(bld, reg, tmp_reg, reg);
+			builder_emit_vpackusdw(bld, tmp_reg, tmp_reg, reg);
 		} else if (src_type == BRW_HW_REG_TYPE_D) {
 			stub("not sure this pack is right");
 			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
-			builder_emit_vpackssdw(bld, reg, tmp_reg, reg);
+			builder_emit_vpackssdw(bld, tmp_reg, tmp_reg, reg);
 		} else
 			stub("src type %d for uw/w dst type\n", src_type);
-		break;
+		return tmp_reg;
 	}
-	case BRW_HW_REG_TYPE_F:
+	case BRW_HW_REG_TYPE_F: {
 		if (src_type == BRW_HW_REG_TYPE_F)
-			break;
+			return reg;
 
+		int new_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UW) {
-			builder_emit_vpmovzxwd(bld, reg, reg);
-			builder_emit_vcvtdq2ps(bld, reg, reg);
+			builder_emit_vpmovzxwd(bld, new_reg, reg);
+			builder_emit_vcvtdq2ps(bld, new_reg, new_reg);
 		} else if (src_type == BRW_HW_REG_TYPE_W) {
-			builder_emit_vpmovsxwd(bld, reg, reg);
-			builder_emit_vcvtdq2ps(bld, reg, reg);
+			builder_emit_vpmovsxwd(bld, new_reg, reg);
+			builder_emit_vcvtdq2ps(bld, new_reg, new_reg);
 		} else if (src_type == BRW_HW_REG_TYPE_UD) {
 			/* FIXME: Need to convert to int64 and then
 			 * convert to floats as there is no uint32 to
 			 * float cvt. */
-			builder_emit_vcvtdq2ps(bld, reg, reg);
+			builder_emit_vcvtdq2ps(bld, new_reg, reg);
 		} else if (src_type == BRW_HW_REG_TYPE_D) {
-			builder_emit_vcvtdq2ps(bld, reg, reg);
+			builder_emit_vcvtdq2ps(bld, new_reg, reg);
 		} else {
 			stub("src type %d for float dst\n", src_type);
 		}
-		break;
-
+		return new_reg;
+	}
 	case GEN8_HW_REG_TYPE_UQ:
 	case GEN8_HW_REG_TYPE_Q:
 	default:
 		stub("dst type\n", dst_type);
-		break;
+		return reg;
 	}
 }
 
@@ -340,7 +342,7 @@ builder_emit_src_load(struct builder *bld,
 	else
 		dst = unpack_inst_2src_dst(inst);
 
-	builder_emit_type_conversion(bld, reg, dst.type, src_type);
+	reg = builder_emit_type_conversion(bld, reg, dst.type, src_type);
 
 	/* FIXME: Build the load above into the source modifier when possible, eg:
 	 *
