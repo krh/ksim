@@ -979,14 +979,12 @@ compile_inst(struct builder *bld, struct inst *inst)
 		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
 		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
 		int subnum = src0.da16_subnum / 4;
-		int tmp0_reg = builder_get_reg(bld);
 		int tmp1_reg = builder_get_reg(bld);
 
 		src0_reg = builder_emit_src_load(bld, inst, &src1);
-		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum));
+		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum));
 		builder_emit_vpbroadcastd(bld, tmp1_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, src0_reg, tmp0_reg, tmp1_reg);
-		dst_reg = src0_reg;
+		builder_emit_vfmadd132ps(bld, dst_reg, src0_reg, tmp1_reg);
 		break;
 	}
 	case BRW_OPCODE_PLN: {
@@ -995,7 +993,6 @@ compile_inst(struct builder *bld, struct inst *inst)
 		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
 		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
 		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
 
 		src2 = unpack_inst_2src_src1(inst);
 		src2.num++;
@@ -1003,12 +1000,11 @@ compile_inst(struct builder *bld, struct inst *inst)
 		int subnum = src0.da1_subnum / 4;
 		src1_reg = builder_emit_src_load(bld, inst, &src1);
 		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum));
-		builder_emit_vpbroadcastd(bld, tmp1_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, src1_reg, tmp0_reg, tmp1_reg);
-		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum + 1));
+		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum + 3));
+		builder_emit_vfmadd132ps(bld, tmp0_reg, src1_reg, dst_reg);
+		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum + 1));
 		src0_reg = builder_emit_src_load(bld, inst, &src2);
-		builder_emit_vfmadd132ps(bld, src0_reg, tmp0_reg, src1_reg);
-		dst_reg = src0_reg;
+		builder_emit_vfmadd132ps(bld, dst_reg, src0_reg, tmp0_reg);
 		break;
 	}
 	case BRW_OPCODE_MAD:
