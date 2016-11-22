@@ -39,6 +39,7 @@ struct edge {
 
 struct dispatch {
 	struct reg w2, w1;
+	struct reg w2_pc, w1_pc;
 	struct reg mask;
 	int x, y;
 };
@@ -51,6 +52,8 @@ struct payload {
 	struct reg w2, w0, w1;
 	struct edge e01, e12, e20;
 
+	struct reg w2_pc, w1_pc;
+
 	struct {
 		struct reg offsets;
 		void *buffer;
@@ -59,6 +62,7 @@ struct payload {
 	int min_x, min_y, max_x, max_y;
 	int32_t row_w2, row_w0, row_w1;
 
+	float inv_z1, inv_z2;
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
 
@@ -261,6 +265,10 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), p->w2.reg,
 						_mm256_set1_ps(p->w_deltas[3])));
 
+	__m256 inv_w = _mm256_rcp_ps(w.reg);
+	p->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, p->w1.reg), _mm256_set1_ps(p->inv_z1));
+	p->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, p->w2.reg), _mm256_set1_ps(p->inv_z2));
+
 	struct reg d24x8, cmp, d_f;
 
 	void *base = ymajor_offset(p->depth.buffer, x, y, gt.depth.stride, cpp);
@@ -404,6 +412,39 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
+		t.grf[g].reg = d[0].w1_pc.reg;
+		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		g += 2;
+		if (simd16) {
+			t.grf[g].reg = d[1].w1_pc.reg;
+			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			g += 2;
+		}
+	}
+
+	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
+		t.grf[g].reg = d[0].w1_pc.reg;
+		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		g += 2;
+		if (simd16) {
+			t.grf[g].reg = d[1].w1_pc.reg;
+			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			g += 2;
+		}
+	}
+
+	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
+		t.grf[g].reg = d[0].w1_pc.reg;
+		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		g += 2;
+		if (simd16) {
+			t.grf[g].reg = d[1].w1_pc.reg;
+			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			g += 2;
+		}
+	}
+
+	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
 		t.grf[g].reg = d[0].w1.reg;
 		t.grf[g + 1].reg = d[0].w2.reg;
 		g += 2;
@@ -414,47 +455,26 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 		}
 	}
 
-	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		t.grf[g].reg = d->w1.reg;
-		t.grf[g + 1].reg = d->w2.reg;
-		g += 2;
-		if (simd16) {
-			t.grf[g].reg = d[1].w1.reg;
-			t.grf[g + 1].reg = d[1].w2.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		t.grf[g].reg = d->w1.reg;
-		t.grf[g + 1].reg = d->w2.reg;
-		g += 2;
-		if (simd16) {
-			t.grf[g].reg = d[1].w1.reg;
-			t.grf[g + 1].reg = d[1].w2.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
-		if (simd16)
-			g += 2;
-	}
-
 	if (gt.wm.barycentric_mode & BIM_LINEAR_CENTROID) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
-		if (simd16)
+		t.grf[g].reg = d[0].w1.reg;
+		t.grf[g + 1].reg = d[0].w2.reg;
+		g += 2;
+		if (simd16) {
+			t.grf[g].reg = d[1].w1.reg;
+			t.grf[g + 1].reg = d[1].w2.reg;
 			g += 2;
+		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_SAMPLE) {
-		g++; /* barycentric[1], slots 0-7 */
-		g++; /* barycentric[2], slots 0-7 */
-		if (simd16)
+		t.grf[g].reg = d[0].w1.reg;
+		t.grf[g + 1].reg = d[0].w2.reg;
+		g += 2;
+		if (simd16) {
+			t.grf[g].reg = d[1].w1.reg;
+			t.grf[g + 1].reg = d[1].w2.reg;
 			g += 2;
+		}
 	}
 
 	if (gt.ps.uses_source_depth) {
@@ -504,6 +524,8 @@ queue_ps_dispatch(struct payload *p, struct reg mask, int x, int y)
 	d = &p->queue[p->queue_length++];
 	d->w1 = p->w1;
 	d->w2 = p->w2;
+	d->w1_pc = p->w1_pc;
+	d->w2_pc = p->w2_pc;
 	d->mask = mask;
 	d->x = x;
 	d->y = y;
@@ -766,9 +788,6 @@ bbox_iter_next(struct payload *p)
 void
 rasterize_rectlist(struct payload *p)
 {
-	gt.depth.test_enable = false;
-	gt.depth.write_enable = false;
-
 	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p))
 		rasterize_rectlist_tile(p);
 }
@@ -831,6 +850,9 @@ rasterize_primitive(struct primitive *prim)
 		1.0f / prim->v[1].z,
 		1.0f / prim->v[2].z
 	};
+	p.inv_z1 = 1.0 / prim->v[1].z;
+	p.inv_z2 = 1.0 / prim->v[2].z;
+
 	p.w_deltas[0] = w[1] - w[0];
 	p.w_deltas[1] = w[2] - w[0];
 	p.w_deltas[2] = 0.0f;
