@@ -41,7 +41,7 @@ static const struct {
    int num_srcs;
    bool store_dst;
 } opcode_info[] = {
-   [BRW_OPCODE_MOV]             = { .num_srcs = 1, .store_dst = true },
+   [BRW_OPCODE_MOV]             = { .num_srcs = 1, .store_dst = false },
    [BRW_OPCODE_SEL]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_NOT]             = { .num_srcs = 1, .store_dst = true },
    [BRW_OPCODE_AND]             = { .num_srcs = 2,. store_dst = true },
@@ -622,7 +622,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 
 	switch (opcode) {
 	case BRW_OPCODE_MOV:
-		dst_reg = src0_reg;
+		builder_emit_dst_store(bld, src0_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_SEL: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
