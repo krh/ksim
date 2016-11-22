@@ -101,7 +101,7 @@ static const struct {
    [BRW_OPCODE_DP2]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_LINE]            = { .num_srcs = 0, .store_dst = true },
    [BRW_OPCODE_PLN]             = { .num_srcs = 0, .store_dst = true },
-   [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = true },
+   [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = false },
    [BRW_OPCODE_LRP]             = { .num_srcs = 3, .store_dst = true },
    [BRW_OPCODE_NENOP]           = { .num_srcs = 0, .store_dst = false },
    [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
@@ -1013,12 +1013,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 	}
 	case BRW_OPCODE_MAD:
 		if (is_integer(dst.file, dst.type)) {
+			dst_reg = builder_get_reg(bld);
 			builder_emit_vpmulld(bld, src1_reg, src1_reg, src2_reg);
 			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
 		} else {
 			builder_emit_vfmadd231ps(bld, src0_reg, src2_reg, src1_reg);
-			dst_reg = src0_reg;
+			dst_reg = builder_use_reg(bld, &bld->regs[src0_reg]);
 		}
+		builder_emit_dst_store(bld, dst_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_LRP:
 		stub("BRW_OPCODE_LRP");
