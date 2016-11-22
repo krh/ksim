@@ -556,6 +556,9 @@ void
 builder_finish(struct builder *bld);
 
 int
+builder_use_reg(struct builder *bld, struct avx2_reg *reg);
+
+int
 builder_get_reg(struct builder *bld);
 
 int

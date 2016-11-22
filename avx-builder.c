@@ -97,6 +97,15 @@ builder_finish(struct builder *bld)
 }
 
 int
+builder_use_reg(struct builder *bld, struct avx2_reg *reg)
+{
+	list_remove(&reg->link);
+	list_insert(&bld->used_regs_list, &reg->link);
+
+	return reg - bld->regs;
+}
+
+int
 builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 {
 	struct avx2_reg *reg;
@@ -105,12 +114,8 @@ builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 
 	if (list_find(reg, &bld->regs_lru_list, link,
 		      reg->contents == BUILDER_REG_CONTENTS_UNIFORM &&
-		      reg->uniform == ud)) {
-		list_remove(&reg->link);
-		list_insert(&bld->used_regs_list, &reg->link);
-
-		return reg - bld->regs;
-	}
+		      reg->uniform == ud))
+		return builder_use_reg(bld, reg);
 
 	reg_num = builder_get_reg(bld);
 	reg = &bld->regs[reg_num];
@@ -134,12 +139,9 @@ builder_get_reg(struct builder *bld)
 
 	ksim_assert(!list_empty(&bld->regs_lru_list));
 
-	list_remove(&reg->link);
-	list_insert(&bld->used_regs_list, &reg->link);
-
 	reg->contents = BUILDER_REG_CONTENTS_UNDEF;
 
-	return reg - bld->regs;
+	return builder_use_reg(bld, reg);
 }
 
 void
