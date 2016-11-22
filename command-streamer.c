@@ -601,7 +601,7 @@ handle_3dstate_depth_buffer(uint32_t *p)
 	gt.depth.height = v.Height + 1;
 	gt.depth.stride = v.SurfacePitch + 1;
 	gt.depth.format = v.SurfaceFormat;
-	gt.depth.write_enable = v.DepthWriteEnable;
+	gt.depth.write_enable0 = v.DepthWriteEnable;
 	gt.depth.hiz_enable = v.HierarchicalDepthBufferEnable;
 }
 
@@ -1183,6 +1183,7 @@ handle_3dstate_wm_depth_stencil(uint32_t *p)
 	GEN9_3DSTATE_WM_DEPTH_STENCIL_unpack(p, &v);
 
 	gt.depth.test_enable = v.DepthTestEnable;
+	gt.depth.write_enable1 = v.DepthBufferWriteEnable;
 	gt.depth.test_function = v.DepthTestFunction;
 }
 

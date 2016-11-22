@@ -514,6 +514,9 @@ dispatch_primitive(void)
 
 	prepare_shaders();
 
+	gt.depth.write_enable =
+		gt.depth.write_enable0 && gt.depth.write_enable1;
+
 	/* Configure csr to round toward zero to make vcvtps2dq match
 	 * the GEN EU behavior when converting from float to int. This
 	 * may disagree with the rounding mode programmed in

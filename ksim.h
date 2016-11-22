@@ -385,6 +385,8 @@ struct gt {
 		uint32_t height;
 		uint32_t stride;
 		uint32_t format;
+		bool write_enable0; /* from 3DSTATE_DEPTH_BUFFER */
+		bool write_enable1; /* from 3DSTATE_WM_DEPTH_STENCIL */
 		bool write_enable;
 		bool test_enable;
 		uint32_t test_function;
