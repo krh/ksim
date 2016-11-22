@@ -584,6 +584,17 @@ compile_inst(struct builder *bld, struct inst *inst)
 	uint32_t opcode = unpack_inst_common(inst).opcode;
 	bool eot = false;
 
+	if (opcode == BRW_OPCODE_MATH) {
+		/* If we need to call one of the libmvec math helpers,
+		 * we need to load src0 into ymm0 to match the x86-64
+		 * calling convention. Move it to the front of the LRU
+		 * list so the src load will pick it. */
+		struct avx2_reg *ymm0 = &bld->regs[0];
+
+		list_remove(&ymm0->link);
+		list_insert(&bld->regs_lru_list, &ymm0->link);
+	}
+
 	if (opcode_info[opcode].num_srcs == 3) {
 		src0 = unpack_inst_3src_src0(inst);
 		src0_reg = builder_emit_src_load(bld, inst, &src0);
