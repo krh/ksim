@@ -29,22 +29,6 @@ struct sfid_render_cache_args {
 	struct surface rt;
 };
 
-static inline void *
-xmajor_offset(void *base, int x, int y, int stride, int cpp)
-{
-	/* We assume all pixels are inside same tile. */
-	const int tile_x = x * cpp / 512;
-	const int tile_y = y / 8;
-	const int tile_stride = stride / 512;
-	void *tile_base =
-		base + (tile_x + tile_y * tile_stride) * 4096;
-
-	const int ix = x & (512 / cpp - 1);
-	const int iy = y & 7;
-
-	return tile_base + ix * cpp + iy * 512;
-}
-
 static void
 sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 						    const struct sfid_render_cache_args *args)
@@ -83,21 +67,6 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
 	_mm_maskstore_epi32(base1, _mm256_extractf128_si256(mask1, 0), bgra_i);
 	_mm_maskstore_epi32(base1 + 512, _mm256_extractf128_si256(mask1, 1), bgra_i);
-}
-
-static inline void *
-ymajor_offset(void *base, int x, int y, int stride, int cpp)
-{
-	const int tile_y = y / 32;
-	const int tile_stride = stride / 128;
-
-	const int ix = (x * cpp) & 15;
-	const int column = x * cpp / 16;
-	const int column_stride = 16 * 32;
-	const int iy = y & 31;
-
-	return base + (tile_y * tile_stride) * 4096 +
-		ix + column * column_stride + iy * 16;
 }
 
 static void

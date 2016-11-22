@@ -263,20 +263,9 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 
 	struct reg d24x8, cmp, d_f;
 
-	/* Y-tiled depth buffer */
-	const int tile_x = x * cpp / 128;
-	const int tile_y = y / 32;
-	const int tile_stride = gt.depth.stride / 128;
-	void *tile_base =
-		p->depth.buffer + (tile_x + tile_y * tile_stride) * 4096;
+	void *base = ymajor_offset(p->depth.buffer, x, y, gt.depth.stride, cpp);
 
-	/* This simplified y-tile calulation work because x is always
-	 * a multiple of 4 pixels, each 4 bytes. */
-	const int ix = x & (128 / cpp - 1);
-	const int iy = y & 31;
-	void *base = tile_base + ix * cpp * 32 + iy * 16;
 	const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
-
 	switch (gt.depth.format) {
 	case D32_FLOAT:
 		d_f.reg = _mm256_load_ps(base);

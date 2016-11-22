@@ -468,6 +468,37 @@ extern struct gt gt;
 #define NOT_BOUND 1
 void *map_gtt_offset(uint64_t offset, uint64_t *range);
 
+static inline void *
+xmajor_offset(void *base, int x, int y, int stride, int cpp)
+{
+	/* We assume all pixels are inside same tile. */
+	const int tile_x = x * cpp / 512;
+	const int tile_y = y / 8;
+	const int tile_stride = stride / 512;
+	void *tile_base =
+		base + (tile_x + tile_y * tile_stride) * 4096;
+
+	const int ix = x & (512 / cpp - 1);
+	const int iy = y & 7;
+
+	return tile_base + ix * cpp + iy * 512;
+}
+
+static inline void *
+ymajor_offset(void *base, int x, int y, int stride, int cpp)
+{
+	const int tile_y = y / 32;
+	const int tile_stride = stride / 128;
+
+	const int ix = (x * cpp) & 15;
+	const int column = x * cpp / 16;
+	const int column_stride = 16 * 32;
+	const int iy = y & 31;
+
+	return base + (tile_y * tile_stride) * 4096 +
+		ix + column * column_stride + iy * 16;
+}
+
 #define for_each_bit(b, dword)                          \
 	for (uint32_t __dword = (dword);		\
 	     (b) = __builtin_ffs(__dword) - 1, __dword;	\
