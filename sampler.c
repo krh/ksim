@@ -408,8 +408,8 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 	__m256i u_bytes = _mm256_slli_epi32(pos.u.ireg, log2_cpp);
 
 	__m256i tile_y = _mm256_srli_epi32(pos.v.ireg, 5);
-	__m256i stride_in_tiles = _mm256_set1_epi32(args->tex.stride / 128);
-	__m256i tile_base = _mm256_slli_epi32(_mm256_mullo_epi32(tile_y, stride_in_tiles), 12);
+	__m256i stride_in_tiles = _mm256_set1_epi32(4096 * args->tex.stride / 128);
+	__m256i tile_base = _mm256_mullo_epi32(tile_y, stride_in_tiles);
 
 	__m256i oword_offset = _mm256_and_si256(u_bytes, _mm256_set1_epi32(0xf));
 	__m256i column_offset = _mm256_slli_epi32(_mm256_srli_epi32(u_bytes, 4), 9);
