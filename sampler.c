@@ -424,6 +424,33 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 }
 
 static void
+sfid_sampler_sample_simd8_xmajor(struct thread *t, const struct sfid_sampler_args *args)
+{
+	struct sample_position pos;
+
+	transform_sample_position(args, &t->grf[args->src], &pos);
+
+	ksim_assert(is_power_of_two(args->tex.cpp));
+	const int log2_cpp = __builtin_ffs(args->tex.cpp) - 1;
+	__m256i u_bytes = _mm256_slli_epi32(pos.u.ireg, log2_cpp);
+
+	__m256i tile_y = _mm256_srli_epi32(pos.v.ireg, 3);
+	__m256i stride_in_tiles = _mm256_set1_epi32(4096 * args->tex.stride / 512);
+	__m256i tile_base = _mm256_mullo_epi32(tile_y, stride_in_tiles);
+
+	__m256i intra_column_offset = _mm256_and_si256(u_bytes, _mm256_set1_epi32(511));
+	__m256i column_offset = _mm256_slli_epi32(_mm256_srli_epi32(u_bytes, 9), 12);
+	__m256i row = _mm256_and_si256(pos.v.ireg, _mm256_set1_epi32(0x7));
+	__m256i row_offset = _mm256_slli_epi32(row, 9);
+
+	__m256i offset = _mm256_add_epi32(_mm256_add_epi32(tile_base, row_offset),
+					  _mm256_add_epi32(intra_column_offset, column_offset));
+
+	load_format_simd8(args->tex.pixels, args->tex.format,
+			  offset, t->mask_q1, &t->grf[args->dst]);
+}
+
+static void
 sfid_sampler_noop_stub(struct thread *t, const struct sfid_sampler_args *args)
 {
 	struct reg *dst = &t->grf[args->dst];
@@ -489,8 +516,10 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 			func = sfid_sampler_sample_simd8_linear;
 		} else if (args->tex.tile_mode == YMAJOR) {
 			func = sfid_sampler_sample_simd8_ymajor;
+		} else if (args->tex.tile_mode == XMAJOR) {
+			func = sfid_sampler_sample_simd8_xmajor;
 		} else {
-			stub("x tiled surface");
+			stub("sampler tile mode %d", args->tex.tile_mode);
 			func = sfid_sampler_noop_stub;
 		}
 		break;
