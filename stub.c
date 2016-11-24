@@ -355,11 +355,17 @@ static void
 tile_xmajor(struct stub_bo *bo, void *shadow)
 {
 	int stride = bo->stride & ~3u;
-	int height = bo->size / stride;
 	int tile_stride = stride / 512;
 
-	ksim_assert((height & 7) == 0);
 	ksim_assert((stride & 511) == 0);
+
+	/* We don't know the actual height of the buffer. Round down
+	 * to a multiple of tile height so we get an integer number of
+	 * tiles. The buffer size often gets rounded up to a power of
+	 * two, but the buffer has to be a complete rectangulare grid
+	 * of tiles.
+	 */
+	int height = bo->size / stride & ~7;
 
 	for (int y = 0; y < height; y++) {
 		int tile_y = y / 8;
@@ -380,12 +386,13 @@ static void
 tile_ymajor(struct stub_bo *bo, void *shadow)
 {
 	int stride = bo->stride & ~3u;
-	int height = bo->size / stride;
 	int tile_stride = stride / 128;
 	const int column_stride = 32 * 16;
 	int columns = stride / 16;
 
-	ksim_assert((height & 31) == 0);
+	/* Same comment as for height above in tile_xmajor(). */
+	int height = (bo->size / stride) & ~31;
+
 	ksim_assert((stride & 127) == 0);
 
 	for (int y = 0; y < height; y += 2) {
@@ -632,12 +639,7 @@ dispatch_mmap_gtt(int fd, unsigned long request,
 	uint32_t tiling = bo->stride & 3;
 	uint32_t stride = bo->stride & ~3u;
 	if (tiling != I915_TILING_NONE) {
-		ksim_assert(tiling == I915_TILING_Y);
 		ksim_assert((stride & 127) == 0);
-		uint32_t tile_stride = stride / 128;
-		uint32_t tile_stride_bytes = tile_stride * 4096;
-		ksim_assert(bo->size % tile_stride_bytes == 0);
-
 		struct gtt_map *m = malloc(sizeof(*m));
 		if (m == NULL)
 			return -1;
