@@ -1086,7 +1086,17 @@ compile_inst(struct builder *bld, struct inst *inst)
 		builder_emit_dst_store(bld, dst_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_LRP:
-		stub("BRW_OPCODE_LRP");
+		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
+		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
+		ksim_assert(src2.type == BRW_HW_REG_TYPE_F);
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
+
+		/* dst = src0 * src1 + (1 - src0) * src2
+		 *     = src0 * src1 + src2 - src0 * src2
+		 */
+		builder_emit_vmulps(bld, dst_reg, src0_reg, src2_reg);
+		builder_emit_vsubps(bld, dst_reg, src2_reg, dst_reg);
+		builder_emit_vfmadd231ps(bld, dst_reg, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_NENOP:
 	case BRW_OPCODE_NOP:
