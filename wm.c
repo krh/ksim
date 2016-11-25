@@ -516,26 +516,6 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 	}
 }
 
-static void
-queue_ps_dispatch(struct payload *p, struct reg mask, int x, int y)
-{
-	struct dispatch *d;
-
-	d = &p->queue[p->queue_length++];
-	d->w1 = p->w1;
-	d->w2 = p->w2;
-	d->w1_pc = p->w1_pc;
-	d->w2_pc = p->w2_pc;
-	d->mask = mask;
-	d->x = x;
-	d->y = y;
-
-	if (gt.ps.enable_simd8 || p->queue_length == 2) {
-		dispatch_ps(p, &p->queue[0], p->queue_length);
-		p->queue_length = 0;
-	}
-}
-
 const int tile_width = 512 / 4;
 const int tile_height = 8;
 
@@ -613,6 +593,8 @@ tile_iterator_next(struct tile_iterator *iter, struct payload *p)
 static void
 fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 {
+	struct dispatch *d = &p->queue[p->queue_length];
+
 	if (_mm256_movemask_ps(mask.reg) == 0)
 		return;
 
@@ -633,8 +615,22 @@ fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 	if (gt.depth.test_enable || gt.depth.write_enable)
 		mask = depth_test(p, mask, p->x0 + iter->x, p->y0 + iter->y);
 
-	if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
-		queue_ps_dispatch(p, mask, p->x0 + iter->x, p->y0 + iter->y);
+	if (_mm256_movemask_ps(mask.reg) == 0 || !gt.ps.enable)
+		return;
+
+	d->w1 = p->w1;
+	d->w2 = p->w2;
+	d->w1_pc = p->w1_pc;
+	d->w2_pc = p->w2_pc;
+	d->mask = mask;
+	d->x = p->x0 + iter->x;
+	d->y = p->y0 + iter->y;
+
+	p->queue_length++;
+	if (gt.ps.enable_simd8 || p->queue_length == 2) {
+		dispatch_ps(p, &p->queue[0], p->queue_length);
+		p->queue_length = 0;
+	}
 }
 
 static void
