@@ -611,10 +611,15 @@ tile_iterator_next(struct tile_iterator *iter, struct payload *p)
 }
 
 static void
-compute_barycentric_coords(struct tile_iterator *iter, struct payload *p)
+fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 {
-	/* We add back the tie-breaker adjustment so as to not distort
-	 * the barycentric coordinates.*/
+	if (_mm256_movemask_ps(mask.reg) == 0)
+		return;
+
+	/* Some pixels are covered and we have to calculate
+	 * barycentric coordinates. We add back the tie-breaker
+	 * adjustment so as to not distort the barycentric
+	 * coordinates.*/
 	p->w2.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.bias))),
 			      _mm256_set1_ps(p->inv_area));
@@ -624,17 +629,6 @@ compute_barycentric_coords(struct tile_iterator *iter, struct payload *p)
 	p->w1.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
 			      _mm256_set1_ps(p->inv_area));
-}
-
-static void
-fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
-{
-	if (_mm256_movemask_ps(mask.reg) == 0)
-		return;
-
-	/* Some pixels are covered and we have to
-	 * calculate barycentric coordinates. */
-	compute_barycentric_coords(iter, p);
 
 	if (gt.depth.test_enable || gt.depth.write_enable)
 		mask = depth_test(p, mask, p->x0 + iter->x, p->y0 + iter->y);
