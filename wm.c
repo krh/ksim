@@ -38,6 +38,7 @@ struct edge {
 };
 
 struct dispatch {
+	struct reg w, z;;
 	struct reg w2, w0, w1;
 	struct reg w2_pc, w1_pc;
 	struct reg mask;
@@ -50,8 +51,6 @@ struct payload {
 	int32_t area;
 	float inv_area;
 	struct edge e01, e12, e20;
-
-	struct reg w2_pc, w1_pc;
 
 	struct {
 		struct reg offsets;
@@ -254,16 +253,7 @@ depth_test(struct payload *p, struct dispatch *d)
 {
 	uint32_t cpp = depth_format_size(gt.depth.format);
 
-	/* early depth test */
-	struct reg w, w_unorm;
-	w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), d->w1.reg,
-				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), d->w2.reg,
-						_mm256_set1_ps(p->w_deltas[3])));
-
-	__m256 inv_w = _mm256_rcp_ps(w.reg);
-	p->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, d->w1.reg), _mm256_set1_ps(p->inv_z1));
-	p->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, d->w2.reg), _mm256_set1_ps(p->inv_z2));
-
+	struct reg w_unorm;
 	struct reg d24x8, cmp, d_f;
 
 	void *base = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
@@ -290,28 +280,28 @@ depth_test(struct payload *p, struct dispatch *d)
 	if (gt.depth.test_enable) {
 		switch (gt.depth.test_function) {
 		case COMPAREFUNCTION_ALWAYS:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_TRUE_US);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_TRUE_US);
 			break;
 		case COMPAREFUNCTION_NEVER:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_FALSE_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_FALSE_OS);
 			break;
 		case COMPAREFUNCTION_LESS:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LT_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_LT_OS);
 			break;
 		case COMPAREFUNCTION_EQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_EQ_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_EQ_OS);
 			break;
 		case COMPAREFUNCTION_LEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_LE_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_LE_OS);
 			break;
 		case COMPAREFUNCTION_GREATER:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_GT_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_GT_OS);
 			break;
 		case COMPAREFUNCTION_NOTEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_NEQ_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_NEQ_OS);
 			break;
 		case COMPAREFUNCTION_GEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_GE_OS);
+			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_GE_OS);
 			break;
 		}
 		d->mask.ireg = _mm256_and_si256(cmp.ireg, d->mask.ireg);
@@ -321,16 +311,17 @@ depth_test(struct payload *p, struct dispatch *d)
 		const __m256 scale = _mm256_set1_ps(16777215.0f);
 		const __m256 half =  _mm256_set1_ps(0.5f);
 
+		struct reg w;
 		w.ireg = _mm256_permute4x64_epi64(w.ireg, SWIZZLE(0, 2, 1, 3));
 		__m256i m = _mm256_permute4x64_epi64(d->mask.ireg,
 						     SWIZZLE(0, 2, 1, 3));
 
 		switch (gt.depth.format) {
 		case D32_FLOAT:
-			_mm256_maskstore_ps(base, m, w.reg);
+			_mm256_maskstore_ps(base, m, d->w.reg);
 			break;
 		case D24_UNORM_X8_UINT:
-			w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(w.reg, scale), half));
+			w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(d->w.reg, scale), half));
 			_mm256_maskstore_epi32(base, m, w_unorm.ireg);
 			break;
 		case D16_UNORM:
@@ -605,6 +596,16 @@ fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
 			      _mm256_set1_ps(p->inv_area));
 
+	d->w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), d->w1.reg,
+				   _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), d->w2.reg,
+						   _mm256_set1_ps(p->w_deltas[3])));
+
+	d->z.reg = _mm256_rcp_ps(d->w.reg);
+	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
+				     _mm256_set1_ps(p->inv_z1));
+	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
+				     _mm256_set1_ps(p->inv_z2));
+
 	d->mask = mask;
 	d->x = p->x0 + iter->x;
 	d->y = p->y0 + iter->y;
@@ -614,10 +615,6 @@ fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 
 	if (_mm256_movemask_ps(mask.reg) == 0 || !gt.ps.enable)
 		return;
-
-	d->w1_pc = p->w1_pc;
-	d->w2_pc = p->w2_pc;
-	d->mask = mask;
 
 	p->queue_length++;
 	if (gt.ps.enable_simd8 || p->queue_length == 2) {
