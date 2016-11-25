@@ -325,6 +325,14 @@ struct gt {
 		uint32_t barycentric_mode;
 		uint32_t front_winding;
 		uint32_t cull_mode;
+
+		bool stencil_buffer_clear_enable;
+		bool depth_buffer_clear_enable;
+		bool scissor_rectangle_enable;
+		bool depth_buffer_resolve_enable;
+		bool hz_depth_buffer_resolve_enable;
+		bool pixel_position_offset_enable;
+		bool full_surface_depth_and_stencil_clear;
 	} wm;
 
 	struct {
@@ -601,7 +609,7 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s);
 
 void wm_stall(void);
 void wm_flush(void);
-void hiz_clear(void);
+void depth_clear(void);
 
 struct reg {
 	union {

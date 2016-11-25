@@ -1225,7 +1225,16 @@ handle_3dstate_wm_hz_op(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_WM_HZ_OP\n");
 
-	hiz_clear();
+	struct GEN9_3DSTATE_WM_HZ_OP v;
+	GEN9_3DSTATE_WM_HZ_OP_unpack(p, &v);
+
+	gt.wm.stencil_buffer_clear_enable = v.StencilBufferClearEnable;
+	gt.wm.depth_buffer_clear_enable = v.DepthBufferClearEnable;
+	gt.wm.scissor_rectangle_enable = v.ScissorRectangleEnable;
+	gt.wm.depth_buffer_resolve_enable = v.DepthBufferResolveEnable;
+	gt.wm.hz_depth_buffer_resolve_enable = v.HierarchicalDepthBufferResolveEnable;
+	gt.wm.pixel_position_offset_enable = v.PixelPositionOffsetEnable;
+	gt.wm.full_surface_depth_and_stencil_clear = v.FullSurfaceDepthandStencilClear;
 }
 
 static const command_handler_t pipelined_3dstate_commands[] = {
@@ -1472,6 +1481,9 @@ static const command_handler_t nonpipelined_3dstate_commands[] = {
 static void
 handle_pipe_control(uint32_t *p)
 {
+	if (gt.wm.depth_buffer_clear_enable)
+		depth_clear();
+
 	ksim_trace(TRACE_CS, "PIPE_CONTROL\n");
 }
 

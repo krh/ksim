@@ -962,7 +962,7 @@ wm_flush(void)
 }
 
 void
-hiz_clear(void)
+depth_clear(void)
 {
 	uint64_t range;
 	void *depth;
