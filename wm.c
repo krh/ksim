@@ -627,6 +627,23 @@ compute_barycentric_coords(struct tile_iterator *iter, struct payload *p)
 }
 
 static void
+fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
+{
+	if (_mm256_movemask_ps(mask.reg) == 0)
+		return;
+
+	/* Some pixels are covered and we have to
+	 * calculate barycentric coordinates. */
+	compute_barycentric_coords(iter, p);
+
+	if (gt.depth.test_enable || gt.depth.write_enable)
+		mask = depth_test(p, mask, p->x0 + iter->x, p->y0 + iter->y);
+
+	if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
+		queue_ps_dispatch(p, mask, p->x0 + iter->x, p->y0 + iter->y);
+}
+
+static void
 rasterize_rectlist_tile(struct payload *p)
 {
 	struct tile_iterator iter;
@@ -651,18 +668,7 @@ rasterize_rectlist_tile(struct payload *p)
 		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w2, iter.w0),
 					     _mm256_and_si256(w2, w3));
 
-		if (_mm256_movemask_ps(mask.reg) == 0)
-			continue;
-
-		/* Some pixels are covered and we have to
-		 * calculate barycentric coordinates. */
-		compute_barycentric_coords(&iter, p);
-
-		if (gt.depth.test_enable || gt.depth.write_enable)
-			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
-
-		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
-			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+		fill_dispatch(p, &iter, mask);
 	}
 
 	if (p->queue_length > 0) {
@@ -684,21 +690,7 @@ rasterize_triangle_tile(struct payload *p)
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
 							  iter.w0), iter.w2);
 
-		/* Determine coverage: this is an e < 0 test,
-		 * where we've subtracted 1 from top-left
-		 * edges to include pixels on those edges. */
-		if (_mm256_movemask_ps(mask.reg) == 0)
-			continue;
-
-		/* Some pixels are covered and we have to
-		 * calculate barycentric coordinates. */
-		compute_barycentric_coords(&iter, p);
-
-		if (gt.depth.test_enable || gt.depth.write_enable)
-			mask = depth_test(p, mask, p->x0 + iter.x, p->y0 + iter.y);
-
-		if (_mm256_movemask_ps(mask.reg) && gt.ps.enable)
-			queue_ps_dispatch(p, mask, p->x0 + iter.x, p->y0 + iter.y);
+		fill_dispatch(p, &iter, mask);
 	}
 
 	if (p->queue_length > 0) {
