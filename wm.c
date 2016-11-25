@@ -38,7 +38,7 @@ struct edge {
 };
 
 struct dispatch {
-	struct reg w2, w1;
+	struct reg w2, w0, w1;
 	struct reg w2_pc, w1_pc;
 	struct reg mask;
 	int x, y;
@@ -49,7 +49,6 @@ struct payload {
 	int32_t start_w2, start_w0, start_w1;
 	int32_t area;
 	float inv_area;
-	struct reg w2, w0, w1;
 	struct edge e01, e12, e20;
 
 	struct reg w2_pc, w1_pc;
@@ -250,28 +249,24 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 		free(linear);
 }
 
-static struct reg
-depth_test(struct payload *p, struct reg mask, int x, int y)
+static void
+depth_test(struct payload *p, struct dispatch *d)
 {
 	uint32_t cpp = depth_format_size(gt.depth.format);
-	struct reg zero = { .ireg = _mm256_set1_epi32(0) };
-
-	if (x >= gt.depth.width || y >= gt.depth.height + 1)
-		return zero;
 
 	/* early depth test */
 	struct reg w, w_unorm;
-	w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), p->w1.reg,
-				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), p->w2.reg,
+	w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), d->w1.reg,
+				_mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), d->w2.reg,
 						_mm256_set1_ps(p->w_deltas[3])));
 
 	__m256 inv_w = _mm256_rcp_ps(w.reg);
-	p->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, p->w1.reg), _mm256_set1_ps(p->inv_z1));
-	p->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, p->w2.reg), _mm256_set1_ps(p->inv_z2));
+	p->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, d->w1.reg), _mm256_set1_ps(p->inv_z1));
+	p->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(inv_w, d->w2.reg), _mm256_set1_ps(p->inv_z2));
 
 	struct reg d24x8, cmp, d_f;
 
-	void *base = ymajor_offset(p->depth.buffer, x, y, gt.depth.stride, cpp);
+	void *base = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
 
 	const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
 	switch (gt.depth.format) {
@@ -319,7 +314,7 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 			cmp.reg = _mm256_cmp_ps(d_f.reg, w.reg, _CMP_GE_OS);
 			break;
 		}
-		mask.ireg = _mm256_and_si256(cmp.ireg, mask.ireg);
+		d->mask.ireg = _mm256_and_si256(cmp.ireg, d->mask.ireg);
 	}
 
 	if (gt.depth.write_enable) {
@@ -327,7 +322,7 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 		const __m256 half =  _mm256_set1_ps(0.5f);
 
 		w.ireg = _mm256_permute4x64_epi64(w.ireg, SWIZZLE(0, 2, 1, 3));
-		__m256i m = _mm256_permute4x64_epi64(mask.ireg,
+		__m256i m = _mm256_permute4x64_epi64(d->mask.ireg,
 						     SWIZZLE(0, 2, 1, 3));
 
 		switch (gt.depth.format) {
@@ -345,8 +340,6 @@ depth_test(struct payload *p, struct reg mask, int x, int y)
 		}
 
 	}
-
-	return mask;
 }
 
 static void
@@ -602,29 +595,29 @@ fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 	 * barycentric coordinates. We add back the tie-breaker
 	 * adjustment so as to not distort the barycentric
 	 * coordinates.*/
-	p->w2.reg =
+	d->w2.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.bias))),
 			      _mm256_set1_ps(p->inv_area));
-	p->w0.reg =
+	d->w0.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w0, _mm256_set1_epi32(p->e12.bias))),
 			      _mm256_set1_ps(p->inv_area));
-	p->w1.reg =
+	d->w1.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
 			      _mm256_set1_ps(p->inv_area));
 
+	d->mask = mask;
+	d->x = p->x0 + iter->x;
+	d->y = p->y0 + iter->y;
+
 	if (gt.depth.test_enable || gt.depth.write_enable)
-		mask = depth_test(p, mask, p->x0 + iter->x, p->y0 + iter->y);
+		depth_test(p, d);
 
 	if (_mm256_movemask_ps(mask.reg) == 0 || !gt.ps.enable)
 		return;
 
-	d->w1 = p->w1;
-	d->w2 = p->w2;
 	d->w1_pc = p->w1_pc;
 	d->w2_pc = p->w2_pc;
 	d->mask = mask;
-	d->x = p->x0 + iter->x;
-	d->y = p->y0 + iter->y;
 
 	p->queue_length++;
 	if (gt.ps.enable_simd8 || p->queue_length == 2) {
