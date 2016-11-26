@@ -523,6 +523,7 @@ struct value {
 		int32_t v[4];
 		int32_t u[4];
 		float f[4];
+		uint8_t ub[4];
 	};
 };
 

@@ -308,6 +308,11 @@ fetch_format(void *p, uint32_t format)
 		return uvec4(v->u[0], v->u[1], v->u[2], 1);
 	case SF_R32G32B32A32_UINT:
 		return uvec4(v->u[0], v->u[1], v->u[2], v->u[3]);
+	case SF_R8G8B8A8_UNORM: {
+		const float scale = 1.0f / 255.0f;
+		return vec4(v->ub[0] * scale, v->ub[1] * scale,
+			    v->ub[2] * scale, v->ub[3] * scale);
+	}
 	default:
 		stub("vertex fetch format %d", format);
 		assert(0);
