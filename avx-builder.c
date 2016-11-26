@@ -81,13 +81,7 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	bld->info.section = NULL;
 	disassemble_init_for_target(&bld->info);
 
-	list_init(&bld->regs_lru_list);
-	list_init(&bld->used_regs_list);
-
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		list_insert(&bld->regs_lru_list, &bld->regs[i].link);
-		bld->regs[i].contents = BUILDER_REG_CONTENTS_UNDEF;
-	}
+	builder_invalidate_all(bld);
 }
 
 void
