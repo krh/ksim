@@ -462,11 +462,13 @@ dispatch_ps(struct payload *p, struct dispatch *d, int count)
 	}
 
 	if (gt.ps.uses_source_depth) {
-		g++; /* interpolated depth, slots 0-7 */
+		t.grf[g].reg = d[0].z.reg;
+		g++;
 	}
 
 	if (gt.ps.uses_source_w) {
-		g++; /* interpolated w, slots 0-7 */
+		t.grf[g].reg = d[0].w.reg;
+		g++;
 	}
 
 	if (gt.ps.position_offset_xy == POSOFFSET_CENTROID) {
