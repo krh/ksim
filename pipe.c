@@ -301,24 +301,47 @@ dump_sf_clip_viewport(void)
 }
 
 static void
-setup_prim(struct primitive *prim)
+setup_prim(struct value **vue, uint32_t parity)
 {
+	struct primitive prim;
 	uint64_t range;
+	uint32_t provoking;
+
+	switch (gt.ia.topology) {
+	case _3DPRIM_TRILIST:
+	case _3DPRIM_TRISTRIP:
+		provoking = gt.sf.tri_strip_provoking;
+		break;
+	case _3DPRIM_TRIFAN:
+		provoking = gt.sf.tri_fan_provoking;
+		break;
+	case _3DPRIM_POLYGON:
+	case _3DPRIM_QUADLIST:
+	case _3DPRIM_QUADSTRIP:
+	default:
+		provoking = 0;
+		break;
+	}
+
+	static const int indices[5] = { 0, 1, 2, 0, 1 };
+	prim.vue[0] = vue[indices[provoking]];
+	prim.vue[1] = vue[indices[provoking + 1 + parity]];
+	prim.vue[2] = vue[indices[provoking + 2 - parity]];
 
 	if (gt.clip.perspective_divide_disable) {
 		for (int i = 0; i < 3; i++) {
-			prim->v[i].x = prim->vue[i][1].vec4.x;
-			prim->v[i].y = prim->vue[i][1].vec4.y;
-			prim->v[i].z = prim->vue[i][1].vec4.z;
-			prim->v[i].w = prim->vue[i][1].vec4.w;
+			prim.v[i].x = prim.vue[i][1].vec4.x;
+			prim.v[i].y = prim.vue[i][1].vec4.y;
+			prim.v[i].z = prim.vue[i][1].vec4.z;
+			prim.v[i].w = prim.vue[i][1].vec4.w;
 		}
 	} else {
 		for (int i = 0; i < 3; i++) {
-			float inv_w = 1.0f / prim->vue[i][1].vec4.w;
-			prim->v[i].x = prim->vue[i][1].vec4.x * inv_w;
-			prim->v[i].y = prim->vue[i][1].vec4.y * inv_w;
-			prim->v[i].z = prim->vue[i][1].vec4.z * inv_w;
-			prim->v[i].w = inv_w;
+			float inv_w = 1.0f / prim.vue[i][1].vec4.w;
+			prim.v[i].x = prim.vue[i][1].vec4.x * inv_w;
+			prim.v[i].y = prim.vue[i][1].vec4.y * inv_w;
+			prim.v[i].z = prim.vue[i][1].vec4.z * inv_w;
+			prim.v[i].w = inv_w;
 		}
 	}
 
@@ -334,43 +357,48 @@ setup_prim(struct primitive *prim)
 		float m32 = vp[5];
 
 		for (int i = 0; i < 3; i++) {
-			prim->v[i].x = m00 * prim->v[i].x + m30;
-			prim->v[i].y = m11 * prim->v[i].y + m31;
-			prim->v[i].z = m22 * prim->v[i].z + m32;
+			prim.v[i].x = m00 * prim.v[i].x + m30;
+			prim.v[i].y = m11 * prim.v[i].y + m31;
+			prim.v[i].z = m22 * prim.v[i].z + m32;
 		}
 	}
 
-	rasterize_primitive(prim);
+	rasterize_primitive(&prim);
 }
 
 static void
-assemble_primitives(struct value **vue, int count)
+queue_vues(struct value **vue, int count)
 {
-	struct primitive prim;
-	uint32_t tail = gt.ia.queue.tail;
-
 	for (int i = 0; i < count; i++)
 		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = vue[i];
 
 	ksim_assert(gt.ia.queue.head - gt.ia.queue.tail < 16);
+}
+
+static void
+assemble_primitives()
+{
+	struct value *vue[3];
+	uint32_t tail = gt.ia.queue.tail;
 
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
-			setup_prim(&prim);
+			vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
+			setup_prim(vue, 0);
 			tail += 3;
+			gt.ia_primitives_count++;
 		}
 		break;
 
 	case _3DPRIM_TRISTRIP:
 		while (gt.ia.queue.head - tail >= 3) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 1 + gt.ia.tristrip_parity) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 2 - gt.ia.tristrip_parity) & 15];
-			setup_prim(&prim);
+			vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
+			setup_prim(vue, gt.ia.tristrip_parity);
 			tail += 1;
 			gt.ia.tristrip_parity = 1 - gt.ia.tristrip_parity;
 			gt.ia_primitives_count++;
@@ -392,38 +420,38 @@ assemble_primitives(struct value **vue, int count)
 		}
 
 		while (gt.ia.queue.head - tail >= 2) {
-			prim.vue[0] = gt.ia.trifan_first_vertex;
-			prim.vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
-			setup_prim(&prim);
+			vue[0] = gt.ia.trifan_first_vertex;
+			vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			setup_prim(vue, gt.ia.tristrip_parity);
 			tail += 1;
 			gt.ia_primitives_count++;
 		}
 		break;
 	case _3DPRIM_QUADLIST:
 		while (gt.ia.queue.head - tail >= 4) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
-			setup_prim(&prim);
-			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 3) & 15];
-			setup_prim(&prim);
+			vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			setup_prim(vue, 0);
+			vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
+			setup_prim(vue, 0);
 			tail += 4;
 			gt.ia_primitives_count++;
 		}
 		break;
 	case _3DPRIM_QUADSTRIP:
 		while (gt.ia.queue.head - tail >= 4) {
-			prim.vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
-			setup_prim(&prim);
-			prim.vue[0] = gt.ia.queue.vue[(tail + 1) & 15];
-			prim.vue[1] = gt.ia.queue.vue[(tail + 3) & 15];
-			prim.vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
-			setup_prim(&prim);
+			vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 1) & 15];
+			setup_prim(vue, 0);
+			vue[0] = gt.ia.queue.vue[(tail + 3) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 2) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 0) & 15];
+			setup_prim(vue, 0);
 			tail += 2;
 			gt.ia_primitives_count++;
 		}
@@ -431,36 +459,10 @@ assemble_primitives(struct value **vue, int count)
 
 	case _3DPRIM_RECTLIST:
 		while (gt.ia.queue.head - tail >= 3) {
-			struct value *vue[3] = {
-				gt.ia.queue.vue[(tail + 0) & 15],
-				gt.ia.queue.vue[(tail + 1) & 15],
-				gt.ia.queue.vue[(tail + 2) & 15]
-			};
-
-			/* The documentation requires a specific
-			 * vertex ordering, but the hw doesn't
-			 * actually care.  Our rasterizer does though,
-			 * so rotate vertices to make sure the first
-			 * to edges are axis parallel. */
-			if (vue[0][1].vec4.x != vue[1][1].vec4.x &&
-			    vue[0][1].vec4.y != vue[1][1].vec4.y) {
-				ksim_warn("invalid rect list vertex order\n");
-				prim.vue[0] = vue[1];
-				prim.vue[1] = vue[2];
-				prim.vue[2] = vue[0];
-			} else if (vue[1][1].vec4.x != vue[2][1].vec4.x &&
-				   vue[1][1].vec4.y != vue[2][1].vec4.y) {
-				ksim_warn("invalid rect list vertex order\n");
-				prim.vue[0] = vue[2];
-				prim.vue[1] = vue[0];
-				prim.vue[2] = vue[1];
-			} else {
-				prim.vue[0] = vue[0];
-				prim.vue[1] = vue[1];
-				prim.vue[2] = vue[2];
-			}
-
-			setup_prim(&prim);
+			vue[0] = gt.ia.queue.vue[(tail + 0) & 15];
+			vue[1] = gt.ia.queue.vue[(tail + 1) & 15];
+			vue[2] = gt.ia.queue.vue[(tail + 2) & 15];
+			setup_prim(vue, 0);
 			tail += 3;
 		}
 		break;
@@ -540,12 +542,14 @@ dispatch_primitive(void)
 				gt.ia_vertices_count++;
 			if (i == 8) {
 				dispatch_vs(vue, 255);
+				queue_vues(vue, i);
 				assemble_primitives(vue, i);
 				i = 0;
 			}
 		}
 		if (i > 0) {
 			dispatch_vs(vue, (1 << i) - 1);
+			queue_vues(vue, i);
 			assemble_primitives(vue, i);
 			i = 0;
 		}

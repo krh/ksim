@@ -771,6 +771,9 @@ handle_3dstate_sf(uint32_t *p)
 	GEN9_3DSTATE_SF_unpack(p, &v);
 
 	gt.sf.viewport_transform_enable = v.ViewportTransformEnable;
+	gt.sf.tri_strip_provoking = v.TriangleStripListProvokingVertexSelect;
+	gt.sf.line_strip_provoking = v.LineStripListProvokingVertexSelect;
+	gt.sf.tri_fan_provoking = v.TriangleFanProvokingVertexSelect;
 }
 
 static void
