@@ -555,10 +555,6 @@ uint32_t format_block_size(uint32_t format);
 struct value fetch_format(void *p, uint32_t format);
 uint32_t depth_format_size(uint32_t format);
 
-struct primitive {
-	struct value *vue[3];
-};
-
 struct blit {
 	int32_t raster_op;
 	int32_t cpp_log2;
@@ -572,7 +568,7 @@ struct blit {
 
 void blitter_copy(struct blit *b);
 
-void rasterize_primitive(struct primitive *prim);
+void rasterize_primitive(struct value **vue);
 
 /* URB handles are indexes to 64 byte blocks in the URB. */
 

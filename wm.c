@@ -793,13 +793,13 @@ rasterize_triangle(struct payload *p)
 }
 
 void
-rasterize_primitive(struct primitive *prim)
+rasterize_primitive(struct value **vue)
 {
 	struct payload p;
 	const struct vec4 v[3] = {
-		prim->vue[0][1].vec4,
-		prim->vue[1][1].vec4,
-		prim->vue[2][1].vec4
+		vue[0][1].vec4,
+		vue[1][1].vec4,
+		vue[2][1].vec4
 	};
 	struct point p0 = snap_point(v[0].x, v[0].y);
 	struct point p1 = snap_point(v[1].x, v[1].y);
@@ -840,9 +840,9 @@ rasterize_primitive(struct primitive *prim)
 	p.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
-		const struct value a0 = prim->vue[0][i + 2];
-		const struct value a1 = prim->vue[1][i + 2];
-		const struct value a2 = prim->vue[2][i + 2];
+		const struct value a0 = vue[0][i + 2];
+		const struct value a1 = vue[1][i + 2];
+		const struct value a2 = vue[2][i + 2];
 
 		p.attribute_deltas[i * 2] = (struct reg) {
 			.f = {

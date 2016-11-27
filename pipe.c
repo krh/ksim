@@ -301,9 +301,9 @@ dump_sf_clip_viewport(void)
 }
 
 static void
-setup_prim(struct value **vue, uint32_t parity)
+setup_prim(struct value **vue_in, uint32_t parity)
 {
-	struct primitive prim;
+	struct value *vue[3];
 	uint32_t provoking;
 
 	switch (gt.ia.topology) {
@@ -323,11 +323,11 @@ setup_prim(struct value **vue, uint32_t parity)
 	}
 
 	static const int indices[5] = { 0, 1, 2, 0, 1 };
-	prim.vue[0] = vue[indices[provoking]];
-	prim.vue[1] = vue[indices[provoking + 1 + parity]];
-	prim.vue[2] = vue[indices[provoking + 2 - parity]];
+	vue[0] = vue_in[indices[provoking]];
+	vue[1] = vue_in[indices[provoking + 1 + parity]];
+	vue[2] = vue_in[indices[provoking + 2 - parity]];
 
-	rasterize_primitive(&prim);
+	rasterize_primitive(vue);
 }
 
 static void
