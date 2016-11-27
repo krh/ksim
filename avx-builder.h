@@ -2,20 +2,19 @@
 #include <dis-asm.h>
 
 enum builder_reg_contents {
-	BUILDER_REG_CONTENTS_UNDEF,
-	BUILDER_REG_CONTENTS_UNIFORM,
-	BUILDER_REG_CONTENTS_EU_REG
+	BUILDER_REG_CONTENTS_UNIFORM	= (1 << 0),
+	BUILDER_REG_CONTENTS_EU_REG	= (1 << 1)
 };
 
 struct avx2_reg {
-	enum builder_reg_contents contents;
-	union {
-		uint32_t uniform;
-		struct {
-			uint32_t offset; /* num * 32 + subnum */
-			uint32_t region;
-		};
+	uint32_t contents;
+	uint32_t uniform;
+
+	struct {
+		uint32_t offset; /* num * 32 + subnum */
+		uint32_t region;
 	};
+
         struct list link;
 };
 

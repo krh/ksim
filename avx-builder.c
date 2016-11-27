@@ -100,7 +100,7 @@ builder_invalidate_all(struct builder *bld)
 
 	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
 		list_insert(&bld->regs_lru_list, &bld->regs[i].link);
-		bld->regs[i].contents = BUILDER_REG_CONTENTS_UNDEF;
+		bld->regs[i].contents = 0;
 	}
 }
 
@@ -121,13 +121,13 @@ builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 	int reg_num;
 
 	if (list_find(reg, &bld->regs_lru_list, link,
-		      reg->contents == BUILDER_REG_CONTENTS_UNIFORM &&
+		      (reg->contents & BUILDER_REG_CONTENTS_UNIFORM) &&
 		      reg->uniform == ud))
 		return builder_use_reg(bld, reg);
 
 	reg_num = builder_get_reg(bld);
 	reg = &bld->regs[reg_num];
-	reg->contents = BUILDER_REG_CONTENTS_UNIFORM;
+	reg->contents |= BUILDER_REG_CONTENTS_UNIFORM;
 	reg->uniform = ud;
 
 	if (ud == 0) {
@@ -147,7 +147,7 @@ builder_get_reg(struct builder *bld)
 
 	ksim_assert(!list_empty(&bld->regs_lru_list));
 
-	reg->contents = BUILDER_REG_CONTENTS_UNDEF;
+	reg->contents = 0;
 
 	return builder_use_reg(bld, reg);
 }

@@ -130,7 +130,7 @@ builder_emit_da_src_load(struct builder *bld,
 	uint32_t region = region_tag(src->vstride, src->width, src->hstride,
 				     type_size(src->type), bld->exec_size);
 	if (list_find(areg, &bld->regs_lru_list, link,
-		      areg->contents == BUILDER_REG_CONTENTS_EU_REG &&
+		      (areg->contents & BUILDER_REG_CONTENTS_EU_REG) &&
 		      areg->offset == offset &&
 		      areg->region == region)) {
 
@@ -152,7 +152,7 @@ builder_emit_da_src_load(struct builder *bld,
 	}
 
 	int reg = builder_get_reg(bld);
-	bld->regs[reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+	bld->regs[reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
 	bld->regs[reg].offset = offset;
 	bld->regs[reg].region = region;
 
@@ -481,7 +481,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		builder_emit_m256i_store(bld, avx_reg,
 					 bld->exec_offset * type_size(dst->type) + offset);
 
-		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
 		bld->regs[avx_reg].offset = offset;
 		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
 						       type_size(dst->type), bld->exec_size);
@@ -490,7 +490,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 	case 16:
 		builder_emit_m128i_store(bld, avx_reg, offset);
 
-		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
 		bld->regs[avx_reg].offset = offset;
 		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
 						       type_size(dst->type), bld->exec_size);
@@ -499,7 +499,7 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 	case 4:
 		builder_emit_u32_store(bld, avx_reg, offset);
 
-		bld->regs[avx_reg].contents = BUILDER_REG_CONTENTS_EU_REG;
+		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
 		bld->regs[avx_reg].offset = offset;
 		bld->regs[avx_reg].region = region_tag(0, 1, 0,
 						       type_size(dst->type), bld->exec_size);
