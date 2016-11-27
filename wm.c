@@ -45,7 +45,7 @@ struct dispatch {
 	int x, y;
 };
 
-struct payload {
+struct primitive {
 	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
 	int32_t area;
@@ -249,7 +249,7 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 }
 
 static void
-depth_test(struct payload *p, struct dispatch *d)
+depth_test(struct primitive *p, struct dispatch *d)
 {
 	uint32_t cpp = depth_format_size(gt.depth.format);
 
@@ -336,7 +336,7 @@ depth_test(struct payload *p, struct dispatch *d)
 }
 
 static void
-dispatch_ps(struct payload *p, struct dispatch *d, int count)
+dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 {
 	uint32_t g;
 	struct thread t;
@@ -515,7 +515,7 @@ struct tile_iterator {
 };
 
 static void
-tile_iterator_init(struct tile_iterator *iter, struct payload *p)
+tile_iterator_init(struct tile_iterator *iter, struct primitive *p)
 {
 	__m256i w2_offsets, w0_offsets, w1_offsets;
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
@@ -555,7 +555,7 @@ tile_iterator_done(struct tile_iterator *iter)
 }
 
 static void
-tile_iterator_next(struct tile_iterator *iter, struct payload *p)
+tile_iterator_next(struct tile_iterator *iter, struct primitive *p)
 {
 	iter->x += 4;
 	if (iter->x == tile_width) {
@@ -579,7 +579,7 @@ tile_iterator_next(struct tile_iterator *iter, struct payload *p)
 }
 
 static void
-fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
+fill_dispatch(struct primitive *p, struct tile_iterator *iter, struct reg mask)
 {
 	struct dispatch *d = &p->queue[p->queue_length];
 
@@ -628,7 +628,7 @@ fill_dispatch(struct payload *p, struct tile_iterator *iter, struct reg mask)
 }
 
 static void
-rasterize_rectlist_tile(struct payload *p)
+rasterize_rectlist_tile(struct primitive *p)
 {
 	struct tile_iterator iter;
 
@@ -662,7 +662,7 @@ rasterize_rectlist_tile(struct payload *p)
 }
 
 static void
-rasterize_triangle_tile(struct payload *p)
+rasterize_triangle_tile(struct primitive *p)
 {
 	struct tile_iterator iter;
 
@@ -725,7 +725,7 @@ eval_edge(struct edge *e, struct point p)
 }
 
 static void
-bbox_iter_init(struct payload *p)
+bbox_iter_init(struct primitive *p)
 {
 	p->x0 = p->min_x;
 	p->y0 = p->min_y;
@@ -736,13 +736,13 @@ bbox_iter_init(struct payload *p)
 }
 
 static bool
-bbox_iter_done(struct payload *p)
+bbox_iter_done(struct primitive *p)
 {
 	return p->y0 == p->max_y;
 }
 
 static void
-bbox_iter_next(struct payload *p)
+bbox_iter_next(struct primitive *p)
 {
 	p->x0 += tile_width;
 	if (p->x0 == p->max_x) {
@@ -762,7 +762,7 @@ bbox_iter_next(struct payload *p)
 }
 
 void
-rasterize_rectlist(struct payload *p)
+rasterize_rectlist(struct primitive *p)
 {
 	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p))
 		rasterize_rectlist_tile(p);
@@ -770,7 +770,7 @@ rasterize_rectlist(struct payload *p)
 
 
 void
-rasterize_triangle(struct payload *p)
+rasterize_triangle(struct primitive *p)
 {
 	int min_w0_delta, min_w1_delta, min_w2_delta;
 
@@ -795,7 +795,7 @@ rasterize_triangle(struct payload *p)
 void
 rasterize_primitive(struct value **vue)
 {
-	struct payload p;
+	struct primitive p;
 	const struct vec4 v[3] = {
 		vue[0][1].vec4,
 		vue[1][1].vec4,
