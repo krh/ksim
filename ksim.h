@@ -517,7 +517,7 @@ ymajor_offset(void *base, int x, int y, int stride, int cpp)
 
 struct value {
 	union {
-		struct { float x, y, z, w; } vec4;
+		struct vec4 { float x, y, z, w; } vec4;
 		struct { int32_t x, y, z, w; } ivec4;
 		struct { uint32_t x, y, z, w; } uvec4;
 		int32_t v[4];
@@ -556,7 +556,6 @@ struct value fetch_format(void *p, uint32_t format);
 uint32_t depth_format_size(uint32_t format);
 
 struct primitive {
-	struct { float x, y, z, w; } v[3];
 	struct value *vue[3];
 };
 

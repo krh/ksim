@@ -304,7 +304,6 @@ static void
 setup_prim(struct value **vue, uint32_t parity)
 {
 	struct primitive prim;
-	uint64_t range;
 	uint32_t provoking;
 
 	switch (gt.ia.topology) {
@@ -328,49 +327,41 @@ setup_prim(struct value **vue, uint32_t parity)
 	prim.vue[1] = vue[indices[provoking + 1 + parity]];
 	prim.vue[2] = vue[indices[provoking + 2 - parity]];
 
-	if (gt.clip.perspective_divide_disable) {
-		for (int i = 0; i < 3; i++) {
-			prim.v[i].x = prim.vue[i][1].vec4.x;
-			prim.v[i].y = prim.vue[i][1].vec4.y;
-			prim.v[i].z = prim.vue[i][1].vec4.z;
-			prim.v[i].w = prim.vue[i][1].vec4.w;
-		}
-	} else {
-		for (int i = 0; i < 3; i++) {
-			float inv_w = 1.0f / prim.vue[i][1].vec4.w;
-			prim.v[i].x = prim.vue[i][1].vec4.x * inv_w;
-			prim.v[i].y = prim.vue[i][1].vec4.y * inv_w;
-			prim.v[i].z = prim.vue[i][1].vec4.z * inv_w;
-			prim.v[i].w = inv_w;
-		}
-	}
-
-	if (gt.sf.viewport_transform_enable) {
-		float *vp = map_gtt_offset(gt.sf.viewport_pointer, &range);
-		ksim_assert(range >= 14 * sizeof(vp[0]));
-
-		float m00 = vp[0];
-		float m11 = vp[1];
-		float m22 = vp[2];
-		float m30 = vp[3];
-		float m31 = vp[4];
-		float m32 = vp[5];
-
-		for (int i = 0; i < 3; i++) {
-			prim.v[i].x = m00 * prim.v[i].x + m30;
-			prim.v[i].y = m11 * prim.v[i].y + m31;
-			prim.v[i].z = m22 * prim.v[i].z + m32;
-		}
-	}
-
 	rasterize_primitive(&prim);
 }
 
 static void
-queue_vues(struct value **vue, int count)
+transform_and_queue_vues(struct value **vue, int count)
 {
-	for (int i = 0; i < count; i++)
+	uint64_t range;
+	const float *vp = map_gtt_offset(gt.sf.viewport_pointer, &range);
+	ksim_assert(range >= 14 * sizeof(vp[0]));
+
+	float m00 = vp[0];
+	float m11 = vp[1];
+	float m22 = vp[2];
+	float m30 = vp[3];
+	float m31 = vp[4];
+	float m32 = vp[5];
+
+	for (int i = 0; i < count; i++) {
+		struct vec4 *pos = &vue[i][1].vec4;
+		if (!gt.clip.perspective_divide_disable) {
+			float inv_w = 1.0f / pos->w;
+			pos->x *= inv_w;
+			pos->y *= inv_w;
+			pos->z *= inv_w;
+			pos->w = 1;
+		}
+
+		if (gt.sf.viewport_transform_enable) {
+			pos->x = m00 * pos->x + m30;
+			pos->y = m11 * pos->y + m31;
+			pos->z = m22 * pos->z + m32;
+		}
+
 		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = vue[i];
+	}
 
 	ksim_assert(gt.ia.queue.head - gt.ia.queue.tail < 16);
 }
@@ -542,14 +533,14 @@ dispatch_primitive(void)
 				gt.ia_vertices_count++;
 			if (i == 8) {
 				dispatch_vs(vue, 255);
-				queue_vues(vue, i);
+				transform_and_queue_vues(vue, i);
 				assemble_primitives(vue, i);
 				i = 0;
 			}
 		}
 		if (i > 0) {
 			dispatch_vs(vue, (1 << i) - 1);
-			queue_vues(vue, i);
+			transform_and_queue_vues(vue, i);
 			assemble_primitives(vue, i);
 			i = 0;
 		}

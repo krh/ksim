@@ -794,9 +794,14 @@ void
 rasterize_primitive(struct primitive *prim)
 {
 	struct payload p;
-	struct point p0 = snap_point(prim->v[0].x, prim->v[0].y);
-	struct point p1 = snap_point(prim->v[1].x, prim->v[1].y);
-	struct point p2 = snap_point(prim->v[2].x, prim->v[2].y);
+	const struct vec4 v[3] = {
+		prim->vue[0][1].vec4,
+		prim->vue[1][1].vec4,
+		prim->vue[2][1].vec4
+	};
+	struct point p0 = snap_point(v[0].x, v[0].y);
+	struct point p1 = snap_point(v[1].x, v[1].y);
+	struct point p2 = snap_point(v[2].x, v[2].y);
 
 	init_edge(&p.e01, p0, p1);
 	init_edge(&p.e12, p1, p2);
@@ -820,12 +825,12 @@ rasterize_primitive(struct primitive *prim)
 	p.inv_area = 1.0f / p.area;
 
 	float w[3] = {
-		1.0f / prim->v[0].z,
-		1.0f / prim->v[1].z,
-		1.0f / prim->v[2].z
+		1.0f / v[0].z,
+		1.0f / v[1].z,
+		1.0f / v[2].z
 	};
-	p.inv_z1 = 1.0 / prim->v[1].z;
-	p.inv_z2 = 1.0 / prim->v[2].z;
+	p.inv_z1 = 1.0 / v[1].z;
+	p.inv_z2 = 1.0 / v[2].z;
 
 	p.w_deltas[0] = w[1] - w[0];
 	p.w_deltas[1] = w[2] - w[0];
@@ -883,17 +888,17 @@ rasterize_primitive(struct primitive *prim)
 	for (int i = 0; i < 3; i++) {
 		int x, y;
 
-		x = floor(prim->v[i].x);
+		x = floor(v[i].x);
 		if (x < p.min_x)
 			p.min_x = x;
-		y = floor(prim->v[i].y);
+		y = floor(v[i].y);
 		if (y < p.min_y)
 			p.min_y = y;
 
-		x = ceil(prim->v[i].x);
+		x = ceil(v[i].x);
 		if (p.max_x < x)
 			p.max_x = x;
-		y = ceil(prim->v[i].y);
+		y = ceil(v[i].y);
 		if (p.max_y < y)
 			p.max_y = y;
 	}
