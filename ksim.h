@@ -211,6 +211,13 @@ struct curbe {
 	} buffer[4];
 };
 
+struct rectangle {
+	int32_t x0;
+	int32_t y0;
+	int32_t x1;
+	int32_t y1;
+};
+
 struct gt {
 	uint32_t pipeline;
 
@@ -316,12 +323,9 @@ struct gt {
 	} sf;
 
 	struct {
-		uint32_t min_x;
-		uint32_t min_y;
-		uint32_t max_x;
-		uint32_t max_y;
-		uint32_t origin_x;
-		uint32_t origin_y;
+		struct rectangle rect;
+		int32_t origin_x;
+		int32_t origin_y;
 	}  drawing_rectangle;
 
 	struct {
@@ -329,6 +333,11 @@ struct gt {
 		uint32_t front_winding;
 		uint32_t cull_mode;
 
+		bool scissor_rectangle_enable;
+		struct rectangle scissor_rect;
+	} wm;
+
+	struct {
 		bool stencil_buffer_clear_enable;
 		bool depth_buffer_clear_enable;
 		bool scissor_rectangle_enable;
@@ -336,7 +345,7 @@ struct gt {
 		bool hz_depth_buffer_resolve_enable;
 		bool pixel_position_offset_enable;
 		bool full_surface_depth_and_stencil_clear;
-	} wm;
+	} hiz;
 
 	struct {
 		uint32_t num_attributes;

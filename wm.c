@@ -56,7 +56,7 @@ struct primitive {
 		void *buffer;
 	} depth;
 
-	int min_x, min_y, max_x, max_y;
+	struct rectangle rect;
 	int32_t row_w2, row_w0, row_w1;
 
 	float inv_z1, inv_z2;
@@ -726,8 +726,8 @@ eval_edge(struct edge *e, struct point p)
 static void
 bbox_iter_init(struct primitive *p)
 {
-	p->x0 = p->min_x;
-	p->y0 = p->min_y;
+	p->x0 = p->rect.x0;
+	p->y0 = p->rect.y0;
 
 	p->start_w2 = p->row_w2;
 	p->start_w0 = p->row_w0;
@@ -737,15 +737,15 @@ bbox_iter_init(struct primitive *p)
 static bool
 bbox_iter_done(struct primitive *p)
 {
-	return p->y0 == p->max_y;
+	return p->y0 == p->rect.y1;
 }
 
 static void
 bbox_iter_next(struct primitive *p)
 {
 	p->x0 += tile_width;
-	if (p->x0 == p->max_x) {
-		p->x0 = p->min_x;
+	if (p->x0 == p->rect.x1) {
+		p->x0 = p->rect.x0;
 		p->y0 += tile_height;
 		p->row_w2 += tile_height * p->e01.b;
 		p->row_w0 += tile_height * p->e12.b;
@@ -789,6 +789,46 @@ rasterize_triangle(struct primitive *p)
 		if ((min_w2 & min_w0 & min_w1) < 0)
 			rasterize_triangle_tile(p);
 	}
+}
+
+static void
+compute_bounding_box(struct rectangle *r, const struct vec4 *v, int count)
+{
+	r->x0 = INT_MAX;
+	r->y0 = INT_MAX;
+	r->x1 = INT_MIN;
+	r->y1 = INT_MIN;
+
+	for (int i = 0; i < count; i++) {
+		int32_t x, y;
+
+		x = floor(v[i].x);
+		if (x < r->x0)
+			r->x0 = x;
+		y = floor(v[i].y);
+		if (y < r->y0)
+			r->y0 = y;
+
+		x = ceil(v[i].x);
+		if (r->x1 < x)
+			r->x1 = x;
+		y = ceil(v[i].y);
+		if (r->y1 < y)
+			r->y1 = y;
+	}
+}
+
+static void
+intersect_rectangle(struct rectangle *r, const struct rectangle *other)
+{
+	if (r->x0 < other->x0)
+		r->x0 = other->x0;
+	if (r->y0 < other->y0)
+		r->y0 = other->y0;
+	if (r->x1 > other->x1)
+		r->x1 = other->x1;
+	if (r->y1 > other->y1)
+		r->y1 = other->y1;
 }
 
 void
@@ -875,46 +915,21 @@ rasterize_primitive(struct value **vue)
 		p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
 	}
 
-	p.min_x = INT_MAX;
-	p.min_y = INT_MAX;
-	p.max_x = INT_MIN;
-	p.max_y = INT_MIN;
-	for (int i = 0; i < 3; i++) {
-		int x, y;
+	compute_bounding_box(&p.rect, v, 3);
+	intersect_rectangle(&p.rect, &gt.drawing_rectangle.rect);
 
-		x = floor(v[i].x);
-		if (x < p.min_x)
-			p.min_x = x;
-		y = floor(v[i].y);
-		if (y < p.min_y)
-			p.min_y = y;
+	if (gt.wm.scissor_rectangle_enable)
+		intersect_rectangle(&p.rect, &gt.wm.scissor_rect);
 
-		x = ceil(v[i].x);
-		if (p.max_x < x)
-			p.max_x = x;
-		y = ceil(v[i].y);
-		if (p.max_y < y)
-			p.max_y = y;
-	}
+	p.rect.x0 = p.rect.x0 & ~(tile_width - 1);
+	p.rect.y0 = p.rect.y0 & ~(tile_height - 1);
+	p.rect.x1 = (p.rect.x1 + tile_width - 1) & ~(tile_width - 1);
+	p.rect.y1 = (p.rect.y1 + tile_height - 1) & ~(tile_height - 1);
 
-	if (p.min_x < gt.drawing_rectangle.min_x)
-		p.min_x = gt.drawing_rectangle.min_x;
-	if (p.min_y < gt.drawing_rectangle.min_y)
-		p.min_y = gt.drawing_rectangle.min_y;
-	if (p.max_x > gt.drawing_rectangle.max_x)
-		p.max_x = gt.drawing_rectangle.max_x;
-	if (p.max_y > gt.drawing_rectangle.max_y)
-		p.max_y = gt.drawing_rectangle.max_y;
-
-	p.min_x = p.min_x & ~(tile_width - 1);
-	p.min_y = p.min_y & ~(tile_height - 1);
-	p.max_x = (p.max_x + tile_width - 1) & ~(tile_width - 1);
-	p.max_y = (p.max_y + tile_height - 1) & ~(tile_height - 1);
-
-	if (p.max_x <= p.min_x || p.max_y < p.min_y)
+	if (p.rect.x1 <= p.rect.x0 || p.rect.y1 < p.rect.y0)
 		return;
 
-	struct point min = snap_point(p.min_x, p.min_y);
+	struct point min = snap_point(p.rect.x0, p.rect.y0);
 	min.x += 128;
 	min.y += 128;
 	p.row_w2 = eval_edge(&p.e01, min);

@@ -716,6 +716,23 @@ static void
 handle_3dstate_scissor_state_pointers(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SCISSOR_STATE_POINTERS\n");
+
+	struct GEN9_3DSTATE_SCISSOR_STATE_POINTERS v;
+	GEN9_3DSTATE_SCISSOR_STATE_POINTERS_unpack(p, &v);
+
+	const uint64_t offset = v.ScissorRectPointer +
+		gt.dynamic_state_base_address;
+
+	uint64_t range;
+	void *srp = map_gtt_offset(offset, &range);
+	ksim_assert(GEN9_SCISSOR_RECT_length <= range);
+
+	struct GEN9_SCISSOR_RECT rect;
+	GEN9_SCISSOR_RECT_unpack(srp, &rect);
+	gt.wm.scissor_rect.x0 = rect.ScissorRectangleXMin;
+	gt.wm.scissor_rect.y0 = rect.ScissorRectangleYMin;
+	gt.wm.scissor_rect.x1 = rect.ScissorRectangleXMax;
+	gt.wm.scissor_rect.y1 = rect.ScissorRectangleYMax;
 }
 
 static void
@@ -1215,6 +1232,7 @@ handle_3dstate_raster(uint32_t *p)
 
 	gt.wm.front_winding = v.FrontWinding;
 	gt.wm.cull_mode = v.CullMode;
+	gt.wm.scissor_rectangle_enable = v.ScissorRectangleEnable;
 }
 
 static void
@@ -1231,13 +1249,13 @@ handle_3dstate_wm_hz_op(uint32_t *p)
 	struct GEN9_3DSTATE_WM_HZ_OP v;
 	GEN9_3DSTATE_WM_HZ_OP_unpack(p, &v);
 
-	gt.wm.stencil_buffer_clear_enable = v.StencilBufferClearEnable;
-	gt.wm.depth_buffer_clear_enable = v.DepthBufferClearEnable;
-	gt.wm.scissor_rectangle_enable = v.ScissorRectangleEnable;
-	gt.wm.depth_buffer_resolve_enable = v.DepthBufferResolveEnable;
-	gt.wm.hz_depth_buffer_resolve_enable = v.HierarchicalDepthBufferResolveEnable;
-	gt.wm.pixel_position_offset_enable = v.PixelPositionOffsetEnable;
-	gt.wm.full_surface_depth_and_stencil_clear = v.FullSurfaceDepthandStencilClear;
+	gt.hiz.stencil_buffer_clear_enable = v.StencilBufferClearEnable;
+	gt.hiz.depth_buffer_clear_enable = v.DepthBufferClearEnable;
+	gt.hiz.scissor_rectangle_enable = v.ScissorRectangleEnable;
+	gt.hiz.depth_buffer_resolve_enable = v.DepthBufferResolveEnable;
+	gt.hiz.hz_depth_buffer_resolve_enable = v.HierarchicalDepthBufferResolveEnable;
+	gt.hiz.pixel_position_offset_enable = v.PixelPositionOffsetEnable;
+	gt.hiz.full_surface_depth_and_stencil_clear = v.FullSurfaceDepthandStencilClear;
 }
 
 static const command_handler_t pipelined_3dstate_commands[] = {
@@ -1333,10 +1351,10 @@ handle_3dstate_drawing_rectangle(uint32_t *p)
 	struct GEN9_3DSTATE_DRAWING_RECTANGLE v;
 	GEN9_3DSTATE_DRAWING_RECTANGLE_unpack(p, &v);
 
-	gt.drawing_rectangle.min_x = v.ClippedDrawingRectangleXMin;
-	gt.drawing_rectangle.min_y = v.ClippedDrawingRectangleYMin;
-	gt.drawing_rectangle.max_x = v.ClippedDrawingRectangleXMax;
-	gt.drawing_rectangle.max_y = v.ClippedDrawingRectangleYMax;
+	gt.drawing_rectangle.rect.x0 = v.ClippedDrawingRectangleXMin;
+	gt.drawing_rectangle.rect.y0 = v.ClippedDrawingRectangleYMin;
+	gt.drawing_rectangle.rect.x1 = v.ClippedDrawingRectangleXMax;
+	gt.drawing_rectangle.rect.y1 = v.ClippedDrawingRectangleYMax;
 	gt.drawing_rectangle.origin_x = v.DrawingRectangleOriginX;
 	gt.drawing_rectangle.origin_y = v.DrawingRectangleOriginY;
 }
@@ -1484,7 +1502,7 @@ static const command_handler_t nonpipelined_3dstate_commands[] = {
 static void
 handle_pipe_control(uint32_t *p)
 {
-	if (gt.wm.depth_buffer_clear_enable)
+	if (gt.hiz.depth_buffer_clear_enable)
 		depth_clear();
 
 	ksim_trace(TRACE_CS, "PIPE_CONTROL\n");
