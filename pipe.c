@@ -320,6 +320,23 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	default:
 		provoking = 0;
 		break;
+	case _3DPRIM_RECTLIST:
+		/* The documentation requires a specific vertex
+		 * ordering, but the hw doesn't actually care.  Our
+		 * rasterizer does though, so rotate vertices to make
+		 * sure the first to edges are axis parallel. */
+		if (vue_in[0][1].vec4.x != vue_in[1][1].vec4.x &&
+		    vue_in[0][1].vec4.y != vue_in[1][1].vec4.y) {
+			ksim_warn("invalid rect list vertex order\n");
+			provoking = 1;
+		} else if (vue_in[1][1].vec4.x != vue_in[2][1].vec4.x &&
+			   vue_in[1][1].vec4.y != vue_in[2][1].vec4.y) {
+			ksim_warn("invalid rect list vertex order\n");
+			provoking = 2;
+		} else {
+			provoking = 0;
+		}
+		break;
 	}
 
 	static const int indices[5] = { 0, 1, 2, 0, 1 };
