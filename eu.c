@@ -232,9 +232,13 @@ builder_emit_da_src_load(struct builder *bld,
 	if (src->abs) {
 		if (src->type == BRW_HW_REG_TYPE_F) {
 			int tmp_reg = builder_get_reg_with_uniform(bld, 0x7fffffff);
-			builder_emit_vpand(bld, reg, reg, tmp_reg);
+			builder_emit_vpand(bld, tmp_reg, reg, tmp_reg);
+			bld->regs[tmp_reg].contents = 0;
+			reg = tmp_reg;
 		} else {
-			builder_emit_vpabsd(bld, reg, reg);
+			int tmp_reg = builder_get_reg(bld);
+			builder_emit_vpabsd(bld, tmp_reg, reg);
+			reg = tmp_reg;
 		}
 	}
 
@@ -242,12 +246,14 @@ builder_emit_da_src_load(struct builder *bld,
 		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
 
 		if (is_logic_instruction(inst)) {
-			builder_emit_vpxor(bld, reg, reg, tmp_reg);
+			builder_emit_vpxor(bld, tmp_reg, reg, tmp_reg);
 		} else if (src->type == BRW_HW_REG_TYPE_F) {
-			builder_emit_vsubps(bld, reg, reg, tmp_reg);
+			builder_emit_vsubps(bld, tmp_reg, reg, tmp_reg);
 		} else {
-			builder_emit_vpsubd(bld, reg, reg, tmp_reg);
+			builder_emit_vpsubd(bld, tmp_reg, reg, tmp_reg);
 		}
+		bld->regs[tmp_reg].contents = 0;
+		reg = tmp_reg;
 	}
 
 	return reg;
