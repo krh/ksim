@@ -313,16 +313,16 @@ depth_test(struct primitive *p, struct dispatch *d)
 		const __m256 half =  _mm256_set1_ps(0.5f);
 
 		struct reg w;
-		w.ireg = _mm256_permute4x64_epi64(w.ireg, SWIZZLE(0, 2, 1, 3));
+		w.ireg = _mm256_permute4x64_epi64(d->w.ireg, SWIZZLE(0, 2, 1, 3));
 		__m256i m = _mm256_permute4x64_epi64(d->mask.ireg,
 						     SWIZZLE(0, 2, 1, 3));
 
 		switch (gt.depth.format) {
 		case D32_FLOAT:
-			_mm256_maskstore_ps(base, m, d->w.reg);
+			_mm256_maskstore_ps(base, m, w.reg);
 			break;
 		case D24_UNORM_X8_UINT:
-			w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(d->w.reg, scale), half));
+			w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(w.reg, scale), half));
 			_mm256_maskstore_epi32(base, m, w_unorm.ireg);
 			break;
 		case D16_UNORM:
