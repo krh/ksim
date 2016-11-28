@@ -581,29 +581,6 @@ void blitter_copy(struct blit *b);
 
 void rasterize_primitive(struct value **vue);
 
-/* URB handles are indexes to 64 byte blocks in the URB. */
-
-static inline uint32_t
-urb_entry_to_handle(void *entry)
-{
-	uint32_t handle = (entry - (void *) gt.urb) / 64;
-
-	ksim_assert((void *) gt.urb <= entry &&
-		    entry < (void *) gt.urb + sizeof(gt.urb));
-
-	return handle;
-}
-
-static inline void *
-urb_handle_to_entry(uint32_t handle)
-{
-	void *entry = (void *) gt.urb + handle * 64;
-
-	ksim_assert(handle < sizeof(gt.urb) / 64);
-
-	return entry;
-}
-
 struct surface {
 	void *pixels;
 	enum GEN9_SURFACE_FORMAT format;
@@ -659,16 +636,38 @@ dispatch_shader(struct shader *shader, struct thread *t)
 	f(t);
 }
 
-struct sfid_urb_args {
-	int src;
-	int offset;
-	int len;
-};
+/* URB handles are indexes to 64 byte blocks in the URB. */
 
-void sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args);
+static inline uint32_t
+urb_entry_to_handle(void *entry)
+{
+	uint32_t handle = (entry - (void *) gt.urb) / 64;
+
+	ksim_assert((void *) gt.urb <= entry &&
+		    entry < (void *) gt.urb + sizeof(gt.urb));
+
+	return handle;
+}
+
+static inline void *
+urb_handle_to_entry(uint32_t handle)
+{
+	void *entry = (void *) gt.urb + handle * 64;
+
+	ksim_assert(handle < sizeof(gt.urb) / 64);
+
+	return entry;
+}
+
+void set_urb_allocation(struct urb *urb,
+			uint32_t address, uint32_t size, uint32_t total);
+void *alloc_urb_entry(struct urb *urb);
+void free_urb_entry(struct urb* urb, void *entry);
+void validate_urb_state(void);
 
 struct builder;
 struct inst;
+void builder_emit_sfid_urb(struct builder *bld, struct inst *inst);
 void *builder_emit_sfid_render_cache_helper(struct builder *bld,
 					   uint32_t opcode, uint32_t type,
 					   uint32_t src, uint32_t surface);

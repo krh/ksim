@@ -523,51 +523,6 @@ reg_offset(int num, int subnum)
 }
 
 static void
-builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
-{
-	struct inst_send send = unpack_inst_send(inst);
-	struct sfid_urb_args *args;
-	void *func = NULL;
-
-	args = builder_get_const_data(bld, sizeof *args, 8);
-	args->src = unpack_inst_2src_src0(inst).num;
-	args->len = send.mlen;
-	args->offset = field(send.function_control, 4, 14);
-
-	uint32_t opcode = field(send.function_control, 0, 3);
-	bool per_slot_offset = field(send.function_control, 17, 17);
-
-	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
-
-	switch (opcode) {
-	case 0: /* write HWord */
-	case 1: /* write OWord */
-	case 2: /* read HWord */
-	case 3: /* read OWord */
-	case 4: /* atomic mov */
-	case 5: /* atomic inc */
-	case 6: /* atomic add */
-		stub("sfid urb opcode %d", opcode);
-		return;
-	case 7: /* SIMD8 write */
-		ksim_assert(send.header_present);
-		ksim_assert(send.rlen == 0);
-		ksim_assert(!per_slot_offset);
-		func = sfid_urb_simd8_write;
-		break;
-	default:
-		ksim_unreachable("out of range urb opcode: %d", opcode);
-		break;
-	}
-
-	if (send.eot) {
-		builder_emit_jmp_relative(bld, (uint8_t *) func - bld->p);
-	} else {
-		builder_emit_call(bld, func);
-	}
-}
-
-static void
 builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);

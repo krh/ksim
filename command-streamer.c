@@ -1035,27 +1035,17 @@ handle_3dstate_sampler_state_pointers_ps(uint32_t *p)
 }
 
 static void
-set_urb_allocation(struct urb *urb, uint32_t *p)
-{
-	const uint32_t chunk_size_bytes = 8192;
-
-	urb->data = gt.urb + field(p[1], 25, 31) * chunk_size_bytes;
-	urb->size = (field(p[1], 16, 24) + 1) * 64;
-	urb->total = field(p[1], 0, 15);
-
-	urb->free_list = URB_EMPTY;
-	urb->count = 0;
-}
-
-static void
 handle_3dstate_urb_vs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_URB_VS\n");
 
-	set_urb_allocation(&gt.vs.urb, p);
-	ksim_trace(TRACE_CS, "vs urb: start=%d, size=%d, total=%d\n",
-		   gt.vs.urb.data - (void *) gt.urb,
-		   gt.vs.urb.size, gt.vs.urb.total);
+	struct GEN9_3DSTATE_URB_VS v;
+	GEN9_3DSTATE_URB_VS_unpack(p, &v);
+
+	set_urb_allocation(&gt.vs.urb,
+			   v.VSURBStartingAddress,
+			   v.VSURBEntryAllocationSize,
+			   v.VSNumberofURBEntries);
 }
 
 static void
@@ -1063,7 +1053,13 @@ handle_3dstate_urb_hs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_URB_HS\n");
 
-	set_urb_allocation(&gt.hs.urb, p);
+	struct GEN9_3DSTATE_URB_HS v;
+	GEN9_3DSTATE_URB_HS_unpack(p, &v);
+
+	set_urb_allocation(&gt.hs.urb,
+			   v.HSURBStartingAddress,
+			   v.HSURBEntryAllocationSize,
+			   v.HSNumberofURBEntries);
 }
 
 static void
@@ -1071,7 +1067,13 @@ handle_3dstate_urb_ds(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_URB_DS\n");
 
-	set_urb_allocation(&gt.ds.urb, p);
+	struct GEN9_3DSTATE_URB_DS v;
+	GEN9_3DSTATE_URB_DS_unpack(p, &v);
+
+	set_urb_allocation(&gt.ds.urb,
+			   v.DSURBStartingAddress,
+			   v.DSURBEntryAllocationSize,
+			   v.DSNumberofURBEntries);
 }
 
 static void
@@ -1079,7 +1081,13 @@ handle_3dstate_urb_gs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_URB_GS\n");
 
-	set_urb_allocation(&gt.gs.urb, p);
+	struct GEN9_3DSTATE_URB_GS v;
+	GEN9_3DSTATE_URB_GS_unpack(p, &v);
+
+	set_urb_allocation(&gt.gs.urb,
+			   v.GSURBStartingAddress,
+			   v.GSURBEntryAllocationSize,
+			   v.GSNumberofURBEntries);
 }
 
 static void

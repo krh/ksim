@@ -23,39 +23,6 @@
 
 #include "ksim.h"
 
-struct free_urb {
-	uint32_t next;
-};
-
-static void *
-alloc_urb_entry(struct urb *urb)
-{
-	struct free_urb *f;
-	void *p;
-
-	if (urb->free_list != URB_EMPTY) {
-		f = p = urb->data + urb->free_list;
-		urb->free_list = f->next;
-	} else {
-		ksim_assert(urb->count < urb->total);
-		p = urb->data + urb->size * urb->count++;
-	}
-
-	ksim_assert(p >= urb->data && p < urb->data + urb->total * urb->size);
-	ksim_assert(p >= (void *) gt.urb && p < (void *) gt.urb + sizeof(gt.urb));
-
-	return p;
-}
-
-static void
-free_urb_entry(struct urb* urb, void *entry)
-{
-	struct free_urb *f = entry;
-
-	f->next = urb->free_list;
-	urb->free_list = entry - urb->data;
-}
-
 static inline int32_t
 fp_as_int32(float f)
 {
@@ -247,40 +214,6 @@ validate_vf_state(void)
 	/* Check that SGVs are written within bounds */
 	ksim_assert(gt.vf.iid_element * 16 < gt.vs.urb.size);
 	ksim_assert(gt.vf.vid_element * 16 < gt.vs.urb.size);
-}
-
-static void
-validate_urb_state(void)
-{
-	struct urb *all_urbs[] = {
-		&gt.vs.urb,
-		&gt.hs.urb,
-		&gt.ds.urb,
-		&gt.gs.urb,
-	}, *u, *v;
-
-	/* Validate that the URB allocations are properly sized and
-	 * don't overlap
-	 */
-
-	for (uint32_t i = 0; i < ARRAY_LENGTH(all_urbs); i++) {
-		u = all_urbs[i];
-		char *ustart = u->data;
-		char *uend = ustart + u->total * u->size;
-		ksim_assert(gt.urb <= ustart && uend <= gt.urb + sizeof(gt.urb));
-
-		for (uint32_t j = i + 1; j < ARRAY_LENGTH(all_urbs); j++) {
-			v = all_urbs[j];
-			char *vstart = v->data;
-			char *vend = v->data + v->total * v->size;
-			ksim_assert(vend <= ustart || uend <= vstart);
-		}
-	}
-
-	/* If we're doing SIMD8 vs dispatch, we need at least 8 VUEs,
-	 * but the BDW hw limit is even higher: 64. */
-	ksim_assert(64 <= gt.vs.urb.total && gt.vs.urb.total <= 2560);
-
 }
 
 static void

@@ -48,6 +48,7 @@ ksim_files = files(
 	'sampler.c',
 	'stub.c',
 	'thread.c',
+	'urb.c',
 	'wm.c',
 	'blitter.c')
 
