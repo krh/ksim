@@ -257,28 +257,27 @@ depth_test(struct primitive *p, struct dispatch *d)
 
 	void *base = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
 
-	__m256i m = _mm256_permute4x64_epi64(d->mask.ireg,
-					     SWIZZLE(0, 2, 1, 3));
-	const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
-	switch (gt.depth.format) {
-	case D32_FLOAT:
-		d_f.reg = _mm256_maskload_ps(base, m);
-		break;
-	case D24_UNORM_X8_UINT:
-		d24x8.ireg = _mm256_maskload_epi32(base, m);
-		d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg), inv_scale);
-		break;
-	case D16_UNORM:
-		stub("D16_UNORM");
-	default:
-		ksim_unreachable("invalid depth format");
-	}
-
-	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
-	 * form linear owords of pixels. */
-	d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
-
 	if (gt.depth.test_enable) {
+		const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
+		switch (gt.depth.format) {
+		case D32_FLOAT:
+			d_f.reg = _mm256_load_ps(base);
+			break;
+		case D24_UNORM_X8_UINT:
+			d24x8.ireg = _mm256_load_si256(base);
+			d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
+						inv_scale);
+			break;
+		case D16_UNORM:
+			stub("D16_UNORM");
+		default:
+			ksim_unreachable("invalid depth format");
+		}
+
+		/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+		 * match the shader dispatch subspan orderingg. */
+		d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
+
 		switch (gt.depth.test_function) {
 		case COMPAREFUNCTION_ALWAYS:
 			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_TRUE_US);
