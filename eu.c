@@ -244,9 +244,9 @@ builder_emit_da_src_load(struct builder *bld,
 		if (is_logic_instruction(inst)) {
 			builder_emit_vpxor(bld, reg, reg, tmp_reg);
 		} else if (src->type == BRW_HW_REG_TYPE_F) {
-			builder_emit_vsubps(bld, reg, tmp_reg, reg);
+			builder_emit_vsubps(bld, reg, reg, tmp_reg);
 		} else {
-			builder_emit_vpsubd(bld, reg, tmp_reg, reg);
+			builder_emit_vpsubd(bld, reg, reg, tmp_reg);
 		}
 	}
 
@@ -947,7 +947,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		int tmp_reg = builder_get_reg(bld);
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
 		builder_emit_vroundps(bld, tmp_reg, _MM_FROUND_TO_NEG_INF, src0_reg);
-		builder_emit_vsubps(bld, dst_reg, tmp_reg, src0_reg);
+		builder_emit_vsubps(bld, dst_reg, src0_reg, tmp_reg);
 		break;
 	}
 	case BRW_OPCODE_RNDU:
@@ -1100,7 +1100,7 @@ compile_inst(struct builder *bld, struct inst *inst)
 		 *     = src0 * src1 + src2 - src0 * src2
 		 */
 		builder_emit_vmulps(bld, dst_reg, src0_reg, src2_reg);
-		builder_emit_vsubps(bld, dst_reg, src2_reg, dst_reg);
+		builder_emit_vsubps(bld, dst_reg, dst_reg, src2_reg);
 		builder_emit_vfmadd231ps(bld, dst_reg, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_NENOP:
