@@ -683,6 +683,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 		break;
 	case BRW_OPCODE_SEL: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
+		if (modifier == BRW_CONDITIONAL_GE) {
+			builder_emit_vmaxps(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		}
+		if (modifier == BRW_CONDITIONAL_L) {
+			builder_emit_vminps(bld, dst_reg, src0_reg, src1_reg);
+			break;
+		}
 		int tmp_reg = builder_get_reg(bld);
 		builder_emit_cmp(bld, modifier, tmp_reg, src0_reg, src1_reg);
 		/* AVX2 blendv is opposite of the EU sel order, so we
