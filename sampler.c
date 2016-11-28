@@ -464,7 +464,7 @@ sfid_sampler_noop_stub(struct thread *t, const struct sfid_sampler_args *args)
 	dst[3].reg = _mm256_set1_ps(1.0f);
 }
 
-void *
+void
 builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
@@ -528,20 +528,23 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 		break;
 	}
 
+	builder_emit_call(bld, func);
+
 	args->rlen = send.rlen;
 	if (args->rlen == 0) {
 		const uint32_t bti = 0; /* Should be M0.2 from header */
 		const uint32_t opcode = 12;
 		const uint32_t type = 4;
-
+		void *func;
 		/* dst is the null reg for rlen 0 messages, and so
 		 * we'll end up overwriting grf0 - grf3.  We need the
 		 * fragment x and y from grf1. so move it up. */
 		args->dst = 2;
-		builder_emit_call(bld, func);
 
-		return builder_emit_sfid_render_cache_helper(bld, opcode, type, args->dst, bti);
-	} else {
-		return func;
+		func = builder_emit_sfid_render_cache_helper(bld, opcode,
+							     type, args->dst, bti);
+		builder_emit_jmp_relative(bld, (uint8_t *) func - bld->p);
 	}
+
+	builder_invalidate_all(bld);
 }

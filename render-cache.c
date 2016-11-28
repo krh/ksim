@@ -509,7 +509,7 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 	}
 }
 
-void *
+void
 builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
@@ -517,6 +517,21 @@ builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
 	uint32_t type = field(send.function_control, 8, 10);
 	uint32_t surface = field(send.function_control, 0, 7);
 	uint32_t src = unpack_inst_2src_src0(inst).num;
+	void *p;
 
-	return builder_emit_sfid_render_cache_helper(bld, opcode, type, src, surface);
+	p = builder_emit_sfid_render_cache_helper(bld, opcode, type, src, surface);
+	if (p == NULL)
+		builder_emit_ret(bld);
+
+	/* In case of eot, we end the thread by jumping
+	 * (instead of calling) to the sfid implementation.
+	 * When the sfid implementation returns it will return
+	 * to our caller when it's done (tail-call
+	 * optimization).
+	 */
+	if (send.eot) {
+		builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
+	} else {
+		builder_emit_call(bld, p);
+	}
 }

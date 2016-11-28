@@ -670,11 +670,11 @@ void sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args);
 struct builder;
 struct inst;
 void *builder_emit_sfid_render_cache_helper(struct builder *bld,
-					    uint32_t opcode, uint32_t type,
-					    uint32_t src, uint32_t surface);
-void *builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
+					   uint32_t opcode, uint32_t type,
+					   uint32_t src, uint32_t surface);
+void builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
 
-void *builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
+void builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
 
 void prepare_shaders(void);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);

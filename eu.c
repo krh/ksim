@@ -522,13 +522,14 @@ reg_offset(int num, int subnum)
 	return offsetof(struct thread, grf[num].ud[subnum]);
 }
 
-static void *
+static void
 builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	struct sfid_urb_args *args;
-	args = builder_get_const_data(bld, sizeof *args, 8);
+	void *func = NULL;
 
+	args = builder_get_const_data(bld, sizeof *args, 8);
 	args->src = unpack_inst_2src_src0(inst).num;
 	args->len = send.mlen;
 	args->offset = field(send.function_control, 4, 14);
@@ -547,19 +548,26 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 	case 5: /* atomic inc */
 	case 6: /* atomic add */
 		stub("sfid urb opcode %d", opcode);
-		return NULL;
+		return;
 	case 7: /* SIMD8 write */
 		ksim_assert(send.header_present);
 		ksim_assert(send.rlen == 0);
 		ksim_assert(!per_slot_offset);
-		return sfid_urb_simd8_write;
+		func = sfid_urb_simd8_write;
+		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", opcode);
-		return NULL;
+		break;
+	}
+
+	if (send.eot) {
+		builder_emit_jmp_relative(bld, (uint8_t *) func - bld->p);
+	} else {
+		builder_emit_call(bld, func);
 	}
 }
 
-static void *
+static void
 builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
@@ -571,7 +579,7 @@ builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 	ksim_assert(send.eot);
 	ksim_assert(opcode == 0 && request == 0 && resource_select == 1);
 
-	return NULL;
+	builder_emit_ret(bld);
 }
 
 struct sfid_dataport1_args {
@@ -598,7 +606,7 @@ sfid_dataport1_untyped_write(struct thread *t, struct sfid_dataport1_args *args)
 	}
 }
 
-static void *
+static void
 builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
@@ -625,12 +633,15 @@ builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 		args->buffer = buffer.pixels;
 
 		builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
+		builder_emit_call(bld, sfid_dataport1_untyped_write);
+		break;
 
-		return sfid_dataport1_untyped_write;
 	default:
 		stub("dataport1 opcode");
-		return NULL;
+		break;
 	}
+
+
 }
 
 /* Vectorized AVX2 math functions from glibc's libmvec */
@@ -807,49 +818,26 @@ compile_inst(struct builder *bld, struct inst *inst)
 		struct inst_send send = unpack_inst_send(inst);
 		eot = send.eot;
 
-		void *p;
 		switch (send.sfid) {
 		case BRW_SFID_SAMPLER:
-			p = builder_emit_sfid_sampler(bld, inst);
+			builder_emit_sfid_sampler(bld, inst);
 			break;
 		case GEN6_SFID_DATAPORT_RENDER_CACHE:
-			p = builder_emit_sfid_render_cache(bld, inst);
+			builder_emit_sfid_render_cache(bld, inst);
 			break;
 		case BRW_SFID_URB:
-			p = builder_emit_sfid_urb(bld, inst);
+			builder_emit_sfid_urb(bld, inst);
 			break;
 		case BRW_SFID_THREAD_SPAWNER:
-			p = builder_emit_sfid_thread_spawner(bld, inst);
+			builder_emit_sfid_thread_spawner(bld, inst);
 			break;
 		case HSW_SFID_DATAPORT_DATA_CACHE_1:
-			p = builder_emit_sfid_dataport1(bld, inst);
+			builder_emit_sfid_dataport1(bld, inst);
 			break;
 		default:
 			stub("sfid: %d", send.sfid);
 			break;
 		}
-
-		/* If func is NULL, it's the special case of a compute
-		 * thread terminating. Just return.
-		 */
-		if (p == NULL) {
-			builder_emit_ret(bld);
-			break;
-		}
-
-		/* In case of eot, we end the thread by jumping
-		 * (instead of calling) to the sfid implementation.
-		 * When the sfid implementation returns it will return
-		 * to our caller when it's done (tail-call
-		 * optimization).
-		 */
-		if (eot) {
-			builder_emit_jmp_relative(bld, (uint8_t *) p - bld->p);
-		} else {
-			builder_emit_call(bld, p);
-		}
-
-		builder_invalidate_all(bld);
 		break;
 	}
 	case BRW_OPCODE_MATH:
