@@ -604,11 +604,16 @@ fill_dispatch(struct primitive *p, struct tile_iterator *iter, struct reg mask)
 						   _mm256_set1_ps(p->w_deltas[3])));
 
 	d->z.reg = _mm256_rcp_ps(d->w.reg);
+#if 0
 	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
 				     _mm256_set1_ps(p->inv_z1));
 	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
 				     _mm256_set1_ps(p->inv_z2));
-
+#else
+	d->w1_pc.reg = d->w1.reg;
+	d->w2_pc.reg = d->w2.reg;
+#endif
+	
 	d->mask = mask;
 	d->x = p->x0 + iter->x;
 	d->y = p->y0 + iter->y;
