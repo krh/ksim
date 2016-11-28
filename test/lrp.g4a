@@ -1,0 +1,19 @@
+#include "send.g4a"
+
+mov(1)	g1.0<1>F 1.5F		{ align1 };
+mov(1)	g1.4<1>F 2.5F		{ align1 };
+mov(1)	g1.8<1>F 3.5F		{ align1 };
+mov(1)	g1.12<1>F 3.6F		{ align1 };
+mov(1)	g1.16<1>F -3.6F		{ align1 };
+mov(1)	g1.20<1>F -3.5F		{ align1 };
+mov(1)	g1.24<1>F -2.3F		{ align1 };
+
+mov (8)  g3<1>F 0.1F	{ align1 };
+mov(8) g11<1>F 0.1F	{ align1 };
+
+lrp(8) g2<1>F g3<4,4,1>F g1<4,4,1>F  g11<4,4,1>F	{ align16 };
+
+write(0, g2, g3)
+write(8, g1, g11)
+
+terminate_thread
