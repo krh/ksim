@@ -27,7 +27,8 @@
  * This file has been generated, do not hand edit.
  */
 
-#pragma once
+#ifndef GEN9_PACK_H
+#define GEN9_PACK_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -186,7 +187,6 @@ __gen_unpack_sfixed(uint64_t dw, uint32_t start, uint32_t end, uint32_t fract_bi
    return (float) __gen_unpack_sint(dw, start, end) / (1 << fract_bits);
 }
 
-
 #ifndef __gen_address_type
 #error #define __gen_address_type before including this file
 #endif
@@ -197,6 +197,429 @@ __gen_unpack_sfixed(uint64_t dw, uint32_t start, uint32_t end, uint32_t fract_bi
 
 #endif
 
+
+enum GEN9_3D_Prim_Topo_Type {
+   _3DPRIM_POINTLIST                    =      1,
+   _3DPRIM_LINELIST                     =      2,
+   _3DPRIM_LINESTRIP                    =      3,
+   _3DPRIM_TRILIST                      =      4,
+   _3DPRIM_TRISTRIP                     =      5,
+   _3DPRIM_TRIFAN                       =      6,
+   _3DPRIM_QUADLIST                     =      7,
+   _3DPRIM_QUADSTRIP                    =      8,
+   _3DPRIM_LINELIST_ADJ                 =      9,
+   _3DPRIM_LINESTRIP_ADJ                =     10,
+   _3DPRIM_TRILIST_ADJ                  =     11,
+   _3DPRIM_TRISTRIP_ADJ                 =     12,
+   _3DPRIM_TRISTRIP_REVERSE             =     13,
+   _3DPRIM_POLYGON                      =     14,
+   _3DPRIM_RECTLIST                     =     15,
+   _3DPRIM_LINELOOP                     =     16,
+   _3DPRIM_POINTLIST_BF                 =     17,
+   _3DPRIM_LINESTRIP_CONT               =     18,
+   _3DPRIM_LINESTRIP_BF                 =     19,
+   _3DPRIM_LINESTRIP_CONT_BF            =     20,
+   _3DPRIM_TRIFAN_NOSTIPPLE             =     22,
+   _3DPRIM_PATCHLIST_1                  =     32,
+   _3DPRIM_PATCHLIST_2                  =     33,
+   _3DPRIM_PATCHLIST_3                  =     34,
+   _3DPRIM_PATCHLIST_4                  =     35,
+   _3DPRIM_PATCHLIST_5                  =     36,
+   _3DPRIM_PATCHLIST_6                  =     37,
+   _3DPRIM_PATCHLIST_7                  =     38,
+   _3DPRIM_PATCHLIST_8                  =     39,
+   _3DPRIM_PATCHLIST_9                  =     40,
+   _3DPRIM_PATCHLIST_10                 =     41,
+   _3DPRIM_PATCHLIST_11                 =     42,
+   _3DPRIM_PATCHLIST_12                 =     43,
+   _3DPRIM_PATCHLIST_13                 =     44,
+   _3DPRIM_PATCHLIST_14                 =     45,
+   _3DPRIM_PATCHLIST_15                 =     46,
+   _3DPRIM_PATCHLIST_16                 =     47,
+   _3DPRIM_PATCHLIST_17                 =     48,
+   _3DPRIM_PATCHLIST_18                 =     49,
+   _3DPRIM_PATCHLIST_19                 =     50,
+   _3DPRIM_PATCHLIST_20                 =     51,
+   _3DPRIM_PATCHLIST_21                 =     52,
+   _3DPRIM_PATCHLIST_22                 =     53,
+   _3DPRIM_PATCHLIST_23                 =     54,
+   _3DPRIM_PATCHLIST_24                 =     55,
+   _3DPRIM_PATCHLIST_25                 =     56,
+   _3DPRIM_PATCHLIST_26                 =     57,
+   _3DPRIM_PATCHLIST_27                 =     58,
+   _3DPRIM_PATCHLIST_28                 =     59,
+   _3DPRIM_PATCHLIST_29                 =     60,
+   _3DPRIM_PATCHLIST_30                 =     61,
+   _3DPRIM_PATCHLIST_31                 =     62,
+   _3DPRIM_PATCHLIST_32                 =     63,
+};
+
+enum GEN9_3D_Vertex_Component_Control {
+   VFCOMP_NOSTORE                       =      0,
+   VFCOMP_STORE_SRC                     =      1,
+   VFCOMP_STORE_0                       =      2,
+   VFCOMP_STORE_1_FP                    =      3,
+   VFCOMP_STORE_1_INT                   =      4,
+   VFCOMP_STORE_PID                     =      7,
+};
+
+enum GEN9_COMPONENT_ENABLES {
+   CE_NONE                              =      0,
+   CE_X                                 =      1,
+   CE_Y                                 =      2,
+   CE_XY                                =      3,
+   CE_Z                                 =      4,
+   CE_XZ                                =      5,
+   CE_YZ                                =      6,
+   CE_XYZ                               =      7,
+   CE_W                                 =      8,
+   CE_XW                                =      9,
+   CE_YW                                =     10,
+   CE_XYW                               =     11,
+   CE_ZW                                =     12,
+   CE_XZW                               =     13,
+   CE_YZW                               =     14,
+   CE_XYZW                              =     15,
+};
+
+enum GEN9_Attribute_Component_Format {
+   ACF_DISABLED                         =      0,
+   ACF_XY                               =      1,
+   ACF_XYZ                              =      2,
+   ACF_XYZW                             =      3,
+};
+
+enum GEN9_WRAP_SHORTEST_ENABLE {
+   WSE_X                                =      1,
+   WSE_Y                                =      2,
+   WSE_XY                               =      3,
+   WSE_Z                                =      4,
+   WSE_XZ                               =      5,
+   WSE_YZ                               =      6,
+   WSE_XYZ                              =      7,
+   WSE_W                                =      8,
+   WSE_XW                               =      9,
+   WSE_YW                               =     10,
+   WSE_XYW                              =     11,
+   WSE_ZW                               =     12,
+   WSE_XZW                              =     13,
+   WSE_YZW                              =     14,
+   WSE_XYZW                             =     15,
+};
+
+enum GEN9_3D_Stencil_Operation {
+   STENCILOP_KEEP                       =      0,
+   STENCILOP_ZERO                       =      1,
+   STENCILOP_REPLACE                    =      2,
+   STENCILOP_INCRSAT                    =      3,
+   STENCILOP_DECRSAT                    =      4,
+   STENCILOP_INCR                       =      5,
+   STENCILOP_DECR                       =      6,
+   STENCILOP_INVERT                     =      7,
+};
+
+enum GEN9_3D_Color_Buffer_Blend_Factor {
+   BLENDFACTOR_ONE                      =      1,
+   BLENDFACTOR_SRC_COLOR                =      2,
+   BLENDFACTOR_SRC_ALPHA                =      3,
+   BLENDFACTOR_DST_ALPHA                =      4,
+   BLENDFACTOR_DST_COLOR                =      5,
+   BLENDFACTOR_SRC_ALPHA_SATURATE       =      6,
+   BLENDFACTOR_CONST_COLOR              =      7,
+   BLENDFACTOR_CONST_ALPHA              =      8,
+   BLENDFACTOR_SRC1_COLOR               =      9,
+   BLENDFACTOR_SRC1_ALPHA               =     10,
+   BLENDFACTOR_ZERO                     =     17,
+   BLENDFACTOR_INV_SRC_COLOR            =     18,
+   BLENDFACTOR_INV_SRC_ALPHA            =     19,
+   BLENDFACTOR_INV_DST_ALPHA            =     20,
+   BLENDFACTOR_INV_DST_COLOR            =     21,
+   BLENDFACTOR_INV_CONST_COLOR          =     23,
+   BLENDFACTOR_INV_CONST_ALPHA          =     24,
+   BLENDFACTOR_INV_SRC1_COLOR           =     25,
+   BLENDFACTOR_INV_SRC1_ALPHA           =     26,
+};
+
+enum GEN9_3D_Color_Buffer_Blend_Function {
+   BLENDFUNCTION_ADD                    =      0,
+   BLENDFUNCTION_SUBTRACT               =      1,
+   BLENDFUNCTION_REVERSE_SUBTRACT       =      2,
+   BLENDFUNCTION_MIN                    =      3,
+   BLENDFUNCTION_MAX                    =      4,
+};
+
+enum GEN9_3D_Compare_Function {
+   COMPAREFUNCTION_ALWAYS               =      0,
+   COMPAREFUNCTION_NEVER                =      1,
+   COMPAREFUNCTION_LESS                 =      2,
+   COMPAREFUNCTION_EQUAL                =      3,
+   COMPAREFUNCTION_LEQUAL               =      4,
+   COMPAREFUNCTION_GREATER              =      5,
+   COMPAREFUNCTION_NOTEQUAL             =      6,
+   COMPAREFUNCTION_GEQUAL               =      7,
+};
+
+enum GEN9_3D_Logic_Op_Function {
+   LOGICOP_CLEAR                        =      0,
+   LOGICOP_NOR                          =      1,
+   LOGICOP_AND_INVERTED                 =      2,
+   LOGICOP_COPY_INVERTED                =      3,
+   LOGICOP_AND_REVERSE                  =      4,
+   LOGICOP_INVERT                       =      5,
+   LOGICOP_XOR                          =      6,
+   LOGICOP_NAND                         =      7,
+   LOGICOP_AND                          =      8,
+   LOGICOP_EQUIV                        =      9,
+   LOGICOP_NOOP                         =     10,
+   LOGICOP_OR_INVERTED                  =     11,
+   LOGICOP_COPY                         =     12,
+   LOGICOP_OR_REVERSE                   =     13,
+   LOGICOP_OR                           =     14,
+   LOGICOP_SET                          =     15,
+};
+
+enum GEN9_SURFACE_FORMAT {
+   SF_R32G32B32A32_FLOAT                =      0,
+   SF_R32G32B32A32_SINT                 =      1,
+   SF_R32G32B32A32_UINT                 =      2,
+   SF_R32G32B32A32_UNORM                =      3,
+   SF_R32G32B32A32_SNORM                =      4,
+   SF_R64G64_FLOAT                      =      5,
+   SF_R32G32B32X32_FLOAT                =      6,
+   SF_R32G32B32A32_SSCALED              =      7,
+   SF_R32G32B32A32_USCALED              =      8,
+   SF_R32G32B32A32_SFIXED               =     32,
+   SF_R64G64_PASSTHRU                   =     33,
+   SF_R32G32B32_FLOAT                   =     64,
+   SF_R32G32B32_SINT                    =     65,
+   SF_R32G32B32_UINT                    =     66,
+   SF_R32G32B32_UNORM                   =     67,
+   SF_R32G32B32_SNORM                   =     68,
+   SF_R32G32B32_SSCALED                 =     69,
+   SF_R32G32B32_USCALED                 =     70,
+   SF_R32G32B32_SFIXED                  =     80,
+   SF_R16G16B16A16_UNORM                =    128,
+   SF_R16G16B16A16_SNORM                =    129,
+   SF_R16G16B16A16_SINT                 =    130,
+   SF_R16G16B16A16_UINT                 =    131,
+   SF_R16G16B16A16_FLOAT                =    132,
+   SF_R32G32_FLOAT                      =    133,
+   SF_R32G32_SINT                       =    134,
+   SF_R32G32_UINT                       =    135,
+   SF_R32_FLOAT_X8X24_TYPELESS          =    136,
+   SF_X32_TYPELESS_G8X24_UINT           =    137,
+   SF_L32A32_FLOAT                      =    138,
+   SF_R32G32_UNORM                      =    139,
+   SF_R32G32_SNORM                      =    140,
+   SF_R64_FLOAT                         =    141,
+   SF_R16G16B16X16_UNORM                =    142,
+   SF_R16G16B16X16_FLOAT                =    143,
+   SF_A32X32_FLOAT                      =    144,
+   SF_L32X32_FLOAT                      =    145,
+   SF_I32X32_FLOAT                      =    146,
+   SF_R16G16B16A16_SSCALED              =    147,
+   SF_R16G16B16A16_USCALED              =    148,
+   SF_R32G32_SSCALED                    =    149,
+   SF_R32G32_USCALED                    =    150,
+   SF_R32G32_SFIXED                     =    160,
+   SF_R64_PASSTHRU                      =    161,
+   SF_B8G8R8A8_UNORM                    =    192,
+   SF_B8G8R8A8_UNORM_SRGB               =    193,
+   SF_R10G10B10A2_UNORM                 =    194,
+   SF_R10G10B10A2_UNORM_SRGB            =    195,
+   SF_R10G10B10A2_UINT                  =    196,
+   SF_R10G10B10_SNORM_A2_UNORM          =    197,
+   SF_R8G8B8A8_UNORM                    =    199,
+   SF_R8G8B8A8_UNORM_SRGB               =    200,
+   SF_R8G8B8A8_SNORM                    =    201,
+   SF_R8G8B8A8_SINT                     =    202,
+   SF_R8G8B8A8_UINT                     =    203,
+   SF_R16G16_UNORM                      =    204,
+   SF_R16G16_SNORM                      =    205,
+   SF_R16G16_SINT                       =    206,
+   SF_R16G16_UINT                       =    207,
+   SF_R16G16_FLOAT                      =    208,
+   SF_B10G10R10A2_UNORM                 =    209,
+   SF_B10G10R10A2_UNORM_SRGB            =    210,
+   SF_R11G11B10_FLOAT                   =    211,
+   SF_R32_SINT                          =    214,
+   SF_R32_UINT                          =    215,
+   SF_R32_FLOAT                         =    216,
+   SF_R24_UNORM_X8_TYPELESS             =    217,
+   SF_X24_TYPELESS_G8_UINT              =    218,
+   SF_L32_UNORM                         =    221,
+   SF_A32_UNORM                         =    222,
+   SF_L16A16_UNORM                      =    223,
+   SF_I24X8_UNORM                       =    224,
+   SF_L24X8_UNORM                       =    225,
+   SF_A24X8_UNORM                       =    226,
+   SF_I32_FLOAT                         =    227,
+   SF_L32_FLOAT                         =    228,
+   SF_A32_FLOAT                         =    229,
+   SF_X8B8_UNORM_G8R8_SNORM             =    230,
+   SF_A8X8_UNORM_G8R8_SNORM             =    231,
+   SF_B8X8_UNORM_G8R8_SNORM             =    232,
+   SF_B8G8R8X8_UNORM                    =    233,
+   SF_B8G8R8X8_UNORM_SRGB               =    234,
+   SF_R8G8B8X8_UNORM                    =    235,
+   SF_R8G8B8X8_UNORM_SRGB               =    236,
+   SF_R9G9B9E5_SHAREDEXP                =    237,
+   SF_B10G10R10X2_UNORM                 =    238,
+   SF_L16A16_FLOAT                      =    240,
+   SF_R32_UNORM                         =    241,
+   SF_R32_SNORM                         =    242,
+   SF_R10G10B10X2_USCALED               =    243,
+   SF_R8G8B8A8_SSCALED                  =    244,
+   SF_R8G8B8A8_USCALED                  =    245,
+   SF_R16G16_SSCALED                    =    246,
+   SF_R16G16_USCALED                    =    247,
+   SF_R32_SSCALED                       =    248,
+   SF_R32_USCALED                       =    249,
+   SF_B5G6R5_UNORM                      =    256,
+   SF_B5G6R5_UNORM_SRGB                 =    257,
+   SF_B5G5R5A1_UNORM                    =    258,
+   SF_B5G5R5A1_UNORM_SRGB               =    259,
+   SF_B4G4R4A4_UNORM                    =    260,
+   SF_B4G4R4A4_UNORM_SRGB               =    261,
+   SF_R8G8_UNORM                        =    262,
+   SF_R8G8_SNORM                        =    263,
+   SF_R8G8_SINT                         =    264,
+   SF_R8G8_UINT                         =    265,
+   SF_R16_UNORM                         =    266,
+   SF_R16_SNORM                         =    267,
+   SF_R16_SINT                          =    268,
+   SF_R16_UINT                          =    269,
+   SF_R16_FLOAT                         =    270,
+   SF_A8P8_UNORM_PALETTE0               =    271,
+   SF_A8P8_UNORM_PALETTE1               =    272,
+   SF_I16_UNORM                         =    273,
+   SF_L16_UNORM                         =    274,
+   SF_A16_UNORM                         =    275,
+   SF_L8A8_UNORM                        =    276,
+   SF_I16_FLOAT                         =    277,
+   SF_L16_FLOAT                         =    278,
+   SF_A16_FLOAT                         =    279,
+   SF_L8A8_UNORM_SRGB                   =    280,
+   SF_R5G5_SNORM_B6_UNORM               =    281,
+   SF_B5G5R5X1_UNORM                    =    282,
+   SF_B5G5R5X1_UNORM_SRGB               =    283,
+   SF_R8G8_SSCALED                      =    284,
+   SF_R8G8_USCALED                      =    285,
+   SF_R16_SSCALED                       =    286,
+   SF_R16_USCALED                       =    287,
+   SF_P8A8_UNORM_PALETTE0               =    290,
+   SF_P8A8_UNORM_PALETTE1               =    291,
+   SF_A1B5G5R5_UNORM                    =    292,
+   SF_A4B4G4R4_UNORM                    =    293,
+   SF_L8A8_UINT                         =    294,
+   SF_L8A8_SINT                         =    295,
+   SF_R8_UNORM                          =    320,
+   SF_R8_SNORM                          =    321,
+   SF_R8_SINT                           =    322,
+   SF_R8_UINT                           =    323,
+   SF_A8_UNORM                          =    324,
+   SF_I8_UNORM                          =    325,
+   SF_L8_UNORM                          =    326,
+   SF_P4A4_UNORM_PALETTE0               =    327,
+   SF_A4P4_UNORM_PALETTE0               =    328,
+   SF_R8_SSCALED                        =    329,
+   SF_R8_USCALED                        =    330,
+   SF_P8_UNORM_PALETTE0                 =    331,
+   SF_L8_UNORM_SRGB                     =    332,
+   SF_P8_UNORM_PALETTE1                 =    333,
+   SF_P4A4_UNORM_PALETTE1               =    334,
+   SF_A4P4_UNORM_PALETTE1               =    335,
+   SF_Y8_UNORM                          =    336,
+   SF_L8_UINT                           =    338,
+   SF_L8_SINT                           =    339,
+   SF_I8_UINT                           =    340,
+   SF_I8_SINT                           =    341,
+   SF_DXT1_RGB_SRGB                     =    384,
+   SF_R1_UNORM                          =    385,
+   SF_YCRCB_NORMAL                      =    386,
+   SF_YCRCB_SWAPUVY                     =    387,
+   SF_P2_UNORM_PALETTE0                 =    388,
+   SF_P2_UNORM_PALETTE1                 =    389,
+   SF_BC1_UNORM                         =    390,
+   SF_BC2_UNORM                         =    391,
+   SF_BC3_UNORM                         =    392,
+   SF_BC4_UNORM                         =    393,
+   SF_BC5_UNORM                         =    394,
+   SF_BC1_UNORM_SRGB                    =    395,
+   SF_BC2_UNORM_SRGB                    =    396,
+   SF_BC3_UNORM_SRGB                    =    397,
+   SF_MONO8                             =    398,
+   SF_YCRCB_SWAPUV                      =    399,
+   SF_YCRCB_SWAPY                       =    400,
+   SF_DXT1_RGB                          =    401,
+   SF_FXT1                              =    402,
+   SF_R8G8B8_UNORM                      =    403,
+   SF_R8G8B8_SNORM                      =    404,
+   SF_R8G8B8_SSCALED                    =    405,
+   SF_R8G8B8_USCALED                    =    406,
+   SF_R64G64B64A64_FLOAT                =    407,
+   SF_R64G64B64_FLOAT                   =    408,
+   SF_BC4_SNORM                         =    409,
+   SF_BC5_SNORM                         =    410,
+   SF_R16G16B16_FLOAT                   =    411,
+   SF_R16G16B16_UNORM                   =    412,
+   SF_R16G16B16_SNORM                   =    413,
+   SF_R16G16B16_SSCALED                 =    414,
+   SF_R16G16B16_USCALED                 =    415,
+   SF_BC6H_SF16                         =    417,
+   SF_BC7_UNORM                         =    418,
+   SF_BC7_UNORM_SRGB                    =    419,
+   SF_BC6H_UF16                         =    420,
+   SF_PLANAR_420_8                      =    421,
+   SF_R8G8B8_UNORM_SRGB                 =    424,
+   SF_ETC1_RGB8                         =    425,
+   SF_ETC2_RGB8                         =    426,
+   SF_EAC_R11                           =    427,
+   SF_EAC_RG11                          =    428,
+   SF_EAC_SIGNED_R11                    =    429,
+   SF_EAC_SIGNED_RG11                   =    430,
+   SF_ETC2_SRGB8                        =    431,
+   SF_R16G16B16_UINT                    =    432,
+   SF_R16G16B16_SINT                    =    433,
+   SF_R32_SFIXED                        =    434,
+   SF_R10G10B10A2_SNORM                 =    435,
+   SF_R10G10B10A2_USCALED               =    436,
+   SF_R10G10B10A2_SSCALED               =    437,
+   SF_R10G10B10A2_SINT                  =    438,
+   SF_B10G10R10A2_SNORM                 =    439,
+   SF_B10G10R10A2_USCALED               =    440,
+   SF_B10G10R10A2_SSCALED               =    441,
+   SF_B10G10R10A2_UINT                  =    442,
+   SF_B10G10R10A2_SINT                  =    443,
+   SF_R64G64B64A64_PASSTHRU             =    444,
+   SF_R64G64B64_PASSTHRU                =    445,
+   SF_ETC2_RGB8_PTA                     =    448,
+   SF_ETC2_SRGB8_PTA                    =    449,
+   SF_ETC2_EAC_RGBA8                    =    450,
+   SF_ETC2_EAC_SRGB8_A8                 =    451,
+   SF_R8G8B8_UINT                       =    456,
+   SF_R8G8B8_SINT                       =    457,
+   SF_RAW                               =    511,
+};
+
+enum GEN9_ShaderChannelSelect {
+   SCS_ZERO                             =      0,
+   SCS_ONE                              =      1,
+   SCS_RED                              =      4,
+   SCS_GREEN                            =      5,
+   SCS_BLUE                             =      6,
+   SCS_ALPHA                            =      7,
+};
+
+enum GEN9_TextureCoordinateMode {
+   TCM_WRAP                             =      0,
+   TCM_MIRROR                           =      1,
+   TCM_CLAMP                            =      2,
+   TCM_CUBE                             =      3,
+   TCM_CLAMP_BORDER                     =      4,
+   TCM_MIRROR_ONCE                      =      5,
+   TCM_HALF_BORDER                      =      6,
+};
 
 #define GEN9_3DSTATE_CONSTANT_BODY_length     10
 struct GEN9_3DSTATE_CONSTANT_BODY {
@@ -245,6 +668,7 @@ GEN9_3DSTATE_CONSTANT_BODY_pack(__gen_user_data *data, void * restrict dst,
    dw[9] = v8_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_BODY_unpack(const void * restrict src,
                                   struct GEN9_3DSTATE_CONSTANT_BODY * restrict values)
@@ -260,18 +684,22 @@ GEN9_3DSTATE_CONSTANT_BODY_unpack(const void * restrict src,
    values->ConstantBuffer2ReadLength = __gen_unpack_uint(dw1, 0, 15);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->PointerToConstantBuffer0 = __gen_unpack_address(dw2, 5, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->PointerToConstantBuffer0 = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->PointerToConstantBuffer1 = __gen_unpack_address(dw4, 5, 63);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->PointerToConstantBuffer1 = __gen_unpack_address(qw4, 0, 63);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
-   values->PointerToConstantBuffer2 = __gen_unpack_address(dw6, 5, 63);
+   const uint64_t qw6 __attribute__((unused)) = *(uint64_t *) &dw[6];
+   values->PointerToConstantBuffer2 = __gen_unpack_address(qw6, 0, 63);
 
    const uint32_t dw8 __attribute__((unused)) = dw[8];
-   values->PointerToConstantBuffer3 = __gen_unpack_address(dw8, 5, 63);
-
+   const uint64_t qw8 __attribute__((unused)) = *(uint64_t *) &dw[8];
+   values->PointerToConstantBuffer3 = __gen_unpack_address(qw8, 0, 63);
 }
+#endif
 
 #define GEN9_BINDING_TABLE_EDIT_ENTRY_length      1
 struct GEN9_BINDING_TABLE_EDIT_ENTRY {
@@ -290,6 +718,7 @@ GEN9_BINDING_TABLE_EDIT_ENTRY_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->SurfaceStatePointer, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_BINDING_TABLE_EDIT_ENTRY_unpack(const void * restrict src,
                                      struct GEN9_BINDING_TABLE_EDIT_ENTRY * restrict values)
@@ -300,6 +729,7 @@ GEN9_BINDING_TABLE_EDIT_ENTRY_unpack(const void * restrict src,
    values->BindingTableIndex = __gen_unpack_uint(dw0, 16, 23);
    values->SurfaceStatePointer = __gen_unpack_offset(dw0, 0, 15);
 }
+#endif
 
 #define GEN9_GATHER_CONSTANT_ENTRY_length      1
 struct GEN9_GATHER_CONSTANT_ENTRY {
@@ -320,6 +750,7 @@ GEN9_GATHER_CONSTANT_ENTRY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BindingTableIndexOffset, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_GATHER_CONSTANT_ENTRY_unpack(const void * restrict src,
                                   struct GEN9_GATHER_CONSTANT_ENTRY * restrict values)
@@ -331,6 +762,7 @@ GEN9_GATHER_CONSTANT_ENTRY_unpack(const void * restrict src,
    values->ChannelMask = __gen_unpack_uint(dw0, 4, 7);
    values->BindingTableIndexOffset = __gen_unpack_uint(dw0, 0, 3);
 }
+#endif
 
 #define GEN9_MEMORY_OBJECT_CONTROL_STATE_length      1
 struct GEN9_MEMORY_OBJECT_CONTROL_STATE {
@@ -347,6 +779,7 @@ GEN9_MEMORY_OBJECT_CONTROL_STATE_pack(__gen_user_data *data, void * restrict dst
       __gen_uint(values->IndextoMOCSTables, 1, 6);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(const void * restrict src,
                                         struct GEN9_MEMORY_OBJECT_CONTROL_STATE * restrict values)
@@ -356,12 +789,14 @@ GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(const void * restrict src,
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->IndextoMOCSTables = __gen_unpack_uint(dw0, 1, 6);
 }
+#endif
 
 #define GEN9_VERTEX_BUFFER_STATE_length        4
 struct GEN9_VERTEX_BUFFER_STATE {
    uint32_t                             VertexBufferIndex;
    struct GEN9_MEMORY_OBJECT_CONTROL_STATE MemoryObjectControlState;
-   uint32_t                             AddressModifyEnable;
+   uint32_t                             VertexBufferMOCS;
+   bool                                 AddressModifyEnable;
    bool                                 NullVertexBuffer;
    uint32_t                             BufferPitch;
    __gen_address_type                   BufferStartingAddress;
@@ -380,6 +815,7 @@ GEN9_VERTEX_BUFFER_STATE_pack(__gen_user_data *data, void * restrict dst,
    dw[0] =
       __gen_uint(values->VertexBufferIndex, 26, 31) |
       __gen_uint(v0_0, 16, 22) |
+      __gen_uint(values->VertexBufferMOCS, 16, 22) |
       __gen_uint(values->AddressModifyEnable, 14, 14) |
       __gen_uint(values->NullVertexBuffer, 13, 13) |
       __gen_uint(values->BufferPitch, 0, 11);
@@ -393,6 +829,7 @@ GEN9_VERTEX_BUFFER_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BufferSize, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_VERTEX_BUFFER_STATE_unpack(const void * restrict src,
                                 struct GEN9_VERTEX_BUFFER_STATE * restrict values)
@@ -401,29 +838,32 @@ GEN9_VERTEX_BUFFER_STATE_unpack(const void * restrict src,
 
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->VertexBufferIndex = __gen_unpack_uint(dw0, 26, 31);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->MemoryObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
+   values->VertexBufferMOCS = __gen_unpack_uint(dw0, 16, 22);
    values->AddressModifyEnable = __gen_unpack_uint(dw0, 14, 14);
    values->NullVertexBuffer = __gen_unpack_uint(dw0, 13, 13);
    values->BufferPitch = __gen_unpack_uint(dw0, 0, 11);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->BufferStartingAddress = __gen_unpack_address(dw1, 0, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->BufferStartingAddress = __gen_unpack_address(qw1, 0, 63);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->BufferSize = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_VERTEX_ELEMENT_STATE_length       2
 struct GEN9_VERTEX_ELEMENT_STATE {
    uint32_t                             VertexBufferIndex;
-   uint32_t                             Valid;
-   uint32_t                             SourceElementFormat;
+   bool                                 Valid;
+   enum GEN9_SURFACE_FORMAT             SourceElementFormat;
    bool                                 EdgeFlagEnable;
    uint32_t                             SourceElementOffset;
-   uint32_t                             Component0Control;
-   uint32_t                             Component1Control;
-   uint32_t                             Component2Control;
-   uint32_t                             Component3Control;
+   enum GEN9_3D_Vertex_Component_Control Component0Control;
+   enum GEN9_3D_Vertex_Component_Control Component1Control;
+   enum GEN9_3D_Vertex_Component_Control Component2Control;
+   enum GEN9_3D_Vertex_Component_Control Component3Control;
 };
 
 static inline void
@@ -446,6 +886,7 @@ GEN9_VERTEX_ELEMENT_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->Component3Control, 16, 18);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_VERTEX_ELEMENT_STATE_unpack(const void * restrict src,
                                  struct GEN9_VERTEX_ELEMENT_STATE * restrict values)
@@ -465,6 +906,7 @@ GEN9_VERTEX_ELEMENT_STATE_unpack(const void * restrict src,
    values->Component2Control = __gen_unpack_uint(dw1, 20, 22);
    values->Component3Control = __gen_unpack_uint(dw1, 16, 18);
 }
+#endif
 
 #define GEN9_SO_DECL_length                    1
 struct GEN9_SO_DECL {
@@ -487,6 +929,7 @@ GEN9_SO_DECL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ComponentMask, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SO_DECL_unpack(const void * restrict src,
                     struct GEN9_SO_DECL * restrict values)
@@ -499,6 +942,7 @@ GEN9_SO_DECL_unpack(const void * restrict src,
    values->RegisterIndex = __gen_unpack_uint(dw0, 4, 9);
    values->ComponentMask = __gen_unpack_uint(dw0, 0, 3);
 }
+#endif
 
 #define GEN9_SO_DECL_ENTRY_length              2
 struct GEN9_SO_DECL_ENTRY {
@@ -535,6 +979,7 @@ GEN9_SO_DECL_ENTRY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(v1_1, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SO_DECL_ENTRY_unpack(const void * restrict src,
                           struct GEN9_SO_DECL_ENTRY * restrict values)
@@ -542,13 +987,14 @@ GEN9_SO_DECL_ENTRY_unpack(const void * restrict src,
    const uint32_t *dw = (const uint32_t *) src;
 
    const uint32_t dw0 __attribute__((unused)) = dw[0];
-   GEN9_SO_DECL_unpack(&dw[0], &values->Stream1Decl);
-   GEN9_SO_DECL_unpack(&dw[0], &values->Stream0Decl);
+/* struct SO_DECL */
+/* struct SO_DECL */
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_SO_DECL_unpack(&dw[1], &values->Stream3Decl);
-   GEN9_SO_DECL_unpack(&dw[1], &values->Stream2Decl);
+/* struct SO_DECL */
+/* struct SO_DECL */
 }
+#endif
 
 #define GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_length      1
 struct GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL {
@@ -587,6 +1033,7 @@ GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SourceAttribute, 0, 4);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(const void * restrict src,
                                        struct GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL * restrict values)
@@ -603,6 +1050,7 @@ GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(const void * restrict src,
    values->SwizzleSelect = __gen_unpack_uint(dw0, 6, 7);
    values->SourceAttribute = __gen_unpack_uint(dw0, 0, 4);
 }
+#endif
 
 #define GEN9_SCISSOR_RECT_length               2
 struct GEN9_SCISSOR_RECT {
@@ -627,6 +1075,7 @@ GEN9_SCISSOR_RECT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ScissorRectangleXMax, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SCISSOR_RECT_unpack(const void * restrict src,
                          struct GEN9_SCISSOR_RECT * restrict values)
@@ -641,6 +1090,7 @@ GEN9_SCISSOR_RECT_unpack(const void * restrict src,
    values->ScissorRectangleYMax = __gen_unpack_uint(dw1, 16, 31);
    values->ScissorRectangleXMax = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_SF_CLIP_VIEWPORT_length          16
 struct GEN9_SF_CLIP_VIEWPORT {
@@ -713,6 +1163,7 @@ GEN9_SF_CLIP_VIEWPORT_pack(__gen_user_data *data, void * restrict dst,
       __gen_float(values->YMaxViewPort);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SF_CLIP_VIEWPORT_unpack(const void * restrict src,
                              struct GEN9_SF_CLIP_VIEWPORT * restrict values)
@@ -761,25 +1212,29 @@ GEN9_SF_CLIP_VIEWPORT_unpack(const void * restrict src,
    const uint32_t dw15 __attribute__((unused)) = dw[15];
    values->YMaxViewPort = __gen_unpack_float(dw15);
 }
+#endif
+
+enum GEN9_Color_Clamp {
+   COLORCLAMP_UNORM                     =      0,
+   COLORCLAMP_SNORM                     =      1,
+   COLORCLAMP_RTFORMAT                  =      2,
+};
 
 #define GEN9_BLEND_STATE_ENTRY_length          2
 struct GEN9_BLEND_STATE_ENTRY {
    bool                                 LogicOpEnable;
-   uint32_t                             LogicOpFunction;
+   enum GEN9_3D_Logic_Op_Function       LogicOpFunction;
    bool                                 PreBlendSourceOnlyClampEnable;
-   uint32_t                             ColorClampRange;
-#define COLORCLAMP_UNORM                         0
-#define COLORCLAMP_SNORM                         1
-#define COLORCLAMP_RTFORMAT                      2
+   enum GEN9_Color_Clamp                ColorClampRange;
    bool                                 PreBlendColorClampEnable;
    bool                                 PostBlendColorClampEnable;
    bool                                 ColorBufferBlendEnable;
-   uint32_t                             SourceBlendFactor;
-   uint32_t                             DestinationBlendFactor;
-   uint32_t                             ColorBlendFunction;
-   uint32_t                             SourceAlphaBlendFactor;
-   uint32_t                             DestinationAlphaBlendFactor;
-   uint32_t                             AlphaBlendFunction;
+   enum GEN9_3D_Color_Buffer_Blend_Factor SourceBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor DestinationBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Function ColorBlendFunction;
+   enum GEN9_3D_Color_Buffer_Blend_Factor SourceAlphaBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor DestinationAlphaBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Function AlphaBlendFunction;
    bool                                 WriteDisableAlpha;
    bool                                 WriteDisableRed;
    bool                                 WriteDisableGreen;
@@ -814,6 +1269,7 @@ GEN9_BLEND_STATE_ENTRY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->PostBlendColorClampEnable, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_BLEND_STATE_ENTRY_unpack(const void * restrict src,
                               struct GEN9_BLEND_STATE_ENTRY * restrict values)
@@ -841,6 +1297,7 @@ GEN9_BLEND_STATE_ENTRY_unpack(const void * restrict src,
    values->PreBlendColorClampEnable = __gen_unpack_uint(dw1, 1, 1);
    values->PostBlendColorClampEnable = __gen_unpack_uint(dw1, 0, 0);
 }
+#endif
 
 #define GEN9_BLEND_STATE_length               17
 struct GEN9_BLEND_STATE {
@@ -849,7 +1306,7 @@ struct GEN9_BLEND_STATE {
    bool                                 AlphaToOneEnable;
    bool                                 AlphaToCoverageDitherEnable;
    bool                                 AlphaTestEnable;
-   uint32_t                             AlphaTestFunction;
+   enum GEN9_3D_Compare_Function        AlphaTestFunction;
    bool                                 ColorDitherEnable;
    uint32_t                             XDitherOffset;
    uint32_t                             YDitherOffset;
@@ -890,6 +1347,7 @@ GEN9_BLEND_STATE_pack(__gen_user_data *data, void * restrict dst,
    GEN9_BLEND_STATE_ENTRY_pack(data, &dw[15], &values->Entry[7]);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_BLEND_STATE_unpack(const void * restrict src,
                         struct GEN9_BLEND_STATE * restrict values)
@@ -908,30 +1366,30 @@ GEN9_BLEND_STATE_unpack(const void * restrict src,
    values->YDitherOffset = __gen_unpack_uint(dw0, 19, 20);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[1], &values->Entry[0]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[3], &values->Entry[1]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[5], &values->Entry[2]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw7 __attribute__((unused)) = dw[7];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[7], &values->Entry[3]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw9 __attribute__((unused)) = dw[9];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[9], &values->Entry[4]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw11 __attribute__((unused)) = dw[11];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[11], &values->Entry[5]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw13 __attribute__((unused)) = dw[13];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[13], &values->Entry[6]);
+/* struct BLEND_STATE_ENTRY */
 
    const uint32_t dw15 __attribute__((unused)) = dw[15];
-   GEN9_BLEND_STATE_ENTRY_unpack(&dw[15], &values->Entry[7]);
-
+/* struct BLEND_STATE_ENTRY */
 }
+#endif
 
 #define GEN9_CC_VIEWPORT_length                2
 struct GEN9_CC_VIEWPORT {
@@ -952,6 +1410,7 @@ GEN9_CC_VIEWPORT_pack(__gen_user_data *data, void * restrict dst,
       __gen_float(values->MaximumDepth);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_CC_VIEWPORT_unpack(const void * restrict src,
                         struct GEN9_CC_VIEWPORT * restrict values)
@@ -964,6 +1423,7 @@ GEN9_CC_VIEWPORT_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->MaximumDepth = __gen_unpack_float(dw1);
 }
+#endif
 
 #define GEN9_COLOR_CALC_STATE_length           6
 struct GEN9_COLOR_CALC_STATE {
@@ -1006,6 +1466,7 @@ GEN9_COLOR_CALC_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_float(values->BlendConstantColorAlpha);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_COLOR_CALC_STATE_unpack(const void * restrict src,
                              struct GEN9_COLOR_CALC_STATE * restrict values)
@@ -1032,6 +1493,7 @@ GEN9_COLOR_CALC_STATE_unpack(const void * restrict src,
    const uint32_t dw5 __attribute__((unused)) = dw[5];
    values->BlendConstantColorAlpha = __gen_unpack_float(dw5);
 }
+#endif
 
 #define GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR_length      1
 struct GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR {
@@ -1054,6 +1516,7 @@ GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR_pack(__gen_user_data *data, void
       __gen_uint(values->TargetFunctionID, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR_unpack(const void * restrict src,
                                                        struct GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR * restrict values)
@@ -1065,6 +1528,7 @@ GEN9_EXECUTION_UNIT_EXTENDED_MESSAGE_DESCRIPTOR_unpack(const void * restrict src
    values->EndOfThread = __gen_unpack_uint(dw0, 5, 5);
    values->TargetFunctionID = __gen_unpack_uint(dw0, 0, 3);
 }
+#endif
 
 #define GEN9_INTERFACE_DESCRIPTOR_DATA_length      8
 struct GEN9_INTERFACE_DESCRIPTOR_DATA {
@@ -1072,7 +1536,7 @@ struct GEN9_INTERFACE_DESCRIPTOR_DATA {
    uint32_t                             DenormMode;
 #define Ftz                                      0
 #define SetByKernel                              1
-   uint32_t                             SingleProgramFlow;
+   bool                                 SingleProgramFlow;
    uint32_t                             ThreadPriority;
 #define NormalPriority                           0
 #define HighPriority                             1
@@ -1091,7 +1555,7 @@ struct GEN9_INTERFACE_DESCRIPTOR_DATA {
 #define Between13and16samplersused               4
    uint64_t                             BindingTablePointer;
    uint32_t                             BindingTableEntryCount;
-   uint32_t                             ConstantIndirectURBEntryReadLength;
+   uint32_t                             ConstantURBEntryReadLength;
    uint32_t                             ConstantURBEntryReadOffset;
    uint32_t                             RoundingMode;
 #define RTNE                                     0
@@ -1142,7 +1606,7 @@ GEN9_INTERFACE_DESCRIPTOR_DATA_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BindingTableEntryCount, 0, 4);
 
    dw[5] =
-      __gen_uint(values->ConstantIndirectURBEntryReadLength, 16, 31) |
+      __gen_uint(values->ConstantURBEntryReadLength, 16, 31) |
       __gen_uint(values->ConstantURBEntryReadOffset, 0, 15);
 
    dw[6] =
@@ -1156,6 +1620,7 @@ GEN9_INTERFACE_DESCRIPTOR_DATA_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->CrossThreadConstantDataReadLength, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_INTERFACE_DESCRIPTOR_DATA_unpack(const void * restrict src,
                                       struct GEN9_INTERFACE_DESCRIPTOR_DATA * restrict values)
@@ -1183,7 +1648,7 @@ GEN9_INTERFACE_DESCRIPTOR_DATA_unpack(const void * restrict src,
    values->BindingTableEntryCount = __gen_unpack_uint(dw4, 0, 4);
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   values->ConstantIndirectURBEntryReadLength = __gen_unpack_uint(dw5, 16, 31);
+   values->ConstantURBEntryReadLength = __gen_unpack_uint(dw5, 16, 31);
    values->ConstantURBEntryReadOffset = __gen_unpack_uint(dw5, 0, 15);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
@@ -1196,6 +1661,7 @@ GEN9_INTERFACE_DESCRIPTOR_DATA_unpack(const void * restrict src,
    const uint32_t dw7 __attribute__((unused)) = dw[7];
    values->CrossThreadConstantDataReadLength = __gen_unpack_uint(dw7, 0, 7);
 }
+#endif
 
 #define GEN9_ROUNDINGPRECISIONTABLE_3_BITS_length      1
 struct GEN9_ROUNDINGPRECISIONTABLE_3_BITS {
@@ -1220,6 +1686,7 @@ GEN9_ROUNDINGPRECISIONTABLE_3_BITS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->RoundingPrecision, 0, 2);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_ROUNDINGPRECISIONTABLE_3_BITS_unpack(const void * restrict src,
                                           struct GEN9_ROUNDINGPRECISIONTABLE_3_BITS * restrict values)
@@ -1229,6 +1696,7 @@ GEN9_ROUNDINGPRECISIONTABLE_3_BITS_unpack(const void * restrict src,
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->RoundingPrecision = __gen_unpack_uint(dw0, 0, 2);
 }
+#endif
 
 #define GEN9_PALETTE_ENTRY_length              1
 struct GEN9_PALETTE_ENTRY {
@@ -1251,6 +1719,7 @@ GEN9_PALETTE_ENTRY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->Blue, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_PALETTE_ENTRY_unpack(const void * restrict src,
                           struct GEN9_PALETTE_ENTRY * restrict values)
@@ -1263,6 +1732,7 @@ GEN9_PALETTE_ENTRY_unpack(const void * restrict src,
    values->Green = __gen_unpack_uint(dw0, 8, 15);
    values->Blue = __gen_unpack_uint(dw0, 0, 7);
 }
+#endif
 
 #define GEN9_BINDING_TABLE_STATE_length        1
 struct GEN9_BINDING_TABLE_STATE {
@@ -1279,6 +1749,7 @@ GEN9_BINDING_TABLE_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->SurfaceStatePointer, 6, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_BINDING_TABLE_STATE_unpack(const void * restrict src,
                                 struct GEN9_BINDING_TABLE_STATE * restrict values)
@@ -1288,236 +1759,13 @@ GEN9_BINDING_TABLE_STATE_unpack(const void * restrict src,
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->SurfaceStatePointer = __gen_unpack_offset(dw0, 6, 31);
 }
+#endif
 
-enum GEN9_SURFACE_FORMAT {
-	SF_R32G32B32A32_FLOAT		= 0,
-	SF_R32G32B32A32_SINT		= 1,
-	SF_R32G32B32A32_UINT		= 2,
-	SF_R32G32B32A32_UNORM		= 3,
-	SF_R32G32B32A32_SNORM		= 4,
-	SF_R64G64_FLOAT		= 5,
-	SF_R32G32B32X32_FLOAT		= 6,
-	SF_R32G32B32A32_SSCALED		= 7,
-	SF_R32G32B32A32_USCALED		= 8,
-	SF_R32G32B32A32_SFIXED		= 32,
-	SF_R64G64_PASSTHRU		= 33,
-	SF_R32G32B32_FLOAT		= 64,
-	SF_R32G32B32_SINT		= 65,
-	SF_R32G32B32_UINT		= 66,
-	SF_R32G32B32_UNORM		= 67,
-	SF_R32G32B32_SNORM		= 68,
-	SF_R32G32B32_SSCALED		= 69,
-	SF_R32G32B32_USCALED		= 70,
-	SF_R32G32B32_SFIXED		= 80,
-	SF_R16G16B16A16_UNORM		= 128,
-	SF_R16G16B16A16_SNORM		= 129,
-	SF_R16G16B16A16_SINT		= 130,
-	SF_R16G16B16A16_UINT		= 131,
-	SF_R16G16B16A16_FLOAT		= 132,
-	SF_R32G32_FLOAT		= 133,
-	SF_R32G32_SINT		= 134,
-	SF_R32G32_UINT		= 135,
-	SF_R32_FLOAT_X8X24_TYPELESS		= 136,
-	SF_X32_TYPELESS_G8X24_UINT		= 137,
-	SF_L32A32_FLOAT		= 138,
-	SF_R32G32_UNORM		= 139,
-	SF_R32G32_SNORM		= 140,
-	SF_R64_FLOAT		= 141,
-	SF_R16G16B16X16_UNORM		= 142,
-	SF_R16G16B16X16_FLOAT		= 143,
-	SF_A32X32_FLOAT		= 144,
-	SF_L32X32_FLOAT		= 145,
-	SF_I32X32_FLOAT		= 146,
-	SF_R16G16B16A16_SSCALED		= 147,
-	SF_R16G16B16A16_USCALED		= 148,
-	SF_R32G32_SSCALED		= 149,
-	SF_R32G32_USCALED		= 150,
-	SF_R32G32_SFIXED		= 160,
-	SF_R64_PASSTHRU		= 161,
-	SF_B8G8R8A8_UNORM		= 192,
-	SF_B8G8R8A8_UNORM_SRGB		= 193,
-	SF_R10G10B10A2_UNORM		= 194,
-	SF_R10G10B10A2_UNORM_SRGB		= 195,
-	SF_R10G10B10A2_UINT		= 196,
-	SF_R10G10B10_SNORM_A2_UNORM		= 197,
-	SF_R8G8B8A8_UNORM		= 199,
-	SF_R8G8B8A8_UNORM_SRGB		= 200,
-	SF_R8G8B8A8_SNORM		= 201,
-	SF_R8G8B8A8_SINT		= 202,
-	SF_R8G8B8A8_UINT		= 203,
-	SF_R16G16_UNORM		= 204,
-	SF_R16G16_SNORM		= 205,
-	SF_R16G16_SINT		= 206,
-	SF_R16G16_UINT		= 207,
-	SF_R16G16_FLOAT		= 208,
-	SF_B10G10R10A2_UNORM		= 209,
-	SF_B10G10R10A2_UNORM_SRGB		= 210,
-	SF_R11G11B10_FLOAT		= 211,
-	SF_R32_SINT		= 214,
-	SF_R32_UINT		= 215,
-	SF_R32_FLOAT		= 216,
-	SF_R24_UNORM_X8_TYPELESS		= 217,
-	SF_X24_TYPELESS_G8_UINT		= 218,
-	SF_L32_UNORM		= 221,
-	SF_A32_UNORM		= 222,
-	SF_L16A16_UNORM		= 223,
-	SF_I24X8_UNORM		= 224,
-	SF_L24X8_UNORM		= 225,
-	SF_A24X8_UNORM		= 226,
-	SF_I32_FLOAT		= 227,
-	SF_L32_FLOAT		= 228,
-	SF_A32_FLOAT		= 229,
-	SF_X8B8_UNORM_G8R8_SNORM		= 230,
-	SF_A8X8_UNORM_G8R8_SNORM		= 231,
-	SF_B8X8_UNORM_G8R8_SNORM		= 232,
-	SF_B8G8R8X8_UNORM		= 233,
-	SF_B8G8R8X8_UNORM_SRGB		= 234,
-	SF_R8G8B8X8_UNORM		= 235,
-	SF_R8G8B8X8_UNORM_SRGB		= 236,
-	SF_R9G9B9E5_SHAREDEXP		= 237,
-	SF_B10G10R10X2_UNORM		= 238,
-	SF_L16A16_FLOAT		= 240,
-	SF_R32_UNORM		= 241,
-	SF_R32_SNORM		= 242,
-	SF_R10G10B10X2_USCALED		= 243,
-	SF_R8G8B8A8_SSCALED		= 244,
-	SF_R8G8B8A8_USCALED		= 245,
-	SF_R16G16_SSCALED		= 246,
-	SF_R16G16_USCALED		= 247,
-	SF_R32_SSCALED		= 248,
-	SF_R32_USCALED		= 249,
-	SF_B5G6R5_UNORM		= 256,
-	SF_B5G6R5_UNORM_SRGB		= 257,
-	SF_B5G5R5A1_UNORM		= 258,
-	SF_B5G5R5A1_UNORM_SRGB		= 259,
-	SF_B4G4R4A4_UNORM		= 260,
-	SF_B4G4R4A4_UNORM_SRGB		= 261,
-	SF_R8G8_UNORM		= 262,
-	SF_R8G8_SNORM		= 263,
-	SF_R8G8_SINT		= 264,
-	SF_R8G8_UINT		= 265,
-	SF_R16_UNORM		= 266,
-	SF_R16_SNORM		= 267,
-	SF_R16_SINT		= 268,
-	SF_R16_UINT		= 269,
-	SF_R16_FLOAT		= 270,
-	SF_A8P8_UNORM_PALETTE0		= 271,
-	SF_A8P8_UNORM_PALETTE1		= 272,
-	SF_I16_UNORM		= 273,
-	SF_L16_UNORM		= 274,
-	SF_A16_UNORM		= 275,
-	SF_L8A8_UNORM		= 276,
-	SF_I16_FLOAT		= 277,
-	SF_L16_FLOAT		= 278,
-	SF_A16_FLOAT		= 279,
-	SF_L8A8_UNORM_SRGB		= 280,
-	SF_R5G5_SNORM_B6_UNORM		= 281,
-	SF_B5G5R5X1_UNORM		= 282,
-	SF_B5G5R5X1_UNORM_SRGB		= 283,
-	SF_R8G8_SSCALED		= 284,
-	SF_R8G8_USCALED		= 285,
-	SF_R16_SSCALED		= 286,
-	SF_R16_USCALED		= 287,
-	SF_P8A8_UNORM_PALETTE0		= 290,
-	SF_P8A8_UNORM_PALETTE1		= 291,
-	SF_A1B5G5R5_UNORM		= 292,
-	SF_A4B4G4R4_UNORM		= 293,
-	SF_L8A8_UINT		= 294,
-	SF_L8A8_SINT		= 295,
-	SF_R8_UNORM		= 320,
-	SF_R8_SNORM		= 321,
-	SF_R8_SINT		= 322,
-	SF_R8_UINT		= 323,
-	SF_A8_UNORM		= 324,
-	SF_I8_UNORM		= 325,
-	SF_L8_UNORM		= 326,
-	SF_P4A4_UNORM_PALETTE0		= 327,
-	SF_A4P4_UNORM_PALETTE0		= 328,
-	SF_R8_SSCALED		= 329,
-	SF_R8_USCALED		= 330,
-	SF_P8_UNORM_PALETTE0		= 331,
-	SF_L8_UNORM_SRGB		= 332,
-	SF_P8_UNORM_PALETTE1		= 333,
-	SF_P4A4_UNORM_PALETTE1		= 334,
-	SF_A4P4_UNORM_PALETTE1		= 335,
-	SF_Y8_UNORM		= 336,
-	SF_L8_UINT		= 338,
-	SF_L8_SINT		= 339,
-	SF_I8_UINT		= 340,
-	SF_I8_SINT		= 341,
-	SF_DXT1_RGB_SRGB		= 384,
-	SF_R1_UNORM		= 385,
-	SF_YCRCB_NORMAL		= 386,
-	SF_YCRCB_SWAPUVY		= 387,
-	SF_P2_UNORM_PALETTE0		= 388,
-	SF_P2_UNORM_PALETTE1		= 389,
-	SF_BC1_UNORM		= 390,
-	SF_BC2_UNORM		= 391,
-	SF_BC3_UNORM		= 392,
-	SF_BC4_UNORM		= 393,
-	SF_BC5_UNORM		= 394,
-	SF_BC1_UNORM_SRGB		= 395,
-	SF_BC2_UNORM_SRGB		= 396,
-	SF_BC3_UNORM_SRGB		= 397,
-	SF_MONO8		= 398,
-	SF_YCRCB_SWAPUV		= 399,
-	SF_YCRCB_SWAPY		= 400,
-	SF_DXT1_RGB		= 401,
-	SF_FXT1		= 402,
-	SF_R8G8B8_UNORM		= 403,
-	SF_R8G8B8_SNORM		= 404,
-	SF_R8G8B8_SSCALED		= 405,
-	SF_R8G8B8_USCALED		= 406,
-	SF_R64G64B64A64_FLOAT		= 407,
-	SF_R64G64B64_FLOAT		= 408,
-	SF_BC4_SNORM		= 409,
-	SF_BC5_SNORM		= 410,
-	SF_R16G16B16_FLOAT		= 411,
-	SF_R16G16B16_UNORM		= 412,
-	SF_R16G16B16_SNORM		= 413,
-	SF_R16G16B16_SSCALED		= 414,
-	SF_R16G16B16_USCALED		= 415,
-	SF_BC6H_SF16		= 417,
-	SF_BC7_UNORM		= 418,
-	SF_BC7_UNORM_SRGB		= 419,
-	SF_BC6H_UF16		= 420,
-	SF_PLANAR_420_8		= 421,
-	SF_R8G8B8_UNORM_SRGB		= 424,
-	SF_ETC1_RGB8		= 425,
-	SF_ETC2_RGB8		= 426,
-	SF_EAC_R11		= 427,
-	SF_EAC_RG11		= 428,
-	SF_EAC_SIGNED_R11		= 429,
-	SF_EAC_SIGNED_RG11		= 430,
-	SF_ETC2_SRGB8		= 431,
-	SF_R16G16B16_UINT		= 432,
-	SF_R16G16B16_SINT		= 433,
-	SF_R32_SFIXED		= 434,
-	SF_R10G10B10A2_SNORM		= 435,
-	SF_R10G10B10A2_USCALED		= 436,
-	SF_R10G10B10A2_SSCALED		= 437,
-	SF_R10G10B10A2_SINT		= 438,
-	SF_B10G10R10A2_SNORM		= 439,
-	SF_B10G10R10A2_USCALED		= 440,
-	SF_B10G10R10A2_SSCALED		= 441,
-	SF_B10G10R10A2_UINT		= 442,
-	SF_B10G10R10A2_SINT		= 443,
-	SF_R64G64B64A64_PASSTHRU		= 444,
-	SF_R64G64B64_PASSTHRU		= 445,
-	SF_ETC2_RGB8_PTA		= 448,
-	SF_ETC2_SRGB8_PTA		= 449,
-	SF_ETC2_EAC_RGBA8		= 450,
-	SF_ETC2_EAC_SRGB8_A8		= 451,
-	SF_R8G8B8_UINT		= 456,
-	SF_R8G8B8_SINT		= 457,
-	SF_RAW		= 511,
-};
-
-enum GEN9_TileMode {
-	LINEAR		= 0,
-	WMAJOR		= 1,
-	XMAJOR		= 2,
-	YMAJOR		= 3,
+enum GEN9_TILE_MODE {
+   LINEAR                               =      0,
+   WMAJOR                               =      1,
+   XMAJOR                               =      2,
+   YMAJOR                               =      3,
 };
 
 #define GEN9_RENDER_SURFACE_STATE_length      16
@@ -1531,7 +1779,7 @@ struct GEN9_RENDER_SURFACE_STATE {
 #define SURFTYPE_STRBUF                          5
 #define SURFTYPE_NULL                            7
    bool                                 SurfaceArray;
-   enum GEN9_SURFACE_FORMAT		SurfaceFormat;
+   enum GEN9_SURFACE_FORMAT             SurfaceFormat;
    uint32_t                             SurfaceVerticalAlignment;
 #define VALIGN4                                  1
 #define VALIGN8                                  2
@@ -1540,7 +1788,7 @@ struct GEN9_RENDER_SURFACE_STATE {
 #define HALIGN4                                  1
 #define HALIGN8                                  2
 #define HALIGN16                                 3
-   enum GEN9_TileMode                   TileMode;
+   enum GEN9_TILE_MODE                  TileMode;
    uint32_t                             VerticalLineStride;
    uint32_t                             VerticalLineStrideOffset;
    bool                                 SamplerL2BypassModeDisable;
@@ -1573,8 +1821,8 @@ struct GEN9_RENDER_SURFACE_STATE {
    uint32_t                             MinimumArrayElement;
    uint32_t                             RenderTargetViewExtent;
    uint32_t                             MultisampledSurfaceStorageFormat;
-#define MSS                                      0
-#define DEPTH_STENCIL                            1
+#define MSFMT_MSS                                0
+#define MSFMT_DEPTH_STENCIL                      1
    uint32_t                             NumberofMultisamples;
 #define MULTISAMPLECOUNT_1                       0
 #define MULTISAMPLECOUNT_2                       1
@@ -1582,8 +1830,8 @@ struct GEN9_RENDER_SURFACE_STATE {
 #define MULTISAMPLECOUNT_8                       3
 #define MULTISAMPLECOUNT_16                      4
    uint32_t                             MultisamplePositionPaletteIndex;
-   uint64_t                             XOffset;
-   uint64_t                             YOffset;
+   uint32_t                             XOffset;
+   uint32_t                             YOffset;
    bool                                 EWADisableForCube;
    uint32_t                             TiledResourceMode;
 #define NONE                                     0
@@ -1682,8 +1930,8 @@ GEN9_RENDER_SURFACE_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MultisamplePositionPaletteIndex, 0, 2);
 
    dw[5] =
-      __gen_offset(values->XOffset, 25, 31) |
-      __gen_offset(values->YOffset, 21, 23) |
+      __gen_uint(values->XOffset, 25, 31) |
+      __gen_uint(values->YOffset, 21, 23) |
       __gen_uint(values->EWADisableForCube, 20, 20) |
       __gen_uint(values->TiledResourceMode, 18, 19) |
       __gen_uint(values->CoherencyType, 14, 14) |
@@ -1738,6 +1986,7 @@ GEN9_RENDER_SURFACE_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_sint(values->AlphaClearColor, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_RENDER_SURFACE_STATE_unpack(const void * restrict src,
                                  struct GEN9_RENDER_SURFACE_STATE * restrict values)
@@ -1764,7 +2013,7 @@ GEN9_RENDER_SURFACE_STATE_unpack(const void * restrict src,
    values->CubeFaceEnableNegativeX = __gen_unpack_uint(dw0, 5, 5);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->MemoryObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->MOCS = __gen_unpack_uint(dw1, 24, 30);
    values->BaseMipLevel = __gen_unpack_ufixed(dw1, 19, 23, 1);
    values->SurfaceQPitch = __gen_unpack_uint(dw1, 0, 14);
@@ -1786,8 +2035,8 @@ GEN9_RENDER_SURFACE_STATE_unpack(const void * restrict src,
    values->MultisamplePositionPaletteIndex = __gen_unpack_uint(dw4, 0, 2);
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   values->XOffset = __gen_unpack_offset(dw5, 25, 31);
-   values->YOffset = __gen_unpack_offset(dw5, 21, 23);
+   values->XOffset = __gen_unpack_uint(dw5, 25, 31);
+   values->YOffset = __gen_unpack_uint(dw5, 21, 23);
    values->EWADisableForCube = __gen_unpack_uint(dw5, 20, 20);
    values->TiledResourceMode = __gen_unpack_uint(dw5, 18, 19);
    values->CoherencyType = __gen_unpack_uint(dw5, 14, 14);
@@ -1813,11 +2062,13 @@ GEN9_RENDER_SURFACE_STATE_unpack(const void * restrict src,
    values->ResourceMinLOD = __gen_unpack_ufixed(dw7, 0, 11, 8);
 
    const uint32_t dw8 __attribute__((unused)) = dw[8];
-   values->SurfaceBaseAddress = __gen_unpack_address(dw8, 0, 63);
+   const uint64_t qw8 __attribute__((unused)) = *(uint64_t *) &dw[8];
+   values->SurfaceBaseAddress = __gen_unpack_address(qw8, 0, 63);
 
    const uint32_t dw10 __attribute__((unused)) = dw[10];
    values->AuxiliaryTableIndexforMediaCompressedSurface = __gen_unpack_uint(dw10, 21, 31);
-   values->AuxiliarySurfaceBaseAddress = __gen_unpack_address(dw10, 12, 63);
+   const uint64_t qw10 __attribute__((unused)) = *(uint64_t *) &dw[10];
+   values->AuxiliarySurfaceBaseAddress = __gen_unpack_address(qw10, 0, 63);
    values->XOffsetforVPlane = __gen_unpack_uint(dw10, 48, 61);
    values->YOffsetforVPlane = __gen_unpack_uint(dw10, 32, 45);
    values->QuiltHeight = __gen_unpack_uint(dw10, 5, 9);
@@ -1836,6 +2087,7 @@ GEN9_RENDER_SURFACE_STATE_unpack(const void * restrict src,
    const uint32_t dw15 __attribute__((unused)) = dw[15];
    values->AlphaClearColor = __gen_unpack_sint(dw15, 0, 31);
 }
+#endif
 
 #define GEN9_FILTER_COEFFICIENT_length         1
 struct GEN9_FILTER_COEFFICIENT {
@@ -1852,6 +2104,7 @@ GEN9_FILTER_COEFFICIENT_pack(__gen_user_data *data, void * restrict dst,
       __gen_sfixed(values->FilterCoefficient, 0, 7, 6);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_FILTER_COEFFICIENT_unpack(const void * restrict src,
                                struct GEN9_FILTER_COEFFICIENT * restrict values)
@@ -1861,6 +2114,67 @@ GEN9_FILTER_COEFFICIENT_unpack(const void * restrict src,
    const uint32_t dw0 __attribute__((unused)) = dw[0];
    values->FilterCoefficient = __gen_unpack_sfixed(dw0, 0, 7, 6);
 }
+#endif
+
+#define GEN9_SAMPLER_BORDER_COLOR_STATE_length      4
+struct GEN9_SAMPLER_BORDER_COLOR_STATE {
+   float                                BorderColorFloatRed;
+   float                                BorderColorFloatGreen;
+   float                                BorderColorFloatBlue;
+   float                                BorderColorFloatAlpha;
+   uint32_t                             BorderColor32bitRed;
+   uint32_t                             BorderColor32bitGreen;
+   uint32_t                             BorderColor32bitBlue;
+   uint32_t                             BorderColor32bitAlpha;
+};
+
+static inline void
+GEN9_SAMPLER_BORDER_COLOR_STATE_pack(__gen_user_data *data, void * restrict dst,
+                                     const struct GEN9_SAMPLER_BORDER_COLOR_STATE * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_float(values->BorderColorFloatRed) |
+      __gen_uint(values->BorderColor32bitRed, 0, 31);
+
+   dw[1] =
+      __gen_float(values->BorderColorFloatGreen) |
+      __gen_uint(values->BorderColor32bitGreen, 0, 31);
+
+   dw[2] =
+      __gen_float(values->BorderColorFloatBlue) |
+      __gen_uint(values->BorderColor32bitBlue, 0, 31);
+
+   dw[3] =
+      __gen_float(values->BorderColorFloatAlpha) |
+      __gen_uint(values->BorderColor32bitAlpha, 0, 31);
+}
+
+#ifdef __gen_unpack_address
+static inline void
+GEN9_SAMPLER_BORDER_COLOR_STATE_unpack(const void * restrict src,
+                                       struct GEN9_SAMPLER_BORDER_COLOR_STATE * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->BorderColorFloatRed = __gen_unpack_float(dw0);
+   values->BorderColor32bitRed = __gen_unpack_uint(dw0, 0, 31);
+
+   const uint32_t dw1 __attribute__((unused)) = dw[1];
+   values->BorderColorFloatGreen = __gen_unpack_float(dw1);
+   values->BorderColor32bitGreen = __gen_unpack_uint(dw1, 0, 31);
+
+   const uint32_t dw2 __attribute__((unused)) = dw[2];
+   values->BorderColorFloatBlue = __gen_unpack_float(dw2);
+   values->BorderColor32bitBlue = __gen_unpack_uint(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->BorderColorFloatAlpha = __gen_unpack_float(dw3);
+   values->BorderColor32bitAlpha = __gen_unpack_uint(dw3, 0, 31);
+}
+#endif
 
 #define GEN9_SAMPLER_STATE_length              4
 struct GEN9_SAMPLER_STATE {
@@ -1992,6 +2306,7 @@ GEN9_SAMPLER_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->TCZAddressControlMode, 0, 2);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SAMPLER_STATE_unpack(const void * restrict src,
                           struct GEN9_SAMPLER_STATE * restrict values)
@@ -2038,6 +2353,7 @@ GEN9_SAMPLER_STATE_unpack(const void * restrict src,
    values->TCYAddressControlMode = __gen_unpack_uint(dw3, 3, 5);
    values->TCZAddressControlMode = __gen_unpack_uint(dw3, 0, 2);
 }
+#endif
 
 #define GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS_length      8
 struct GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS {
@@ -2114,6 +2430,7 @@ GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS_pack(__gen_user_data *data, void * restr
       __gen_sfixed(values->Table1YFilterCoefficientn4, 0, 7, 6);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS_unpack(const void * restrict src,
                                                struct GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS * restrict values)
@@ -2160,196 +2477,7 @@ GEN9_SAMPLER_STATE_8X8_AVS_COEFFICIENTS_unpack(const void * restrict src,
    values->Table1YFilterCoefficientn5 = __gen_unpack_sfixed(dw7, 8, 15, 6);
    values->Table1YFilterCoefficientn4 = __gen_unpack_sfixed(dw7, 0, 7, 6);
 }
-
-/* enum GEN9_3D_Prim_Topo_Type */
-#define _3DPRIM_POINTLIST                         1
-#define _3DPRIM_LINELIST                          2
-#define _3DPRIM_LINESTRIP                         3
-#define _3DPRIM_TRILIST                           4
-#define _3DPRIM_TRISTRIP                          5
-#define _3DPRIM_TRIFAN                            6
-#define _3DPRIM_QUADLIST                          7
-#define _3DPRIM_QUADSTRIP                         8
-#define _3DPRIM_LINELIST_ADJ                      9
-#define _3DPRIM_LINESTRIP_ADJ                    10
-#define _3DPRIM_TRILIST_ADJ                      11
-#define _3DPRIM_TRISTRIP_ADJ                     12
-#define _3DPRIM_TRISTRIP_REVERSE                 13
-#define _3DPRIM_POLYGON                          14
-#define _3DPRIM_RECTLIST                         15
-#define _3DPRIM_LINELOOP                         16
-#define _3DPRIM_POINTLIST_BF                     17
-#define _3DPRIM_LINESTRIP_CONT                   18
-#define _3DPRIM_LINESTRIP_BF                     19
-#define _3DPRIM_LINESTRIP_CONT_BF                20
-#define _3DPRIM_TRIFAN_NOSTIPPLE                 22
-#define _3DPRIM_PATCHLIST_1                      32
-#define _3DPRIM_PATCHLIST_2                      33
-#define _3DPRIM_PATCHLIST_3                      34
-#define _3DPRIM_PATCHLIST_4                      35
-#define _3DPRIM_PATCHLIST_5                      36
-#define _3DPRIM_PATCHLIST_6                      37
-#define _3DPRIM_PATCHLIST_7                      38
-#define _3DPRIM_PATCHLIST_8                      39
-#define _3DPRIM_PATCHLIST_9                      40
-#define _3DPRIM_PATCHLIST_10                     41
-#define _3DPRIM_PATCHLIST_11                     42
-#define _3DPRIM_PATCHLIST_12                     43
-#define _3DPRIM_PATCHLIST_13                     44
-#define _3DPRIM_PATCHLIST_14                     45
-#define _3DPRIM_PATCHLIST_15                     46
-#define _3DPRIM_PATCHLIST_16                     47
-#define _3DPRIM_PATCHLIST_17                     48
-#define _3DPRIM_PATCHLIST_18                     49
-#define _3DPRIM_PATCHLIST_19                     50
-#define _3DPRIM_PATCHLIST_20                     51
-#define _3DPRIM_PATCHLIST_21                     52
-#define _3DPRIM_PATCHLIST_22                     53
-#define _3DPRIM_PATCHLIST_23                     54
-#define _3DPRIM_PATCHLIST_24                     55
-#define _3DPRIM_PATCHLIST_25                     56
-#define _3DPRIM_PATCHLIST_26                     57
-#define _3DPRIM_PATCHLIST_27                     58
-#define _3DPRIM_PATCHLIST_28                     59
-#define _3DPRIM_PATCHLIST_29                     60
-#define _3DPRIM_PATCHLIST_30                     61
-#define _3DPRIM_PATCHLIST_31                     62
-#define _3DPRIM_PATCHLIST_32                     63
-
-/* enum GEN9_3D_Vertex_Component_Control */
-#define VFCOMP_NOSTORE                            0
-#define VFCOMP_STORE_SRC                          1
-#define VFCOMP_STORE_0                            2
-#define VFCOMP_STORE_1_FP                         3
-#define VFCOMP_STORE_1_INT                        4
-#define VFCOMP_STORE_PID                          7
-
-/* enum GEN9_COMPONENT_ENABLES */
-#define CE_NONE                                   0
-#define CE_X                                      1
-#define CE_Y                                      2
-#define CE_XY                                     3
-#define CE_Z                                      4
-#define CE_XZ                                     5
-#define CE_YZ                                     6
-#define CE_XYZ                                    7
-#define CE_W                                      8
-#define CE_XW                                     9
-#define CE_YW                                    10
-#define CE_XYW                                   11
-#define CE_ZW                                    12
-#define CE_XZW                                   13
-#define CE_YZW                                   14
-#define CE_XYZW                                  15
-
-/* enum GEN9_Attribute_Component_Format */
-#define ACF_DISABLED                              0
-#define ACF_XY                                    1
-#define ACF_XYZ                                   2
-#define ACF_XYZW                                  3
-
-/* enum GEN9_WRAP_SHORTEST_ENABLE */
-#define WSE_X                                     1
-#define WSE_Y                                     2
-#define WSE_XY                                    3
-#define WSE_Z                                     4
-#define WSE_XZ                                    5
-#define WSE_YZ                                    6
-#define WSE_XYZ                                   7
-#define WSE_W                                     8
-#define WSE_XW                                    9
-#define WSE_YW                                   10
-#define WSE_XYW                                  11
-#define WSE_ZW                                   12
-#define WSE_XZW                                  13
-#define WSE_YZW                                  14
-#define WSE_XYZW                                 15
-
-/* enum GEN9_3D_Stencil_Operation */
-#define STENCILOP_KEEP                            0
-#define STENCILOP_ZERO                            1
-#define STENCILOP_REPLACE                         2
-#define STENCILOP_INCRSAT                         3
-#define STENCILOP_DECRSAT                         4
-#define STENCILOP_INCR                            5
-#define STENCILOP_DECR                            6
-#define STENCILOP_INVERT                          7
-
-/* enum GEN9_3D_Color_Buffer_Blend_Factor */
-#define BLENDFACTOR_ONE                           1
-#define BLENDFACTOR_SRC_COLOR                     2
-#define BLENDFACTOR_SRC_ALPHA                     3
-#define BLENDFACTOR_DST_ALPHA                     4
-#define BLENDFACTOR_DST_COLOR                     5
-#define BLENDFACTOR_SRC_ALPHA_SATURATE            6
-#define BLENDFACTOR_CONST_COLOR                   7
-#define BLENDFACTOR_CONST_ALPHA                   8
-#define BLENDFACTOR_SRC1_COLOR                    9
-#define BLENDFACTOR_SRC1_ALPHA                   10
-#define BLENDFACTOR_ZERO                         17
-#define BLENDFACTOR_INV_SRC_COLOR                18
-#define BLENDFACTOR_INV_SRC_ALPHA                19
-#define BLENDFACTOR_INV_DST_ALPHA                20
-#define BLENDFACTOR_INV_DST_COLOR                21
-#define BLENDFACTOR_INV_CONST_COLOR              23
-#define BLENDFACTOR_INV_CONST_ALPHA              24
-#define BLENDFACTOR_INV_SRC1_COLOR               25
-#define BLENDFACTOR_INV_SRC1_ALPHA               26
-
-/* enum GEN9_3D_Color_Buffer_Blend_Function */
-#define BLENDFUNCTION_ADD                         0
-#define BLENDFUNCTION_SUBTRACT                    1
-#define BLENDFUNCTION_REVERSE_SUBTRACT            2
-#define BLENDFUNCTION_MIN                         3
-#define BLENDFUNCTION_MAX                         4
-
-/* enum GEN9_3D_Compare_Function */
-#define COMPAREFUNCTION_ALWAYS                    0
-#define COMPAREFUNCTION_NEVER                     1
-#define COMPAREFUNCTION_LESS                      2
-#define COMPAREFUNCTION_EQUAL                     3
-#define COMPAREFUNCTION_LEQUAL                    4
-#define COMPAREFUNCTION_GREATER                   5
-#define COMPAREFUNCTION_NOTEQUAL                  6
-#define COMPAREFUNCTION_GEQUAL                    7
-
-/* enum GEN9_3D_Logic_Op_Function */
-#define LOGICOP_CLEAR                             0
-#define LOGICOP_NOR                               1
-#define LOGICOP_AND_INVERTED                      2
-#define LOGICOP_COPY_INVERTED                     3
-#define LOGICOP_AND_REVERSE                       4
-#define LOGICOP_INVERT                            5
-#define LOGICOP_XOR                               6
-#define LOGICOP_NAND                              7
-#define LOGICOP_AND                               8
-#define LOGICOP_EQUIV                             9
-#define LOGICOP_NOOP                             10
-#define LOGICOP_OR_INVERTED                      11
-#define LOGICOP_COPY                             12
-#define LOGICOP_OR_REVERSE                       13
-#define LOGICOP_OR                               14
-#define LOGICOP_SET                              15
-
-
-enum GEN9_ShaderChannelSelect {
-	SCS_ZERO		= 0,
-	SCS_ONE		= 1,
-	SCS_RED		= 4,
-	SCS_GREEN		= 5,
-	SCS_BLUE		= 6,
-	SCS_ALPHA		= 7,
-};
-
-enum GEN9_TextureCoordinateMode {
-	TCM_WRAP		= 0,
-	TCM_MIRROR		= 1,
-	TCM_CLAMP		= 2,
-	TCM_CUBE		= 3,
-	TCM_CLAMP_BORDER		= 4,
-	TCM_MIRROR_ONCE		= 5,
-	TCM_HALF_BORDER		= 6,
-};
+#endif
 
 #define GEN9_3DPRIMITIVE_length                7
 #define GEN9_3DPRIMITIVE_length_bias           2
@@ -2373,7 +2501,7 @@ struct GEN9_3DPRIMITIVE {
    uint32_t                             VertexAccessType;
 #define SEQUENTIAL                               0
 #define RANDOM                                   1
-   uint32_t                             PrimitiveTopologyType;
+   enum GEN9_3D_Prim_Topo_Type          PrimitiveTopologyType;
    uint32_t                             VertexCountPerInstance;
    uint32_t                             StartVertexLocation;
    uint32_t                             InstanceCount;
@@ -2418,6 +2546,7 @@ GEN9_3DPRIMITIVE_pack(__gen_user_data *data, void * restrict dst,
       __gen_sint(values->BaseVertexLocation, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DPRIMITIVE_unpack(const void * restrict src,
                         struct GEN9_3DPRIMITIVE * restrict values)
@@ -2454,6 +2583,7 @@ GEN9_3DPRIMITIVE_unpack(const void * restrict src,
    const uint32_t dw6 __attribute__((unused)) = dw[6];
    values->BaseVertexLocation = __gen_unpack_sint(dw6, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_AA_LINE_PARAMETERS_length      3
 #define GEN9_3DSTATE_AA_LINE_PARAMETERS_length_bias      2
@@ -2506,6 +2636,7 @@ GEN9_3DSTATE_AA_LINE_PARAMETERS_pack(__gen_user_data *data, void * restrict dst,
       __gen_ufixed(values->AACoverageEndCapSlope, 0, 7, 8);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_AA_LINE_PARAMETERS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_AA_LINE_PARAMETERS * restrict values)
@@ -2531,6 +2662,7 @@ GEN9_3DSTATE_AA_LINE_PARAMETERS_unpack(const void * restrict src,
    values->AAPointCoverageEndCapSlope = __gen_unpack_ufixed(dw2, 8, 15, 8);
    values->AACoverageEndCapSlope = __gen_unpack_ufixed(dw2, 0, 7, 8);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_DS_length_bias      2
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_DS_header\
@@ -2572,6 +2704,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_DS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->BindingTableEditTarget, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_EDIT_DS_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_BINDING_TABLE_EDIT_DS * restrict values)
@@ -2589,6 +2722,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_DS_unpack(const void * restrict src,
    values->BindingTableBlockClear = __gen_unpack_uint(dw1, 16, 31);
    values->BindingTableEditTarget = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_GS_length_bias      2
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_GS_header\
@@ -2630,6 +2764,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_GS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->BindingTableEditTarget, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_EDIT_GS_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_BINDING_TABLE_EDIT_GS * restrict values)
@@ -2647,6 +2782,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_GS_unpack(const void * restrict src,
    values->BindingTableBlockClear = __gen_unpack_uint(dw1, 16, 31);
    values->BindingTableEditTarget = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_HS_length_bias      2
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_HS_header\
@@ -2688,6 +2824,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_HS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->BindingTableEditTarget, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_EDIT_HS_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_BINDING_TABLE_EDIT_HS * restrict values)
@@ -2705,6 +2842,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_HS_unpack(const void * restrict src,
    values->BindingTableBlockClear = __gen_unpack_uint(dw1, 16, 31);
    values->BindingTableEditTarget = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_PS_length_bias      2
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_PS_header\
@@ -2746,6 +2884,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_PS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->BindingTableEditTarget, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_EDIT_PS_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_BINDING_TABLE_EDIT_PS * restrict values)
@@ -2763,6 +2902,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_PS_unpack(const void * restrict src,
    values->BindingTableBlockClear = __gen_unpack_uint(dw1, 16, 31);
    values->BindingTableEditTarget = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_VS_length_bias      2
 #define GEN9_3DSTATE_BINDING_TABLE_EDIT_VS_header\
@@ -2804,6 +2944,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_VS_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->BindingTableEditTarget, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_EDIT_VS_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_BINDING_TABLE_EDIT_VS * restrict values)
@@ -2821,6 +2962,7 @@ GEN9_3DSTATE_BINDING_TABLE_EDIT_VS_unpack(const void * restrict src,
    values->BindingTableBlockClear = __gen_unpack_uint(dw1, 16, 31);
    values->BindingTableEditTarget = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS_length      2
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS_length_bias      2
@@ -2857,6 +2999,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoDSBindingTable, 5, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS * restrict values)
@@ -2873,6 +3016,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_DS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoDSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS_length      2
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS_length_bias      2
@@ -2909,6 +3053,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoGSBindingTable, 5, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS * restrict values)
@@ -2925,6 +3070,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_GS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoGSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS_length      2
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS_length_bias      2
@@ -2961,6 +3107,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoHSBindingTable, 5, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS * restrict values)
@@ -2977,6 +3124,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_HS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoHSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS_length      2
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS_length_bias      2
@@ -3013,6 +3161,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoPSBindingTable, 5, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS * restrict values)
@@ -3029,6 +3178,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_PS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoPSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS_length      2
 #define GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS_length_bias      2
@@ -3065,6 +3215,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoVSBindingTable, 5, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS * restrict values)
@@ -3081,6 +3232,7 @@ GEN9_3DSTATE_BINDING_TABLE_POINTERS_VS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoVSBindingTable = __gen_unpack_offset(dw1, 5, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC_length      4
 #define GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC_length_bias      2
@@ -3132,6 +3284,7 @@ GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC_pack(__gen_user_data *data, void * restric
       __gen_uint(values->BindingTablePoolBufferSize, 12, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC_unpack(const void * restrict src,
                                              struct GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC * restrict values)
@@ -3146,13 +3299,15 @@ GEN9_3DSTATE_BINDING_TABLE_POOL_ALLOC_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->BindingTablePoolBaseAddress = __gen_unpack_address(dw1, 12, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->BindingTablePoolBaseAddress = __gen_unpack_address(qw1, 0, 63);
    values->BindingTablePoolEnable = __gen_unpack_uint(dw1, 11, 11);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->SurfaceObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->BindingTablePoolBufferSize = __gen_unpack_uint(dw3, 12, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_BLEND_STATE_POINTERS_length      2
 #define GEN9_3DSTATE_BLEND_STATE_POINTERS_length_bias      2
@@ -3191,6 +3346,7 @@ GEN9_3DSTATE_BLEND_STATE_POINTERS_pack(__gen_user_data *data, void * restrict ds
       __gen_uint(values->BlendStatePointerValid, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_BLEND_STATE_POINTERS_unpack(const void * restrict src,
                                          struct GEN9_3DSTATE_BLEND_STATE_POINTERS * restrict values)
@@ -3208,6 +3364,7 @@ GEN9_3DSTATE_BLEND_STATE_POINTERS_unpack(const void * restrict src,
    values->BlendStatePointer = __gen_unpack_offset(dw1, 6, 31);
    values->BlendStatePointerValid = __gen_unpack_uint(dw1, 0, 0);
 }
+#endif
 
 #define GEN9_3DSTATE_CC_STATE_POINTERS_length      2
 #define GEN9_3DSTATE_CC_STATE_POINTERS_length_bias      2
@@ -3246,6 +3403,7 @@ GEN9_3DSTATE_CC_STATE_POINTERS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ColorCalcStatePointerValid, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CC_STATE_POINTERS_unpack(const void * restrict src,
                                       struct GEN9_3DSTATE_CC_STATE_POINTERS * restrict values)
@@ -3263,6 +3421,7 @@ GEN9_3DSTATE_CC_STATE_POINTERS_unpack(const void * restrict src,
    values->ColorCalcStatePointer = __gen_unpack_offset(dw1, 6, 31);
    values->ColorCalcStatePointerValid = __gen_unpack_uint(dw1, 0, 0);
 }
+#endif
 
 #define GEN9_3DSTATE_CHROMA_KEY_length         4
 #define GEN9_3DSTATE_CHROMA_KEY_length_bias      2
@@ -3307,6 +3466,7 @@ GEN9_3DSTATE_CHROMA_KEY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ChromaKeyHighValue, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CHROMA_KEY_unpack(const void * restrict src,
                                struct GEN9_3DSTATE_CHROMA_KEY * restrict values)
@@ -3329,6 +3489,7 @@ GEN9_3DSTATE_CHROMA_KEY_unpack(const void * restrict src,
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->ChromaKeyHighValue = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_CLEAR_PARAMS_length       3
 #define GEN9_3DSTATE_CLEAR_PARAMS_length_bias      2
@@ -3369,6 +3530,7 @@ GEN9_3DSTATE_CLEAR_PARAMS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DepthClearValueValid, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CLEAR_PARAMS_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_CLEAR_PARAMS * restrict values)
@@ -3388,6 +3550,7 @@ GEN9_3DSTATE_CLEAR_PARAMS_unpack(const void * restrict src,
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->DepthClearValueValid = __gen_unpack_uint(dw2, 0, 0);
 }
+#endif
 
 #define GEN9_3DSTATE_CLIP_length               4
 #define GEN9_3DSTATE_CLIP_length_bias          2
@@ -3415,14 +3578,15 @@ struct GEN9_3DSTATE_CLIP {
    uint32_t                             UserClipDistanceCullTestEnableBitmask;
    bool                                 ClipEnable;
    uint32_t                             APIMode;
-#define OGL                                      0
+#define APIMODE_OGL                              0
+#define APIMODE_D3D                              1
    bool                                 ViewportXYClipTestEnable;
    bool                                 GuardbandClipTestEnable;
    uint32_t                             UserClipDistanceClipTestEnableBitmask;
    uint32_t                             ClipMode;
-#define NORMAL                                   0
-#define REJECT_ALL                               3
-#define ACCEPT_ALL                               4
+#define CLIPMODE_NORMAL                          0
+#define CLIPMODE_REJECT_ALL                      3
+#define CLIPMODE_ACCEPT_ALL                      4
    bool                                 PerspectiveDivideDisable;
    bool                                 NonPerspectiveBarycentricEnable;
    uint32_t                             TriangleStripListProvokingVertexSelect;
@@ -3476,6 +3640,7 @@ GEN9_3DSTATE_CLIP_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MaximumVPIndex, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CLIP_unpack(const void * restrict src,
                          struct GEN9_3DSTATE_CLIP * restrict values)
@@ -3517,6 +3682,7 @@ GEN9_3DSTATE_CLIP_unpack(const void * restrict src,
    values->ForceZeroRTAIndexEnable = __gen_unpack_uint(dw3, 5, 5);
    values->MaximumVPIndex = __gen_unpack_uint(dw3, 0, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_CONSTANT_DS_length       11
 #define GEN9_3DSTATE_CONSTANT_DS_length_bias      2
@@ -3557,6 +3723,7 @@ GEN9_3DSTATE_CONSTANT_DS_pack(__gen_user_data *data, void * restrict dst,
    GEN9_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_DS_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_CONSTANT_DS * restrict values)
@@ -3568,13 +3735,13 @@ GEN9_3DSTATE_CONSTANT_DS_unpack(const void * restrict src,
    values->CommandSubType = __gen_unpack_uint(dw0, 27, 28);
    values->_3DCommandOpcode = __gen_unpack_uint(dw0, 24, 26);
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->ConstantBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_3DSTATE_CONSTANT_BODY_unpack(&dw[1], &values->ConstantBody);
-
+/* struct 3DSTATE_CONSTANT_BODY */
 }
+#endif
 
 #define GEN9_3DSTATE_CONSTANT_GS_length       11
 #define GEN9_3DSTATE_CONSTANT_GS_length_bias      2
@@ -3615,6 +3782,7 @@ GEN9_3DSTATE_CONSTANT_GS_pack(__gen_user_data *data, void * restrict dst,
    GEN9_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_GS_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_CONSTANT_GS * restrict values)
@@ -3626,13 +3794,13 @@ GEN9_3DSTATE_CONSTANT_GS_unpack(const void * restrict src,
    values->CommandSubType = __gen_unpack_uint(dw0, 27, 28);
    values->_3DCommandOpcode = __gen_unpack_uint(dw0, 24, 26);
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->ConstantBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_3DSTATE_CONSTANT_BODY_unpack(&dw[1], &values->ConstantBody);
-
+/* struct 3DSTATE_CONSTANT_BODY */
 }
+#endif
 
 #define GEN9_3DSTATE_CONSTANT_HS_length       11
 #define GEN9_3DSTATE_CONSTANT_HS_length_bias      2
@@ -3673,6 +3841,7 @@ GEN9_3DSTATE_CONSTANT_HS_pack(__gen_user_data *data, void * restrict dst,
    GEN9_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_HS_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_CONSTANT_HS * restrict values)
@@ -3684,13 +3853,13 @@ GEN9_3DSTATE_CONSTANT_HS_unpack(const void * restrict src,
    values->CommandSubType = __gen_unpack_uint(dw0, 27, 28);
    values->_3DCommandOpcode = __gen_unpack_uint(dw0, 24, 26);
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->ConstantBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_3DSTATE_CONSTANT_BODY_unpack(&dw[1], &values->ConstantBody);
-
+/* struct 3DSTATE_CONSTANT_BODY */
 }
+#endif
 
 #define GEN9_3DSTATE_CONSTANT_PS_length       11
 #define GEN9_3DSTATE_CONSTANT_PS_length_bias      2
@@ -3731,6 +3900,7 @@ GEN9_3DSTATE_CONSTANT_PS_pack(__gen_user_data *data, void * restrict dst,
    GEN9_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_PS_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_CONSTANT_PS * restrict values)
@@ -3742,13 +3912,13 @@ GEN9_3DSTATE_CONSTANT_PS_unpack(const void * restrict src,
    values->CommandSubType = __gen_unpack_uint(dw0, 27, 28);
    values->_3DCommandOpcode = __gen_unpack_uint(dw0, 24, 26);
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->ConstantBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_3DSTATE_CONSTANT_BODY_unpack(&dw[1], &values->ConstantBody);
-
+/* struct 3DSTATE_CONSTANT_BODY */
 }
+#endif
 
 #define GEN9_3DSTATE_CONSTANT_VS_length       11
 #define GEN9_3DSTATE_CONSTANT_VS_length_bias      2
@@ -3789,6 +3959,7 @@ GEN9_3DSTATE_CONSTANT_VS_pack(__gen_user_data *data, void * restrict dst,
    GEN9_3DSTATE_CONSTANT_BODY_pack(data, &dw[1], &values->ConstantBody);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_CONSTANT_VS_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_CONSTANT_VS * restrict values)
@@ -3800,13 +3971,13 @@ GEN9_3DSTATE_CONSTANT_VS_unpack(const void * restrict src,
    values->CommandSubType = __gen_unpack_uint(dw0, 27, 28);
    values->_3DCommandOpcode = __gen_unpack_uint(dw0, 24, 26);
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[0], &values->ConstantBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_3DSTATE_CONSTANT_BODY_unpack(&dw[1], &values->ConstantBody);
-
+/* struct 3DSTATE_CONSTANT_BODY */
 }
+#endif
 
 #define GEN9_3DSTATE_DEPTH_BUFFER_length       8
 #define GEN9_3DSTATE_DEPTH_BUFFER_length_bias      2
@@ -3842,6 +4013,7 @@ struct GEN9_3DSTATE_DEPTH_BUFFER {
    uint32_t                             Depth;
    uint32_t                             MinimumArrayElement;
    struct GEN9_MEMORY_OBJECT_CONTROL_STATE DepthBufferObjectControlState;
+   uint32_t                             DepthBufferMOCS;
    uint32_t                             TiledResourceMode;
 #define NONE                                     0
 #define TILEYF                                   1
@@ -3888,7 +4060,8 @@ GEN9_3DSTATE_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
    dw[5] =
       __gen_uint(values->Depth, 21, 31) |
       __gen_uint(values->MinimumArrayElement, 10, 20) |
-      __gen_uint(v5_0, 0, 6);
+      __gen_uint(v5_0, 0, 6) |
+      __gen_uint(values->DepthBufferMOCS, 0, 6);
 
    dw[6] =
       __gen_uint(values->TiledResourceMode, 30, 31) |
@@ -3899,6 +4072,7 @@ GEN9_3DSTATE_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SurfaceQPitch, 0, 14);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_DEPTH_BUFFER_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_DEPTH_BUFFER * restrict values)
@@ -3921,7 +4095,8 @@ GEN9_3DSTATE_DEPTH_BUFFER_unpack(const void * restrict src,
    values->SurfacePitch = __gen_unpack_uint(dw1, 0, 17);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->SurfaceBaseAddress = __gen_unpack_address(dw2, 0, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->Height = __gen_unpack_uint(dw4, 18, 31);
@@ -3931,7 +4106,8 @@ GEN9_3DSTATE_DEPTH_BUFFER_unpack(const void * restrict src,
    const uint32_t dw5 __attribute__((unused)) = dw[5];
    values->Depth = __gen_unpack_uint(dw5, 21, 31);
    values->MinimumArrayElement = __gen_unpack_uint(dw5, 10, 20);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[5], &values->DepthBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
+   values->DepthBufferMOCS = __gen_unpack_uint(dw5, 0, 6);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
    values->TiledResourceMode = __gen_unpack_uint(dw6, 30, 31);
@@ -3941,6 +4117,7 @@ GEN9_3DSTATE_DEPTH_BUFFER_unpack(const void * restrict src,
    values->RenderTargetViewExtent = __gen_unpack_uint(dw7, 21, 31);
    values->SurfaceQPitch = __gen_unpack_uint(dw7, 0, 14);
 }
+#endif
 
 #define GEN9_3DSTATE_DRAWING_RECTANGLE_length      4
 #define GEN9_3DSTATE_DRAWING_RECTANGLE_length_bias      2
@@ -3996,6 +4173,7 @@ GEN9_3DSTATE_DRAWING_RECTANGLE_pack(__gen_user_data *data, void * restrict dst,
       __gen_sint(values->DrawingRectangleOriginX, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_DRAWING_RECTANGLE_unpack(const void * restrict src,
                                       struct GEN9_3DSTATE_DRAWING_RECTANGLE * restrict values)
@@ -4022,6 +4200,7 @@ GEN9_3DSTATE_DRAWING_RECTANGLE_unpack(const void * restrict src,
    values->DrawingRectangleOriginY = __gen_unpack_sint(dw3, 16, 31);
    values->DrawingRectangleOriginX = __gen_unpack_sint(dw3, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_DS_length                11
 #define GEN9_3DSTATE_DS_length_bias            2
@@ -4055,7 +4234,7 @@ struct GEN9_3DSTATE_DS {
    bool                                 AccessesUAV;
    bool                                 IllegalOpcodeExceptionEnable;
    bool                                 SoftwareExceptionEnable;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             DispatchGRFStartRegisterForURBData;
    uint32_t                             PatchURBEntryReadLength;
@@ -4105,10 +4284,11 @@ GEN9_3DSTATE_DS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SoftwareExceptionEnable, 7, 7);
 
    const uint64_t v4 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 63) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[4] = v4;
-   dw[5] = v4 >> 32;
+   const uint64_t v4_address =
+      __gen_combine_address(data, &dw[4], values->ScratchSpaceBasePointer, v4);
+   dw[4] = v4_address;
+   dw[5] = v4_address >> 32;
 
    dw[6] =
       __gen_uint(values->DispatchGRFStartRegisterForURBData, 20, 24) |
@@ -4135,6 +4315,7 @@ GEN9_3DSTATE_DS_pack(__gen_user_data *data, void * restrict dst,
    dw[10] = v9 >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_DS_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_DS * restrict values)
@@ -4162,7 +4343,8 @@ GEN9_3DSTATE_DS_unpack(const void * restrict src,
    values->SoftwareExceptionEnable = __gen_unpack_uint(dw3, 7, 7);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw4, 10, 63);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw4, 0, 63);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw4, 0, 3);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
@@ -4186,8 +4368,8 @@ GEN9_3DSTATE_DS_unpack(const void * restrict src,
 
    const uint32_t dw9 __attribute__((unused)) = dw[9];
    values->DUAL_PATCHKernelStartPointer = __gen_unpack_offset(dw9, 6, 63);
-
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_CONSTANT_DS_length_bias      2
 #define GEN9_3DSTATE_GATHER_CONSTANT_DS_header  \
@@ -4240,6 +4422,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_DS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->OnDieTable, 3, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_CONSTANT_DS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_GATHER_CONSTANT_DS * restrict values)
@@ -4263,6 +4446,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_DS_unpack(const void * restrict src,
    values->ConstantBufferDx9GenerateStall = __gen_unpack_uint(dw2, 5, 5);
    values->OnDieTable = __gen_unpack_uint(dw2, 3, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_CONSTANT_GS_length_bias      2
 #define GEN9_3DSTATE_GATHER_CONSTANT_GS_header  \
@@ -4315,6 +4499,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_GS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->OnDieTable, 3, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_CONSTANT_GS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_GATHER_CONSTANT_GS * restrict values)
@@ -4338,6 +4523,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_GS_unpack(const void * restrict src,
    values->ConstantBufferDx9GenerateStall = __gen_unpack_uint(dw2, 5, 5);
    values->OnDieTable = __gen_unpack_uint(dw2, 3, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_CONSTANT_HS_length_bias      2
 #define GEN9_3DSTATE_GATHER_CONSTANT_HS_header  \
@@ -4390,6 +4576,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_HS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->OnDieTable, 3, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_CONSTANT_HS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_GATHER_CONSTANT_HS * restrict values)
@@ -4413,6 +4600,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_HS_unpack(const void * restrict src,
    values->ConstantBufferDx9GenerateStall = __gen_unpack_uint(dw2, 5, 5);
    values->OnDieTable = __gen_unpack_uint(dw2, 3, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_CONSTANT_PS_length_bias      2
 #define GEN9_3DSTATE_GATHER_CONSTANT_PS_header  \
@@ -4469,6 +4657,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_PS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->OnDieTable, 3, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_CONSTANT_PS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_GATHER_CONSTANT_PS * restrict values)
@@ -4494,6 +4683,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_PS_unpack(const void * restrict src,
    values->ConstantBufferDx9Enable = __gen_unpack_uint(dw2, 4, 4);
    values->OnDieTable = __gen_unpack_uint(dw2, 3, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_CONSTANT_VS_length_bias      2
 #define GEN9_3DSTATE_GATHER_CONSTANT_VS_header  \
@@ -4550,6 +4740,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->OnDieTable, 3, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_CONSTANT_VS_unpack(const void * restrict src,
                                        struct GEN9_3DSTATE_GATHER_CONSTANT_VS * restrict values)
@@ -4575,6 +4766,7 @@ GEN9_3DSTATE_GATHER_CONSTANT_VS_unpack(const void * restrict src,
    values->ConstantBufferDx9Enable = __gen_unpack_uint(dw2, 4, 4);
    values->OnDieTable = __gen_unpack_uint(dw2, 3, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_GATHER_POOL_ALLOC_length      4
 #define GEN9_3DSTATE_GATHER_POOL_ALLOC_length_bias      2
@@ -4625,6 +4817,7 @@ GEN9_3DSTATE_GATHER_POOL_ALLOC_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->GatherPoolBufferSize, 12, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GATHER_POOL_ALLOC_unpack(const void * restrict src,
                                       struct GEN9_3DSTATE_GATHER_POOL_ALLOC * restrict values)
@@ -4639,13 +4832,15 @@ GEN9_3DSTATE_GATHER_POOL_ALLOC_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->GatherPoolBaseAddress = __gen_unpack_address(dw1, 12, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->GatherPoolBaseAddress = __gen_unpack_address(qw1, 0, 63);
    values->GatherPoolEnable = __gen_unpack_uint(dw1, 11, 11);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->MemoryObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->GatherPoolBufferSize = __gen_unpack_uint(dw3, 12, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_GS_length                10
 #define GEN9_3DSTATE_GS_length_bias            2
@@ -4663,7 +4858,7 @@ struct GEN9_3DSTATE_GS {
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
    uint64_t                             KernelStartPointer;
-   uint32_t                             SingleProgramFlow;
+   bool                                 SingleProgramFlow;
    bool                                 VectorMaskEnable;
    uint32_t                             SamplerCount;
 #define NoSamplers                               0
@@ -4682,13 +4877,13 @@ struct GEN9_3DSTATE_GS {
    bool                                 MaskStackExceptionEnable;
    bool                                 SoftwareExceptionEnable;
    uint32_t                             ExpectedVertexCount;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             DispatchGRFStartRegisterForURBData54;
    uint32_t                             OutputVertexSize;
-   uint32_t                             OutputTopology;
+   enum GEN9_3D_Prim_Topo_Type          OutputTopology;
    uint32_t                             VertexURBEntryReadLength;
-   uint32_t                             IncludeVertexHandles;
+   bool                                 IncludeVertexHandles;
    uint32_t                             VertexURBEntryReadOffset;
    uint32_t                             DispatchGRFStartRegisterForURBData;
    uint32_t                             ControlDataHeaderSize;
@@ -4700,13 +4895,13 @@ struct GEN9_3DSTATE_GS {
 #define DISPATCH_MODE_SIMD8                      3
    bool                                 StatisticsEnable;
    uint32_t                             InvocationsIncrementValue;
-   uint32_t                             IncludePrimitiveID;
+   bool                                 IncludePrimitiveID;
    uint32_t                             Hint;
    uint32_t                             ReorderMode;
 #define LEADING                                  0
 #define TRAILING                                 1
    bool                                 DiscardAdjacency;
-   bool                                 Enable;
+   bool                                 FunctionEnable;
    uint32_t                             ControlDataFormat;
 #define CUT                                      0
 #define SID                                      1
@@ -4751,10 +4946,11 @@ GEN9_3DSTATE_GS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ExpectedVertexCount, 0, 5);
 
    const uint64_t v4 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 63) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[4] = v4;
-   dw[5] = v4 >> 32;
+   const uint64_t v4_address =
+      __gen_combine_address(data, &dw[4], values->ScratchSpaceBasePointer, v4);
+   dw[4] = v4_address;
+   dw[5] = v4_address >> 32;
 
    dw[6] =
       __gen_uint(values->DispatchGRFStartRegisterForURBData54, 29, 30) |
@@ -4776,7 +4972,7 @@ GEN9_3DSTATE_GS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->Hint, 3, 3) |
       __gen_uint(values->ReorderMode, 2, 2) |
       __gen_uint(values->DiscardAdjacency, 1, 1) |
-      __gen_uint(values->Enable, 0, 0);
+      __gen_uint(values->FunctionEnable, 0, 0);
 
    dw[8] =
       __gen_uint(values->ControlDataFormat, 31, 31) |
@@ -4791,6 +4987,7 @@ GEN9_3DSTATE_GS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->UserClipDistanceCullTestEnableBitmask, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_GS_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_GS * restrict values)
@@ -4821,7 +5018,8 @@ GEN9_3DSTATE_GS_unpack(const void * restrict src,
    values->ExpectedVertexCount = __gen_unpack_uint(dw3, 0, 5);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw4, 10, 63);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw4, 0, 63);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw4, 0, 3);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
@@ -4844,7 +5042,7 @@ GEN9_3DSTATE_GS_unpack(const void * restrict src,
    values->Hint = __gen_unpack_uint(dw7, 3, 3);
    values->ReorderMode = __gen_unpack_uint(dw7, 2, 2);
    values->DiscardAdjacency = __gen_unpack_uint(dw7, 1, 1);
-   values->Enable = __gen_unpack_uint(dw7, 0, 0);
+   values->FunctionEnable = __gen_unpack_uint(dw7, 0, 0);
 
    const uint32_t dw8 __attribute__((unused)) = dw[8];
    values->ControlDataFormat = __gen_unpack_uint(dw8, 31, 31);
@@ -4858,6 +5056,7 @@ GEN9_3DSTATE_GS_unpack(const void * restrict src,
    values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_uint(dw9, 8, 15);
    values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_uint(dw9, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_HIER_DEPTH_BUFFER_length      5
 #define GEN9_3DSTATE_HIER_DEPTH_BUFFER_length_bias      2
@@ -4875,6 +5074,7 @@ struct GEN9_3DSTATE_HIER_DEPTH_BUFFER {
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
    struct GEN9_MEMORY_OBJECT_CONTROL_STATE HierarchicalDepthBufferObjectControlState;
+   uint32_t                             HierarchicalDepthBufferMOCS;
    uint32_t                             SurfacePitch;
    __gen_address_type                   SurfaceBaseAddress;
    uint32_t                             SurfaceQPitch;
@@ -4898,6 +5098,7 @@ GEN9_3DSTATE_HIER_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] =
       __gen_uint(v1_0, 25, 31) |
+      __gen_uint(values->HierarchicalDepthBufferMOCS, 25, 31) |
       __gen_uint(values->SurfacePitch, 0, 16);
 
    const uint64_t v2_address =
@@ -4909,6 +5110,7 @@ GEN9_3DSTATE_HIER_DEPTH_BUFFER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SurfaceQPitch, 0, 14);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_HIER_DEPTH_BUFFER_unpack(const void * restrict src,
                                       struct GEN9_3DSTATE_HIER_DEPTH_BUFFER * restrict values)
@@ -4923,15 +5125,18 @@ GEN9_3DSTATE_HIER_DEPTH_BUFFER_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->HierarchicalDepthBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
+   values->HierarchicalDepthBufferMOCS = __gen_unpack_uint(dw1, 25, 31);
    values->SurfacePitch = __gen_unpack_uint(dw1, 0, 16);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->SurfaceBaseAddress = __gen_unpack_address(dw2, 0, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->SurfaceQPitch = __gen_unpack_uint(dw4, 0, 14);
 }
+#endif
 
 #define GEN9_3DSTATE_HS_length                 9
 #define GEN9_3DSTATE_HS_length_bias            2
@@ -4967,13 +5172,13 @@ struct GEN9_3DSTATE_HS {
    uint32_t                             MaximumNumberofThreads;
    uint32_t                             InstanceCount;
    uint64_t                             KernelStartPointer;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             DispatchGRFStartRegisterForURBData5;
    bool                                 SingleProgramFlow;
    bool                                 VectorMaskEnable;
    bool                                 AccessesUAV;
-   uint32_t                             IncludeVertexHandles;
+   bool                                 IncludeVertexHandles;
    uint32_t                             DispatchGRFStartRegisterForURBData;
    uint32_t                             DispatchMode;
 #define DISPATCH_MODE_SINGLE_PATCH               0
@@ -5017,10 +5222,11 @@ GEN9_3DSTATE_HS_pack(__gen_user_data *data, void * restrict dst,
    dw[4] = v3 >> 32;
 
    const uint64_t v5 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 63) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[5] = v5;
-   dw[6] = v5 >> 32;
+   const uint64_t v5_address =
+      __gen_combine_address(data, &dw[5], values->ScratchSpaceBasePointer, v5);
+   dw[5] = v5_address;
+   dw[6] = v5_address >> 32;
 
    dw[7] =
       __gen_uint(values->DispatchGRFStartRegisterForURBData5, 28, 28) |
@@ -5037,6 +5243,7 @@ GEN9_3DSTATE_HS_pack(__gen_user_data *data, void * restrict dst,
    dw[8] = 0;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_HS_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_HS * restrict values)
@@ -5068,7 +5275,8 @@ GEN9_3DSTATE_HS_unpack(const void * restrict src,
    values->KernelStartPointer = __gen_unpack_offset(dw3, 6, 63);
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw5, 10, 63);
+   const uint64_t qw5 __attribute__((unused)) = *(uint64_t *) &dw[5];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw5, 0, 63);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw5, 0, 3);
 
    const uint32_t dw7 __attribute__((unused)) = dw[7];
@@ -5082,8 +5290,8 @@ GEN9_3DSTATE_HS_unpack(const void * restrict src,
    values->VertexURBEntryReadLength = __gen_unpack_uint(dw7, 11, 16);
    values->VertexURBEntryReadOffset = __gen_unpack_uint(dw7, 4, 9);
    values->IncludePrimitiveID = __gen_unpack_uint(dw7, 0, 0);
-
 }
+#endif
 
 #define GEN9_3DSTATE_INDEX_BUFFER_length       5
 #define GEN9_3DSTATE_INDEX_BUFFER_length_bias      2
@@ -5138,6 +5346,7 @@ GEN9_3DSTATE_INDEX_BUFFER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BufferSize, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_INDEX_BUFFER_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_INDEX_BUFFER * restrict values)
@@ -5153,14 +5362,16 @@ GEN9_3DSTATE_INDEX_BUFFER_unpack(const void * restrict src,
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->IndexFormat = __gen_unpack_uint(dw1, 8, 9);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->MemoryObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->BufferStartingAddress = __gen_unpack_address(dw2, 0, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->BufferStartingAddress = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->BufferSize = __gen_unpack_uint(dw4, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_LINE_STIPPLE_length       3
 #define GEN9_3DSTATE_LINE_STIPPLE_length_bias      2
@@ -5209,6 +5420,7 @@ GEN9_3DSTATE_LINE_STIPPLE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->LineStippleRepeatCount, 0, 8);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_LINE_STIPPLE_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_LINE_STIPPLE * restrict values)
@@ -5232,6 +5444,7 @@ GEN9_3DSTATE_LINE_STIPPLE_unpack(const void * restrict src,
    values->LineStippleInverseRepeatCount = __gen_unpack_ufixed(dw2, 15, 31, 16);
    values->LineStippleRepeatCount = __gen_unpack_uint(dw2, 0, 8);
 }
+#endif
 
 #define GEN9_3DSTATE_MONOFILTER_SIZE_length      2
 #define GEN9_3DSTATE_MONOFILTER_SIZE_length_bias      2
@@ -5270,6 +5483,7 @@ GEN9_3DSTATE_MONOFILTER_SIZE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MonochromeFilterHeight, 0, 2);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_MONOFILTER_SIZE_unpack(const void * restrict src,
                                     struct GEN9_3DSTATE_MONOFILTER_SIZE * restrict values)
@@ -5287,6 +5501,7 @@ GEN9_3DSTATE_MONOFILTER_SIZE_unpack(const void * restrict src,
    values->MonochromeFilterWidth = __gen_unpack_uint(dw1, 3, 5);
    values->MonochromeFilterHeight = __gen_unpack_uint(dw1, 0, 2);
 }
+#endif
 
 #define GEN9_3DSTATE_MULTISAMPLE_length        2
 #define GEN9_3DSTATE_MULTISAMPLE_length_bias      2
@@ -5329,6 +5544,7 @@ GEN9_3DSTATE_MULTISAMPLE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->NumberofMultisamples, 1, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_MULTISAMPLE_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_MULTISAMPLE * restrict values)
@@ -5347,6 +5563,7 @@ GEN9_3DSTATE_MULTISAMPLE_unpack(const void * restrict src,
    values->PixelLocation = __gen_unpack_uint(dw1, 4, 4);
    values->NumberofMultisamples = __gen_unpack_uint(dw1, 1, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_POLY_STIPPLE_OFFSET_length      2
 #define GEN9_3DSTATE_POLY_STIPPLE_OFFSET_length_bias      2
@@ -5385,6 +5602,7 @@ GEN9_3DSTATE_POLY_STIPPLE_OFFSET_pack(__gen_user_data *data, void * restrict dst
       __gen_uint(values->PolygonStippleYOffset, 0, 4);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_POLY_STIPPLE_OFFSET_unpack(const void * restrict src,
                                         struct GEN9_3DSTATE_POLY_STIPPLE_OFFSET * restrict values)
@@ -5402,6 +5620,7 @@ GEN9_3DSTATE_POLY_STIPPLE_OFFSET_unpack(const void * restrict src,
    values->PolygonStippleXOffset = __gen_unpack_uint(dw1, 8, 12);
    values->PolygonStippleYOffset = __gen_unpack_uint(dw1, 0, 4);
 }
+#endif
 
 #define GEN9_3DSTATE_POLY_STIPPLE_PATTERN_length     33
 #define GEN9_3DSTATE_POLY_STIPPLE_PATTERN_length_bias      2
@@ -5531,6 +5750,7 @@ GEN9_3DSTATE_POLY_STIPPLE_PATTERN_pack(__gen_user_data *data, void * restrict ds
       __gen_uint(values->PatternRow[31], 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_POLY_STIPPLE_PATTERN_unpack(const void * restrict src,
                                          struct GEN9_3DSTATE_POLY_STIPPLE_PATTERN * restrict values)
@@ -5640,6 +5860,7 @@ GEN9_3DSTATE_POLY_STIPPLE_PATTERN_unpack(const void * restrict src,
    const uint32_t dw32 __attribute__((unused)) = dw[32];
    values->PatternRow[31] = __gen_unpack_uint(dw32, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_PS_length                12
 #define GEN9_3DSTATE_PS_length_bias            2
@@ -5657,7 +5878,7 @@ struct GEN9_3DSTATE_PS {
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
    uint64_t                             KernelStartPointer0;
-   uint32_t                             SingleProgramFlow;
+   bool                                 SingleProgramFlow;
    bool                                 VectorMaskEnable;
    uint32_t                             SamplerCount;
 #define NoSamplers                               0
@@ -5682,7 +5903,7 @@ struct GEN9_3DSTATE_PS {
    bool                                 IllegalOpcodeExceptionEnable;
    bool                                 MaskStackExceptionEnable;
    bool                                 SoftwareExceptionEnable;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             MaximumNumberofThreadsPerPSD;
    bool                                 PushConstantEnable;
@@ -5737,10 +5958,11 @@ GEN9_3DSTATE_PS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SoftwareExceptionEnable, 7, 7);
 
    const uint64_t v4 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 63) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[4] = v4;
-   dw[5] = v4 >> 32;
+   const uint64_t v4_address =
+      __gen_combine_address(data, &dw[4], values->ScratchSpaceBasePointer, v4);
+   dw[4] = v4_address;
+   dw[5] = v4_address >> 32;
 
    dw[6] =
       __gen_uint(values->MaximumNumberofThreadsPerPSD, 23, 31) |
@@ -5768,6 +5990,7 @@ GEN9_3DSTATE_PS_pack(__gen_user_data *data, void * restrict dst,
    dw[11] = v10 >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PS_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_PS * restrict values)
@@ -5798,7 +6021,8 @@ GEN9_3DSTATE_PS_unpack(const void * restrict src,
    values->SoftwareExceptionEnable = __gen_unpack_uint(dw3, 7, 7);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw4, 10, 63);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw4, 0, 63);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw4, 0, 3);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
@@ -5821,8 +6045,8 @@ GEN9_3DSTATE_PS_unpack(const void * restrict src,
 
    const uint32_t dw10 __attribute__((unused)) = dw[10];
    values->KernelStartPointer2 = __gen_unpack_offset(dw10, 6, 63);
-
 }
+#endif
 
 #define GEN9_3DSTATE_PS_BLEND_length           2
 #define GEN9_3DSTATE_PS_BLEND_length_bias      2
@@ -5842,10 +6066,10 @@ struct GEN9_3DSTATE_PS_BLEND {
    bool                                 AlphaToCoverageEnable;
    bool                                 HasWriteableRT;
    bool                                 ColorBufferBlendEnable;
-   uint32_t                             SourceAlphaBlendFactor;
-   uint32_t                             DestinationAlphaBlendFactor;
-   uint32_t                             SourceBlendFactor;
-   uint32_t                             DestinationBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor SourceAlphaBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor DestinationAlphaBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor SourceBlendFactor;
+   enum GEN9_3D_Color_Buffer_Blend_Factor DestinationBlendFactor;
    bool                                 AlphaTestEnable;
    bool                                 IndependentAlphaBlendEnable;
 };
@@ -5875,6 +6099,7 @@ GEN9_3DSTATE_PS_BLEND_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->IndependentAlphaBlendEnable, 7, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PS_BLEND_unpack(const void * restrict src,
                              struct GEN9_3DSTATE_PS_BLEND * restrict values)
@@ -5899,6 +6124,7 @@ GEN9_3DSTATE_PS_BLEND_unpack(const void * restrict src,
    values->AlphaTestEnable = __gen_unpack_uint(dw1, 8, 8);
    values->IndependentAlphaBlendEnable = __gen_unpack_uint(dw1, 7, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_PS_EXTRA_length           2
 #define GEN9_3DSTATE_PS_EXTRA_length_bias      2
@@ -5971,6 +6197,7 @@ GEN9_3DSTATE_PS_EXTRA_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->InputCoverageMaskState, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PS_EXTRA_unpack(const void * restrict src,
                              struct GEN9_3DSTATE_PS_EXTRA * restrict values)
@@ -6001,6 +6228,7 @@ GEN9_3DSTATE_PS_EXTRA_unpack(const void * restrict src,
    values->PixelShaderHasUAV = __gen_unpack_uint(dw1, 2, 2);
    values->InputCoverageMaskState = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS_length      2
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS_length_bias      2
@@ -6039,6 +6267,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS_pack(__gen_user_data *data, void * restrict 
       __gen_uint(values->ConstantBufferSize, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS * restrict values)
@@ -6056,6 +6285,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_DS_unpack(const void * restrict src,
    values->ConstantBufferOffset = __gen_unpack_uint(dw1, 16, 20);
    values->ConstantBufferSize = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS_length      2
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS_length_bias      2
@@ -6094,6 +6324,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS_pack(__gen_user_data *data, void * restrict 
       __gen_uint(values->ConstantBufferSize, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS * restrict values)
@@ -6111,6 +6342,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_GS_unpack(const void * restrict src,
    values->ConstantBufferOffset = __gen_unpack_uint(dw1, 16, 20);
    values->ConstantBufferSize = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS_length      2
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS_length_bias      2
@@ -6149,6 +6381,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS_pack(__gen_user_data *data, void * restrict 
       __gen_uint(values->ConstantBufferSize, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS * restrict values)
@@ -6166,6 +6399,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_HS_unpack(const void * restrict src,
    values->ConstantBufferOffset = __gen_unpack_uint(dw1, 16, 20);
    values->ConstantBufferSize = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS_length      2
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS_length_bias      2
@@ -6204,6 +6438,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS_pack(__gen_user_data *data, void * restrict 
       __gen_uint(values->ConstantBufferSize, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS * restrict values)
@@ -6221,6 +6456,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_PS_unpack(const void * restrict src,
    values->ConstantBufferOffset = __gen_unpack_uint(dw1, 16, 20);
    values->ConstantBufferSize = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS_length      2
 #define GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS_length_bias      2
@@ -6259,6 +6495,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS_pack(__gen_user_data *data, void * restrict 
       __gen_uint(values->ConstantBufferSize, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS * restrict values)
@@ -6276,6 +6513,7 @@ GEN9_3DSTATE_PUSH_CONSTANT_ALLOC_VS_unpack(const void * restrict src,
    values->ConstantBufferOffset = __gen_unpack_uint(dw1, 16, 20);
    values->ConstantBufferSize = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_RASTER_length             5
 #define GEN9_3DSTATE_RASTER_length_bias        2
@@ -6383,6 +6621,7 @@ GEN9_3DSTATE_RASTER_pack(__gen_user_data *data, void * restrict dst,
       __gen_float(values->GlobalDepthOffsetClamp);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_RASTER_unpack(const void * restrict src,
                            struct GEN9_3DSTATE_RASTER * restrict values)
@@ -6425,6 +6664,7 @@ GEN9_3DSTATE_RASTER_unpack(const void * restrict src,
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->GlobalDepthOffsetClamp = __gen_unpack_float(dw4);
 }
+#endif
 
 #define GEN9_3DSTATE_RS_CONSTANT_POINTER_length      4
 #define GEN9_3DSTATE_RS_CONSTANT_POINTER_length_bias      2
@@ -6448,6 +6688,7 @@ struct GEN9_3DSTATE_RS_CONSTANT_POINTER {
 #define RS_Store                                 0
 #define RS_Load                                  1
    __gen_address_type                   GlobalConstantBufferAddress;
+   __gen_address_type                   GlobalConstantBufferAddressHigh;
 };
 
 static inline void
@@ -6467,12 +6708,12 @@ GEN9_3DSTATE_RS_CONSTANT_POINTER_pack(__gen_user_data *data, void * restrict dst
       __gen_uint(values->ShaderSelect, 28, 30) |
       __gen_uint(values->OperationLoadorStore, 12, 12);
 
-   const uint64_t v2_address =
-      __gen_combine_address(data, &dw[2], values->GlobalConstantBufferAddress, 0);
-   dw[2] = v2_address;
-   dw[3] = v2_address >> 32;
+   dw[2] = __gen_combine_address(data, &dw[2], values->GlobalConstantBufferAddress, 0);
+
+   dw[3] = __gen_combine_address(data, &dw[3], values->GlobalConstantBufferAddressHigh, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_RS_CONSTANT_POINTER_unpack(const void * restrict src,
                                         struct GEN9_3DSTATE_RS_CONSTANT_POINTER * restrict values)
@@ -6491,9 +6732,14 @@ GEN9_3DSTATE_RS_CONSTANT_POINTER_unpack(const void * restrict src,
    values->OperationLoadorStore = __gen_unpack_uint(dw1, 12, 12);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->GlobalConstantBufferAddress = __gen_unpack_address(dw2, 6, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->GlobalConstantBufferAddress = __gen_unpack_address(qw2, 0, 63);
 
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   const uint64_t qw3 __attribute__((unused)) = *(uint64_t *) &dw[3];
+   values->GlobalConstantBufferAddressHigh = __gen_unpack_address(qw3, 0, 63);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0_length_bias      2
 #define GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0_header\
@@ -6525,6 +6771,7 @@ GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->DWordLength, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0 * restrict values)
@@ -6538,6 +6785,7 @@ GEN9_3DSTATE_SAMPLER_PALETTE_LOAD0_unpack(const void * restrict src,
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1_length_bias      2
 #define GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1_header\
@@ -6570,6 +6818,7 @@ GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1_pack(__gen_user_data *data, void * restrict d
       __gen_uint(values->DWordLength, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1_unpack(const void * restrict src,
                                           struct GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1 * restrict values)
@@ -6583,6 +6832,7 @@ GEN9_3DSTATE_SAMPLER_PALETTE_LOAD1_unpack(const void * restrict src,
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS_length      2
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS_length_bias      2
@@ -6619,6 +6869,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoDSSamplerState, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS * restrict values)
@@ -6635,6 +6886,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_DS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoDSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS_length      2
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS_length_bias      2
@@ -6671,6 +6923,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoGSSamplerState, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS * restrict values)
@@ -6687,6 +6940,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_GS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoGSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS_length      2
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS_length_bias      2
@@ -6723,6 +6977,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoHSSamplerState, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS * restrict values)
@@ -6739,6 +6994,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_HS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoHSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS_length      2
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS_length_bias      2
@@ -6775,6 +7031,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoPSSamplerState, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS * restrict values)
@@ -6791,6 +7048,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_PS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoPSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS_length      2
 #define GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS_length_bias      2
@@ -6827,6 +7085,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS_pack(__gen_user_data *data, void * restri
       __gen_offset(values->PointertoVSSamplerState, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS_unpack(const void * restrict src,
                                               struct GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS * restrict values)
@@ -6843,6 +7102,7 @@ GEN9_3DSTATE_SAMPLER_STATE_POINTERS_VS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PointertoVSSamplerState = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLE_MASK_length        2
 #define GEN9_3DSTATE_SAMPLE_MASK_length_bias      2
@@ -6879,6 +7139,7 @@ GEN9_3DSTATE_SAMPLE_MASK_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SampleMask, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLE_MASK_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_SAMPLE_MASK * restrict values)
@@ -6895,6 +7156,7 @@ GEN9_3DSTATE_SAMPLE_MASK_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->SampleMask = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_SAMPLE_PATTERN_length      9
 #define GEN9_3DSTATE_SAMPLE_PATTERN_length_bias      2
@@ -7067,6 +7329,7 @@ GEN9_3DSTATE_SAMPLE_PATTERN_pack(__gen_user_data *data, void * restrict dst,
       __gen_ufixed(values->_2xSample0YOffset, 0, 3, 4);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SAMPLE_PATTERN_unpack(const void * restrict src,
                                    struct GEN9_3DSTATE_SAMPLE_PATTERN * restrict values)
@@ -7158,6 +7421,7 @@ GEN9_3DSTATE_SAMPLE_PATTERN_unpack(const void * restrict src,
    values->_2xSample0XOffset = __gen_unpack_ufixed(dw8, 4, 7, 4);
    values->_2xSample0YOffset = __gen_unpack_ufixed(dw8, 0, 3, 4);
 }
+#endif
 
 #define GEN9_3DSTATE_SBE_length                6
 #define GEN9_3DSTATE_SBE_length_bias           2
@@ -7190,38 +7454,7 @@ struct GEN9_3DSTATE_SBE {
    uint32_t                             PrimitiveIDOverrideAttributeSelect;
    uint32_t                             PointSpriteTextureCoordinateEnable;
    uint32_t                             ConstantInterpolationEnable;
-   uint32_t                             Attribute15ActiveComponentFormat;
-   uint32_t                             Attribute14ActiveComponentFormat;
-   uint32_t                             Attribute13ActiveComponentFormat;
-   uint32_t                             Attribute12ActiveComponentFormat;
-   uint32_t                             Attribute11ActiveComponentFormat;
-   uint32_t                             Attribute10ActiveComponentFormat;
-   uint32_t                             Attribute9ActiveComponentFormat;
-   uint32_t                             Attribute8ActiveComponentFormat;
-   uint32_t                             Attribute7ActiveComponentFormat;
-   uint32_t                             Attribute6ActiveComponentFormat;
-   uint32_t                             Attribute5ActiveComponentFormat;
-   uint32_t                             Attribute4ActiveComponentFormat;
-   uint32_t                             Attribute3ActiveComponentFormat;
-   uint32_t                             Attribute2ActiveComponentFormat;
-   uint32_t                             Attribute1ActiveComponentFormat;
-   uint32_t                             Attribute0ActiveComponentFormat;
-   uint32_t                             Attribute31ActiveComponentFormat;
-   uint32_t                             Attribute30ActiveComponentFormat;
-   uint32_t                             Attribute29ActiveComponentFormat;
-   uint32_t                             Attribute28ActiveComponentFormat;
-   uint32_t                             Attribute27ActiveComponentFormat;
-   uint32_t                             Attribute26ActiveComponentFormat;
-   uint32_t                             Attribute25ActiveComponentFormat;
-   uint32_t                             Attribute24ActiveComponentFormat;
-   uint32_t                             Attribute23ActiveComponentFormat;
-   uint32_t                             Attribute22ActiveComponentFormat;
-   uint32_t                             Attribute21ActiveComponentFormat;
-   uint32_t                             Attribute20ActiveComponentFormat;
-   uint32_t                             Attribute19ActiveComponentFormat;
-   uint32_t                             Attribute18ActiveComponentFormat;
-   uint32_t                             Attribute17ActiveComponentFormat;
-   uint32_t                             Attribute16ActiveComponentFormat;
+   uint32_t                             AttributeActiveComponentFormat[32];
 };
 
 static inline void
@@ -7258,42 +7491,43 @@ GEN9_3DSTATE_SBE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ConstantInterpolationEnable, 0, 31);
 
    dw[4] =
-      __gen_uint(values->Attribute15ActiveComponentFormat, 30, 31) |
-      __gen_uint(values->Attribute14ActiveComponentFormat, 28, 29) |
-      __gen_uint(values->Attribute13ActiveComponentFormat, 26, 27) |
-      __gen_uint(values->Attribute12ActiveComponentFormat, 24, 25) |
-      __gen_uint(values->Attribute11ActiveComponentFormat, 22, 23) |
-      __gen_uint(values->Attribute10ActiveComponentFormat, 20, 21) |
-      __gen_uint(values->Attribute9ActiveComponentFormat, 18, 19) |
-      __gen_uint(values->Attribute8ActiveComponentFormat, 16, 17) |
-      __gen_uint(values->Attribute7ActiveComponentFormat, 14, 15) |
-      __gen_uint(values->Attribute6ActiveComponentFormat, 12, 13) |
-      __gen_uint(values->Attribute5ActiveComponentFormat, 10, 11) |
-      __gen_uint(values->Attribute4ActiveComponentFormat, 8, 9) |
-      __gen_uint(values->Attribute3ActiveComponentFormat, 6, 7) |
-      __gen_uint(values->Attribute2ActiveComponentFormat, 4, 5) |
-      __gen_uint(values->Attribute1ActiveComponentFormat, 2, 3) |
-      __gen_uint(values->Attribute0ActiveComponentFormat, 0, 1);
+      __gen_uint(values->AttributeActiveComponentFormat[0], 0, 1) |
+      __gen_uint(values->AttributeActiveComponentFormat[1], 2, 3) |
+      __gen_uint(values->AttributeActiveComponentFormat[2], 4, 5) |
+      __gen_uint(values->AttributeActiveComponentFormat[3], 6, 7) |
+      __gen_uint(values->AttributeActiveComponentFormat[4], 8, 9) |
+      __gen_uint(values->AttributeActiveComponentFormat[5], 10, 11) |
+      __gen_uint(values->AttributeActiveComponentFormat[6], 12, 13) |
+      __gen_uint(values->AttributeActiveComponentFormat[7], 14, 15) |
+      __gen_uint(values->AttributeActiveComponentFormat[8], 16, 17) |
+      __gen_uint(values->AttributeActiveComponentFormat[9], 18, 19) |
+      __gen_uint(values->AttributeActiveComponentFormat[10], 20, 21) |
+      __gen_uint(values->AttributeActiveComponentFormat[11], 22, 23) |
+      __gen_uint(values->AttributeActiveComponentFormat[12], 24, 25) |
+      __gen_uint(values->AttributeActiveComponentFormat[13], 26, 27) |
+      __gen_uint(values->AttributeActiveComponentFormat[14], 28, 29) |
+      __gen_uint(values->AttributeActiveComponentFormat[15], 30, 31);
 
    dw[5] =
-      __gen_uint(values->Attribute31ActiveComponentFormat, 30, 31) |
-      __gen_uint(values->Attribute30ActiveComponentFormat, 28, 29) |
-      __gen_uint(values->Attribute29ActiveComponentFormat, 26, 27) |
-      __gen_uint(values->Attribute28ActiveComponentFormat, 24, 25) |
-      __gen_uint(values->Attribute27ActiveComponentFormat, 22, 23) |
-      __gen_uint(values->Attribute26ActiveComponentFormat, 20, 21) |
-      __gen_uint(values->Attribute25ActiveComponentFormat, 18, 19) |
-      __gen_uint(values->Attribute24ActiveComponentFormat, 16, 17) |
-      __gen_uint(values->Attribute23ActiveComponentFormat, 14, 15) |
-      __gen_uint(values->Attribute22ActiveComponentFormat, 12, 13) |
-      __gen_uint(values->Attribute21ActiveComponentFormat, 10, 11) |
-      __gen_uint(values->Attribute20ActiveComponentFormat, 8, 9) |
-      __gen_uint(values->Attribute19ActiveComponentFormat, 6, 7) |
-      __gen_uint(values->Attribute18ActiveComponentFormat, 4, 5) |
-      __gen_uint(values->Attribute17ActiveComponentFormat, 2, 3) |
-      __gen_uint(values->Attribute16ActiveComponentFormat, 0, 1);
+      __gen_uint(values->AttributeActiveComponentFormat[16], 0, 1) |
+      __gen_uint(values->AttributeActiveComponentFormat[17], 2, 3) |
+      __gen_uint(values->AttributeActiveComponentFormat[18], 4, 5) |
+      __gen_uint(values->AttributeActiveComponentFormat[19], 6, 7) |
+      __gen_uint(values->AttributeActiveComponentFormat[20], 8, 9) |
+      __gen_uint(values->AttributeActiveComponentFormat[21], 10, 11) |
+      __gen_uint(values->AttributeActiveComponentFormat[22], 12, 13) |
+      __gen_uint(values->AttributeActiveComponentFormat[23], 14, 15) |
+      __gen_uint(values->AttributeActiveComponentFormat[24], 16, 17) |
+      __gen_uint(values->AttributeActiveComponentFormat[25], 18, 19) |
+      __gen_uint(values->AttributeActiveComponentFormat[26], 20, 21) |
+      __gen_uint(values->AttributeActiveComponentFormat[27], 22, 23) |
+      __gen_uint(values->AttributeActiveComponentFormat[28], 24, 25) |
+      __gen_uint(values->AttributeActiveComponentFormat[29], 26, 27) |
+      __gen_uint(values->AttributeActiveComponentFormat[30], 28, 29) |
+      __gen_uint(values->AttributeActiveComponentFormat[31], 30, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SBE_unpack(const void * restrict src,
                         struct GEN9_3DSTATE_SBE * restrict values)
@@ -7328,41 +7562,42 @@ GEN9_3DSTATE_SBE_unpack(const void * restrict src,
    values->ConstantInterpolationEnable = __gen_unpack_uint(dw3, 0, 31);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->Attribute15ActiveComponentFormat = __gen_unpack_uint(dw4, 30, 31);
-   values->Attribute14ActiveComponentFormat = __gen_unpack_uint(dw4, 28, 29);
-   values->Attribute13ActiveComponentFormat = __gen_unpack_uint(dw4, 26, 27);
-   values->Attribute12ActiveComponentFormat = __gen_unpack_uint(dw4, 24, 25);
-   values->Attribute11ActiveComponentFormat = __gen_unpack_uint(dw4, 22, 23);
-   values->Attribute10ActiveComponentFormat = __gen_unpack_uint(dw4, 20, 21);
-   values->Attribute9ActiveComponentFormat = __gen_unpack_uint(dw4, 18, 19);
-   values->Attribute8ActiveComponentFormat = __gen_unpack_uint(dw4, 16, 17);
-   values->Attribute7ActiveComponentFormat = __gen_unpack_uint(dw4, 14, 15);
-   values->Attribute6ActiveComponentFormat = __gen_unpack_uint(dw4, 12, 13);
-   values->Attribute5ActiveComponentFormat = __gen_unpack_uint(dw4, 10, 11);
-   values->Attribute4ActiveComponentFormat = __gen_unpack_uint(dw4, 8, 9);
-   values->Attribute3ActiveComponentFormat = __gen_unpack_uint(dw4, 6, 7);
-   values->Attribute2ActiveComponentFormat = __gen_unpack_uint(dw4, 4, 5);
-   values->Attribute1ActiveComponentFormat = __gen_unpack_uint(dw4, 2, 3);
-   values->Attribute0ActiveComponentFormat = __gen_unpack_uint(dw4, 0, 1);
+   values->AttributeActiveComponentFormat[0] = __gen_unpack_uint(dw4, 0, 1);
+   values->AttributeActiveComponentFormat[1] = __gen_unpack_uint(dw4, 2, 3);
+   values->AttributeActiveComponentFormat[2] = __gen_unpack_uint(dw4, 4, 5);
+   values->AttributeActiveComponentFormat[3] = __gen_unpack_uint(dw4, 6, 7);
+   values->AttributeActiveComponentFormat[4] = __gen_unpack_uint(dw4, 8, 9);
+   values->AttributeActiveComponentFormat[5] = __gen_unpack_uint(dw4, 10, 11);
+   values->AttributeActiveComponentFormat[6] = __gen_unpack_uint(dw4, 12, 13);
+   values->AttributeActiveComponentFormat[7] = __gen_unpack_uint(dw4, 14, 15);
+   values->AttributeActiveComponentFormat[8] = __gen_unpack_uint(dw4, 16, 17);
+   values->AttributeActiveComponentFormat[9] = __gen_unpack_uint(dw4, 18, 19);
+   values->AttributeActiveComponentFormat[10] = __gen_unpack_uint(dw4, 20, 21);
+   values->AttributeActiveComponentFormat[11] = __gen_unpack_uint(dw4, 22, 23);
+   values->AttributeActiveComponentFormat[12] = __gen_unpack_uint(dw4, 24, 25);
+   values->AttributeActiveComponentFormat[13] = __gen_unpack_uint(dw4, 26, 27);
+   values->AttributeActiveComponentFormat[14] = __gen_unpack_uint(dw4, 28, 29);
+   values->AttributeActiveComponentFormat[15] = __gen_unpack_uint(dw4, 30, 31);
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   values->Attribute31ActiveComponentFormat = __gen_unpack_uint(dw5, 30, 31);
-   values->Attribute30ActiveComponentFormat = __gen_unpack_uint(dw5, 28, 29);
-   values->Attribute29ActiveComponentFormat = __gen_unpack_uint(dw5, 26, 27);
-   values->Attribute28ActiveComponentFormat = __gen_unpack_uint(dw5, 24, 25);
-   values->Attribute27ActiveComponentFormat = __gen_unpack_uint(dw5, 22, 23);
-   values->Attribute26ActiveComponentFormat = __gen_unpack_uint(dw5, 20, 21);
-   values->Attribute25ActiveComponentFormat = __gen_unpack_uint(dw5, 18, 19);
-   values->Attribute24ActiveComponentFormat = __gen_unpack_uint(dw5, 16, 17);
-   values->Attribute23ActiveComponentFormat = __gen_unpack_uint(dw5, 14, 15);
-   values->Attribute22ActiveComponentFormat = __gen_unpack_uint(dw5, 12, 13);
-   values->Attribute21ActiveComponentFormat = __gen_unpack_uint(dw5, 10, 11);
-   values->Attribute20ActiveComponentFormat = __gen_unpack_uint(dw5, 8, 9);
-   values->Attribute19ActiveComponentFormat = __gen_unpack_uint(dw5, 6, 7);
-   values->Attribute18ActiveComponentFormat = __gen_unpack_uint(dw5, 4, 5);
-   values->Attribute17ActiveComponentFormat = __gen_unpack_uint(dw5, 2, 3);
-   values->Attribute16ActiveComponentFormat = __gen_unpack_uint(dw5, 0, 1);
+   values->AttributeActiveComponentFormat[16] = __gen_unpack_uint(dw5, 0, 1);
+   values->AttributeActiveComponentFormat[17] = __gen_unpack_uint(dw5, 2, 3);
+   values->AttributeActiveComponentFormat[18] = __gen_unpack_uint(dw5, 4, 5);
+   values->AttributeActiveComponentFormat[19] = __gen_unpack_uint(dw5, 6, 7);
+   values->AttributeActiveComponentFormat[20] = __gen_unpack_uint(dw5, 8, 9);
+   values->AttributeActiveComponentFormat[21] = __gen_unpack_uint(dw5, 10, 11);
+   values->AttributeActiveComponentFormat[22] = __gen_unpack_uint(dw5, 12, 13);
+   values->AttributeActiveComponentFormat[23] = __gen_unpack_uint(dw5, 14, 15);
+   values->AttributeActiveComponentFormat[24] = __gen_unpack_uint(dw5, 16, 17);
+   values->AttributeActiveComponentFormat[25] = __gen_unpack_uint(dw5, 18, 19);
+   values->AttributeActiveComponentFormat[26] = __gen_unpack_uint(dw5, 20, 21);
+   values->AttributeActiveComponentFormat[27] = __gen_unpack_uint(dw5, 22, 23);
+   values->AttributeActiveComponentFormat[28] = __gen_unpack_uint(dw5, 24, 25);
+   values->AttributeActiveComponentFormat[29] = __gen_unpack_uint(dw5, 26, 27);
+   values->AttributeActiveComponentFormat[30] = __gen_unpack_uint(dw5, 28, 29);
+   values->AttributeActiveComponentFormat[31] = __gen_unpack_uint(dw5, 30, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SBE_SWIZ_length          11
 #define GEN9_3DSTATE_SBE_SWIZ_length_bias      2
@@ -7497,6 +7732,7 @@ GEN9_3DSTATE_SBE_SWIZ_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->AttributeWrapShortestEnables[15], 28, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SBE_SWIZ_unpack(const void * restrict src,
                              struct GEN9_3DSTATE_SBE_SWIZ * restrict values)
@@ -7511,36 +7747,36 @@ GEN9_3DSTATE_SBE_SWIZ_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[1], &values->Attribute[0]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[1], &values->Attribute[1]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[2], &values->Attribute[2]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[2], &values->Attribute[3]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[3], &values->Attribute[4]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[3], &values->Attribute[5]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[4], &values->Attribute[6]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[4], &values->Attribute[7]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[5], &values->Attribute[8]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[5], &values->Attribute[9]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[6], &values->Attribute[10]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[6], &values->Attribute[11]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw7 __attribute__((unused)) = dw[7];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[7], &values->Attribute[12]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[7], &values->Attribute[13]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw8 __attribute__((unused)) = dw[8];
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[8], &values->Attribute[14]);
-   GEN9_SF_OUTPUT_ATTRIBUTE_DETAIL_unpack(&dw[8], &values->Attribute[15]);
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
+/* struct SF_OUTPUT_ATTRIBUTE_DETAIL */
 
    const uint32_t dw9 __attribute__((unused)) = dw[9];
    values->AttributeWrapShortestEnables[0] = __gen_unpack_uint(dw9, 0, 3);
@@ -7562,6 +7798,7 @@ GEN9_3DSTATE_SBE_SWIZ_unpack(const void * restrict src,
    values->AttributeWrapShortestEnables[14] = __gen_unpack_uint(dw10, 24, 27);
    values->AttributeWrapShortestEnables[15] = __gen_unpack_uint(dw10, 28, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SCISSOR_STATE_POINTERS_length      2
 #define GEN9_3DSTATE_SCISSOR_STATE_POINTERS_length_bias      2
@@ -7598,6 +7835,7 @@ GEN9_3DSTATE_SCISSOR_STATE_POINTERS_pack(__gen_user_data *data, void * restrict 
       __gen_offset(values->ScissorRectPointer, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SCISSOR_STATE_POINTERS_unpack(const void * restrict src,
                                            struct GEN9_3DSTATE_SCISSOR_STATE_POINTERS * restrict values)
@@ -7614,6 +7852,7 @@ GEN9_3DSTATE_SCISSOR_STATE_POINTERS_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->ScissorRectPointer = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SF_length                 4
 #define GEN9_3DSTATE_SF_length_bias            2
@@ -7687,6 +7926,7 @@ GEN9_3DSTATE_SF_pack(__gen_user_data *data, void * restrict dst,
       __gen_ufixed(values->PointWidth, 0, 10, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SF_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_SF * restrict values)
@@ -7720,6 +7960,7 @@ GEN9_3DSTATE_SF_unpack(const void * restrict src,
    values->PointWidthSource = __gen_unpack_uint(dw3, 11, 11);
    values->PointWidth = __gen_unpack_ufixed(dw3, 0, 10, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_SO_BUFFER_length          8
 #define GEN9_3DSTATE_SO_BUFFER_length_bias      2
@@ -7787,6 +8028,7 @@ GEN9_3DSTATE_SO_BUFFER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->StreamOffset, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SO_BUFFER_unpack(const void * restrict src,
                               struct GEN9_3DSTATE_SO_BUFFER * restrict values)
@@ -7803,22 +8045,25 @@ GEN9_3DSTATE_SO_BUFFER_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->SOBufferEnable = __gen_unpack_uint(dw1, 31, 31);
    values->SOBufferIndex = __gen_unpack_uint(dw1, 29, 30);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->SOBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->StreamOffsetWriteEnable = __gen_unpack_uint(dw1, 21, 21);
    values->StreamOutputBufferOffsetAddressEnable = __gen_unpack_uint(dw1, 20, 20);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->SurfaceBaseAddress = __gen_unpack_address(dw2, 2, 47);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->SurfaceSize = __gen_unpack_uint(dw4, 0, 29);
 
    const uint32_t dw5 __attribute__((unused)) = dw[5];
-   values->StreamOutputBufferOffsetAddress = __gen_unpack_address(dw5, 2, 47);
+   const uint64_t qw5 __attribute__((unused)) = *(uint64_t *) &dw[5];
+   values->StreamOutputBufferOffsetAddress = __gen_unpack_address(qw5, 0, 63);
 
    const uint32_t dw7 __attribute__((unused)) = dw[7];
    values->StreamOffset = __gen_unpack_uint(dw7, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_SO_DECL_LIST_length_bias      2
 #define GEN9_3DSTATE_SO_DECL_LIST_header        \
@@ -7870,6 +8115,7 @@ GEN9_3DSTATE_SO_DECL_LIST_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->NumEntries0, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_SO_DECL_LIST_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_SO_DECL_LIST * restrict values)
@@ -7895,6 +8141,7 @@ GEN9_3DSTATE_SO_DECL_LIST_unpack(const void * restrict src,
    values->NumEntries1 = __gen_unpack_uint(dw2, 8, 15);
    values->NumEntries0 = __gen_unpack_uint(dw2, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_STENCIL_BUFFER_length      5
 #define GEN9_3DSTATE_STENCIL_BUFFER_length_bias      2
@@ -7911,8 +8158,9 @@ struct GEN9_3DSTATE_STENCIL_BUFFER {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   uint32_t                             StencilBufferEnable;
+   bool                                 StencilBufferEnable;
    struct GEN9_MEMORY_OBJECT_CONTROL_STATE StencilBufferObjectControlState;
+   uint32_t                             StencilBufferMOCS;
    uint32_t                             SurfacePitch;
    __gen_address_type                   SurfaceBaseAddress;
    uint32_t                             SurfaceQPitch;
@@ -7937,6 +8185,7 @@ GEN9_3DSTATE_STENCIL_BUFFER_pack(__gen_user_data *data, void * restrict dst,
    dw[1] =
       __gen_uint(values->StencilBufferEnable, 31, 31) |
       __gen_uint(v1_0, 22, 28) |
+      __gen_uint(values->StencilBufferMOCS, 22, 28) |
       __gen_uint(values->SurfacePitch, 0, 16);
 
    const uint64_t v2_address =
@@ -7948,6 +8197,7 @@ GEN9_3DSTATE_STENCIL_BUFFER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SurfaceQPitch, 0, 14);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_STENCIL_BUFFER_unpack(const void * restrict src,
                                    struct GEN9_3DSTATE_STENCIL_BUFFER * restrict values)
@@ -7963,15 +8213,18 @@ GEN9_3DSTATE_STENCIL_BUFFER_unpack(const void * restrict src,
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->StencilBufferEnable = __gen_unpack_uint(dw1, 31, 31);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->StencilBufferObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
+   values->StencilBufferMOCS = __gen_unpack_uint(dw1, 22, 28);
    values->SurfacePitch = __gen_unpack_uint(dw1, 0, 16);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->SurfaceBaseAddress = __gen_unpack_address(dw2, 0, 63);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->SurfaceBaseAddress = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->SurfaceQPitch = __gen_unpack_uint(dw4, 0, 14);
 }
+#endif
 
 #define GEN9_3DSTATE_STREAMOUT_length          5
 #define GEN9_3DSTATE_STREAMOUT_length_bias      2
@@ -7988,8 +8241,8 @@ struct GEN9_3DSTATE_STREAMOUT {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   uint32_t                             SOFunctionEnable;
-   uint32_t                             APIRenderingDisable;
+   bool                                 SOFunctionEnable;
+   bool                                 RenderingDisable;
    uint32_t                             RenderStreamSelect;
    uint32_t                             ReorderMode;
 #define LEADING                                  0
@@ -8028,7 +8281,7 @@ GEN9_3DSTATE_STREAMOUT_pack(__gen_user_data *data, void * restrict dst,
 
    dw[1] =
       __gen_uint(values->SOFunctionEnable, 31, 31) |
-      __gen_uint(values->APIRenderingDisable, 30, 30) |
+      __gen_uint(values->RenderingDisable, 30, 30) |
       __gen_uint(values->RenderStreamSelect, 27, 28) |
       __gen_uint(values->ReorderMode, 26, 26) |
       __gen_uint(values->SOStatisticsEnable, 25, 25) |
@@ -8053,6 +8306,7 @@ GEN9_3DSTATE_STREAMOUT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->Buffer2SurfacePitch, 0, 11);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_STREAMOUT_unpack(const void * restrict src,
                               struct GEN9_3DSTATE_STREAMOUT * restrict values)
@@ -8068,7 +8322,7 @@ GEN9_3DSTATE_STREAMOUT_unpack(const void * restrict src,
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->SOFunctionEnable = __gen_unpack_uint(dw1, 31, 31);
-   values->APIRenderingDisable = __gen_unpack_uint(dw1, 30, 30);
+   values->RenderingDisable = __gen_unpack_uint(dw1, 30, 30);
    values->RenderStreamSelect = __gen_unpack_uint(dw1, 27, 28);
    values->ReorderMode = __gen_unpack_uint(dw1, 26, 26);
    values->SOStatisticsEnable = __gen_unpack_uint(dw1, 25, 25);
@@ -8092,6 +8346,7 @@ GEN9_3DSTATE_STREAMOUT_unpack(const void * restrict src,
    values->Buffer3SurfacePitch = __gen_unpack_uint(dw4, 16, 27);
    values->Buffer2SurfacePitch = __gen_unpack_uint(dw4, 0, 11);
 }
+#endif
 
 #define GEN9_3DSTATE_TE_length                 4
 #define GEN9_3DSTATE_TE_length_bias            2
@@ -8155,6 +8410,7 @@ GEN9_3DSTATE_TE_pack(__gen_user_data *data, void * restrict dst,
       __gen_float(values->MaximumTessellationFactorNotOdd);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_TE_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_TE * restrict values)
@@ -8181,6 +8437,7 @@ GEN9_3DSTATE_TE_unpack(const void * restrict src,
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->MaximumTessellationFactorNotOdd = __gen_unpack_float(dw3);
 }
+#endif
 
 #define GEN9_3DSTATE_URB_CLEAR_length          2
 #define GEN9_3DSTATE_URB_CLEAR_length_bias      2
@@ -8219,6 +8476,7 @@ GEN9_3DSTATE_URB_CLEAR_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->URBAddress, 0, 14);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_URB_CLEAR_unpack(const void * restrict src,
                               struct GEN9_3DSTATE_URB_CLEAR * restrict values)
@@ -8236,6 +8494,7 @@ GEN9_3DSTATE_URB_CLEAR_unpack(const void * restrict src,
    values->URBClearLength = __gen_unpack_uint(dw1, 16, 29);
    values->URBAddress = __gen_unpack_offset(dw1, 0, 14);
 }
+#endif
 
 #define GEN9_3DSTATE_URB_DS_length             2
 #define GEN9_3DSTATE_URB_DS_length_bias        2
@@ -8276,6 +8535,7 @@ GEN9_3DSTATE_URB_DS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DSNumberofURBEntries, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_URB_DS_unpack(const void * restrict src,
                            struct GEN9_3DSTATE_URB_DS * restrict values)
@@ -8294,6 +8554,7 @@ GEN9_3DSTATE_URB_DS_unpack(const void * restrict src,
    values->DSURBEntryAllocationSize = __gen_unpack_uint(dw1, 16, 24);
    values->DSNumberofURBEntries = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_URB_GS_length             2
 #define GEN9_3DSTATE_URB_GS_length_bias        2
@@ -8334,6 +8595,7 @@ GEN9_3DSTATE_URB_GS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->GSNumberofURBEntries, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_URB_GS_unpack(const void * restrict src,
                            struct GEN9_3DSTATE_URB_GS * restrict values)
@@ -8352,6 +8614,7 @@ GEN9_3DSTATE_URB_GS_unpack(const void * restrict src,
    values->GSURBEntryAllocationSize = __gen_unpack_uint(dw1, 16, 24);
    values->GSNumberofURBEntries = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_URB_HS_length             2
 #define GEN9_3DSTATE_URB_HS_length_bias        2
@@ -8392,6 +8655,7 @@ GEN9_3DSTATE_URB_HS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->HSNumberofURBEntries, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_URB_HS_unpack(const void * restrict src,
                            struct GEN9_3DSTATE_URB_HS * restrict values)
@@ -8410,6 +8674,7 @@ GEN9_3DSTATE_URB_HS_unpack(const void * restrict src,
    values->HSURBEntryAllocationSize = __gen_unpack_uint(dw1, 16, 24);
    values->HSNumberofURBEntries = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_URB_VS_length             2
 #define GEN9_3DSTATE_URB_VS_length_bias        2
@@ -8450,6 +8715,7 @@ GEN9_3DSTATE_URB_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->VSNumberofURBEntries, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_URB_VS_unpack(const void * restrict src,
                            struct GEN9_3DSTATE_URB_VS * restrict values)
@@ -8468,6 +8734,7 @@ GEN9_3DSTATE_URB_VS_unpack(const void * restrict src,
    values->VSURBEntryAllocationSize = __gen_unpack_uint(dw1, 16, 24);
    values->VSNumberofURBEntries = __gen_unpack_uint(dw1, 0, 15);
 }
+#endif
 
 #define GEN9_3DSTATE_VERTEX_BUFFERS_length_bias      2
 #define GEN9_3DSTATE_VERTEX_BUFFERS_header      \
@@ -8500,6 +8767,7 @@ GEN9_3DSTATE_VERTEX_BUFFERS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DWordLength, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VERTEX_BUFFERS_unpack(const void * restrict src,
                                    struct GEN9_3DSTATE_VERTEX_BUFFERS * restrict values)
@@ -8513,6 +8781,7 @@ GEN9_3DSTATE_VERTEX_BUFFERS_unpack(const void * restrict src,
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_VERTEX_ELEMENTS_length_bias      2
 #define GEN9_3DSTATE_VERTEX_ELEMENTS_header     \
@@ -8545,6 +8814,7 @@ GEN9_3DSTATE_VERTEX_ELEMENTS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DWordLength, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VERTEX_ELEMENTS_unpack(const void * restrict src,
                                     struct GEN9_3DSTATE_VERTEX_ELEMENTS * restrict values)
@@ -8558,6 +8828,7 @@ GEN9_3DSTATE_VERTEX_ELEMENTS_unpack(const void * restrict src,
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_length                 2
 #define GEN9_3DSTATE_VF_length_bias            2
@@ -8600,6 +8871,7 @@ GEN9_3DSTATE_VF_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->CutIndex, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_VF * restrict values)
@@ -8619,6 +8891,7 @@ GEN9_3DSTATE_VF_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->CutIndex = __gen_unpack_uint(dw1, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_COMPONENT_PACKING_length      5
 #define GEN9_3DSTATE_VF_COMPONENT_PACKING_length_bias      2
@@ -8723,6 +8996,7 @@ GEN9_3DSTATE_VF_COMPONENT_PACKING_pack(__gen_user_data *data, void * restrict ds
       __gen_uint(values->VertexElement24Enables, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_COMPONENT_PACKING_unpack(const void * restrict src,
                                          struct GEN9_3DSTATE_VF_COMPONENT_PACKING * restrict values)
@@ -8776,6 +9050,7 @@ GEN9_3DSTATE_VF_COMPONENT_PACKING_unpack(const void * restrict src,
    values->VertexElement25Enables = __gen_unpack_uint(dw4, 4, 7);
    values->VertexElement24Enables = __gen_unpack_uint(dw4, 0, 3);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_INSTANCING_length      3
 #define GEN9_3DSTATE_VF_INSTANCING_length_bias      2
@@ -8818,6 +9093,7 @@ GEN9_3DSTATE_VF_INSTANCING_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->InstanceDataStepRate, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_INSTANCING_unpack(const void * restrict src,
                                   struct GEN9_3DSTATE_VF_INSTANCING * restrict values)
@@ -8838,6 +9114,7 @@ GEN9_3DSTATE_VF_INSTANCING_unpack(const void * restrict src,
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->InstanceDataStepRate = __gen_unpack_uint(dw2, 0, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_SGVS_length            2
 #define GEN9_3DSTATE_VF_SGVS_length_bias       2
@@ -8892,6 +9169,7 @@ GEN9_3DSTATE_VF_SGVS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->VertexIDElementOffset, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_SGVS_unpack(const void * restrict src,
                             struct GEN9_3DSTATE_VF_SGVS * restrict values)
@@ -8913,6 +9191,7 @@ GEN9_3DSTATE_VF_SGVS_unpack(const void * restrict src,
    values->VertexIDComponentNumber = __gen_unpack_uint(dw1, 13, 14);
    values->VertexIDElementOffset = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_STATISTICS_length      1
 #define GEN9_3DSTATE_VF_STATISTICS_length_bias      1
@@ -8944,6 +9223,7 @@ GEN9_3DSTATE_VF_STATISTICS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->StatisticsEnable, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_STATISTICS_unpack(const void * restrict src,
                                   struct GEN9_3DSTATE_VF_STATISTICS * restrict values)
@@ -8957,6 +9237,7 @@ GEN9_3DSTATE_VF_STATISTICS_unpack(const void * restrict src,
    values->_3DCommandSubOpcode = __gen_unpack_uint(dw0, 16, 23);
    values->StatisticsEnable = __gen_unpack_uint(dw0, 0, 0);
 }
+#endif
 
 #define GEN9_3DSTATE_VF_TOPOLOGY_length        2
 #define GEN9_3DSTATE_VF_TOPOLOGY_length_bias      2
@@ -8973,7 +9254,7 @@ struct GEN9_3DSTATE_VF_TOPOLOGY {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   uint32_t                             PrimitiveTopologyType;
+   enum GEN9_3D_Prim_Topo_Type          PrimitiveTopologyType;
 };
 
 static inline void
@@ -8993,6 +9274,7 @@ GEN9_3DSTATE_VF_TOPOLOGY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->PrimitiveTopologyType, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VF_TOPOLOGY_unpack(const void * restrict src,
                                 struct GEN9_3DSTATE_VF_TOPOLOGY * restrict values)
@@ -9009,6 +9291,7 @@ GEN9_3DSTATE_VF_TOPOLOGY_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->PrimitiveTopologyType = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_length      2
 #define GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_length_bias      2
@@ -9045,6 +9328,7 @@ GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_pack(__gen_user_data *data, void * restr
       __gen_offset(values->CCViewportPointer, 5, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(const void * restrict src,
                                                struct GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC * restrict values)
@@ -9061,6 +9345,7 @@ GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->CCViewportPointer = __gen_unpack_offset(dw1, 5, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_length      2
 #define GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_length_bias      2
@@ -9097,6 +9382,7 @@ GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_pack(__gen_user_data *data, void * 
       __gen_offset(values->SFClipViewportPointer, 6, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(const void * restrict src,
                                                     struct GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP * restrict values)
@@ -9113,6 +9399,7 @@ GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_SF_CLIP_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->SFClipViewportPointer = __gen_unpack_offset(dw1, 6, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_VS_length                 9
 #define GEN9_3DSTATE_VS_length_bias            2
@@ -9147,7 +9434,7 @@ struct GEN9_3DSTATE_VS {
    bool                                 IllegalOpcodeExceptionEnable;
    bool                                 AccessesUAV;
    bool                                 SoftwareExceptionEnable;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             DispatchGRFStartRegisterForURBData;
    uint32_t                             VertexURBEntryReadLength;
@@ -9193,10 +9480,11 @@ GEN9_3DSTATE_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SoftwareExceptionEnable, 7, 7);
 
    const uint64_t v4 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 63) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[4] = v4;
-   dw[5] = v4 >> 32;
+   const uint64_t v4_address =
+      __gen_combine_address(data, &dw[4], values->ScratchSpaceBasePointer, v4);
+   dw[4] = v4_address;
+   dw[5] = v4_address >> 32;
 
    dw[6] =
       __gen_uint(values->DispatchGRFStartRegisterForURBData, 20, 24) |
@@ -9217,6 +9505,7 @@ GEN9_3DSTATE_VS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->UserClipDistanceCullTestEnableBitmask, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_VS_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_VS * restrict values)
@@ -9245,7 +9534,8 @@ GEN9_3DSTATE_VS_unpack(const void * restrict src,
    values->SoftwareExceptionEnable = __gen_unpack_uint(dw3, 7, 7);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw4, 10, 63);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw4, 0, 63);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw4, 0, 3);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
@@ -9266,6 +9556,7 @@ GEN9_3DSTATE_VS_unpack(const void * restrict src,
    values->UserClipDistanceClipTestEnableBitmask = __gen_unpack_uint(dw8, 8, 15);
    values->UserClipDistanceCullTestEnableBitmask = __gen_unpack_uint(dw8, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_WM_length                 2
 #define GEN9_3DSTATE_WM_length_bias            2
@@ -9288,9 +9579,9 @@ struct GEN9_3DSTATE_WM {
    bool                                 LegacyHierarchicalDepthBufferResolveEnable;
    bool                                 LegacyDiamondLineRasterization;
    uint32_t                             EarlyDepthStencilControl;
-#define NORMAL                                   0
-#define PSEXEC                                   1
-#define PREPS                                    2
+#define EDSC_NORMAL                              0
+#define EDSC_PSEXEC                              1
+#define EDSC_PREPS                               2
    uint32_t                             ForceThreadDispatchEnable;
 #define ForceOff                                 1
 #define ForceON                                  2
@@ -9299,6 +9590,12 @@ struct GEN9_3DSTATE_WM {
 #define INTERP_CENTROID                          2
 #define INTERP_SAMPLE                            3
    uint32_t                             BarycentricInterpolationMode;
+#define BIM_PERSPECTIVE_PIXEL                    1
+#define BIM_PERSPECTIVE_CENTROID                 2
+#define BIM_PERSPECTIVE_SAMPLE                   4
+#define BIM_LINEAR_PIXEL                         8
+#define BIM_LINEAR_CENTROID                      16
+#define BIM_LINEAR_SAMPLE                        32
    uint32_t                             LineEndCapAntialiasingRegionWidth;
 #define _05pixels                                0
 #define _10pixels                                1
@@ -9350,6 +9647,7 @@ GEN9_3DSTATE_WM_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ForceKillPixelEnable, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_WM_unpack(const void * restrict src,
                        struct GEN9_3DSTATE_WM * restrict values)
@@ -9380,6 +9678,7 @@ GEN9_3DSTATE_WM_unpack(const void * restrict src,
    values->PointRasterizationRule = __gen_unpack_uint(dw1, 2, 2);
    values->ForceKillPixelEnable = __gen_unpack_uint(dw1, 0, 1);
 }
+#endif
 
 #define GEN9_3DSTATE_WM_CHROMAKEY_length       2
 #define GEN9_3DSTATE_WM_CHROMAKEY_length_bias      2
@@ -9416,6 +9715,7 @@ GEN9_3DSTATE_WM_CHROMAKEY_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ChromaKeyKillEnable, 31, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_WM_CHROMAKEY_unpack(const void * restrict src,
                                  struct GEN9_3DSTATE_WM_CHROMAKEY * restrict values)
@@ -9432,6 +9732,7 @@ GEN9_3DSTATE_WM_CHROMAKEY_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->ChromaKeyKillEnable = __gen_unpack_uint(dw1, 31, 31);
 }
+#endif
 
 #define GEN9_3DSTATE_WM_DEPTH_STENCIL_length      4
 #define GEN9_3DSTATE_WM_DEPTH_STENCIL_length_bias      2
@@ -9448,15 +9749,15 @@ struct GEN9_3DSTATE_WM_DEPTH_STENCIL {
    uint32_t                             _3DCommandOpcode;
    uint32_t                             _3DCommandSubOpcode;
    uint32_t                             DWordLength;
-   uint32_t                             StencilFailOp;
-   uint32_t                             StencilPassDepthFailOp;
-   uint32_t                             StencilPassDepthPassOp;
-   uint32_t                             BackfaceStencilTestFunction;
-   uint32_t                             BackfaceStencilFailOp;
-   uint32_t                             BackfaceStencilPassDepthFailOp;
-   uint32_t                             BackfaceStencilPassDepthPassOp;
-   uint32_t                             StencilTestFunction;
-   uint32_t                             DepthTestFunction;
+   enum GEN9_3D_Stencil_Operation       StencilFailOp;
+   enum GEN9_3D_Stencil_Operation       StencilPassDepthFailOp;
+   enum GEN9_3D_Stencil_Operation       StencilPassDepthPassOp;
+   enum GEN9_3D_Compare_Function        BackfaceStencilTestFunction;
+   enum GEN9_3D_Stencil_Operation       BackfaceStencilFailOp;
+   enum GEN9_3D_Stencil_Operation       BackfaceStencilPassDepthFailOp;
+   enum GEN9_3D_Stencil_Operation       BackfaceStencilPassDepthPassOp;
+   enum GEN9_3D_Compare_Function        StencilTestFunction;
+   enum GEN9_3D_Compare_Function        DepthTestFunction;
    bool                                 DoubleSidedStencilEnable;
    bool                                 StencilTestEnable;
    bool                                 StencilBufferWriteEnable;
@@ -9510,6 +9811,7 @@ GEN9_3DSTATE_WM_DEPTH_STENCIL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BackfaceStencilReferenceValue, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_WM_DEPTH_STENCIL_unpack(const void * restrict src,
                                      struct GEN9_3DSTATE_WM_DEPTH_STENCIL * restrict values)
@@ -9549,6 +9851,7 @@ GEN9_3DSTATE_WM_DEPTH_STENCIL_unpack(const void * restrict src,
    values->StencilReferenceValue = __gen_unpack_uint(dw3, 8, 15);
    values->BackfaceStencilReferenceValue = __gen_unpack_uint(dw3, 0, 7);
 }
+#endif
 
 #define GEN9_3DSTATE_WM_HZ_OP_length           5
 #define GEN9_3DSTATE_WM_HZ_OP_length_bias      2
@@ -9617,6 +9920,7 @@ GEN9_3DSTATE_WM_HZ_OP_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SampleMask, 0, 15);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_3DSTATE_WM_HZ_OP_unpack(const void * restrict src,
                              struct GEN9_3DSTATE_WM_HZ_OP * restrict values)
@@ -9652,6 +9956,7 @@ GEN9_3DSTATE_WM_HZ_OP_unpack(const void * restrict src,
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->SampleMask = __gen_unpack_uint(dw4, 0, 15);
 }
+#endif
 
 #define GEN9_GPGPU_CSR_BASE_ADDRESS_length      3
 #define GEN9_GPGPU_CSR_BASE_ADDRESS_length_bias      2
@@ -9690,6 +9995,7 @@ GEN9_GPGPU_CSR_BASE_ADDRESS_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = v1_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_GPGPU_CSR_BASE_ADDRESS_unpack(const void * restrict src,
                                    struct GEN9_GPGPU_CSR_BASE_ADDRESS * restrict values)
@@ -9704,9 +10010,10 @@ GEN9_GPGPU_CSR_BASE_ADDRESS_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->GPGPUCSRBaseAddress = __gen_unpack_address(dw1, 12, 63);
-
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->GPGPUCSRBaseAddress = __gen_unpack_address(qw1, 0, 63);
 }
+#endif
 
 #define GEN9_GPGPU_WALKER_length              15
 #define GEN9_GPGPU_WALKER_length_bias          2
@@ -9804,6 +10111,7 @@ GEN9_GPGPU_WALKER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BottomExecutionMask, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_GPGPU_WALKER_unpack(const void * restrict src,
                          struct GEN9_GPGPU_WALKER * restrict values)
@@ -9858,6 +10166,7 @@ GEN9_GPGPU_WALKER_unpack(const void * restrict src,
    const uint32_t dw14 __attribute__((unused)) = dw[14];
    values->BottomExecutionMask = __gen_unpack_uint(dw14, 0, 31);
 }
+#endif
 
 #define GEN9_MEDIA_CURBE_LOAD_length           4
 #define GEN9_MEDIA_CURBE_LOAD_length_bias      2
@@ -9900,6 +10209,7 @@ GEN9_MEDIA_CURBE_LOAD_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->CURBEDataStartAddress, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_CURBE_LOAD_unpack(const void * restrict src,
                              struct GEN9_MEDIA_CURBE_LOAD * restrict values)
@@ -9919,6 +10229,7 @@ GEN9_MEDIA_CURBE_LOAD_unpack(const void * restrict src,
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->CURBEDataStartAddress = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_length      4
 #define GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_length_bias      2
@@ -9961,6 +10272,7 @@ GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_pack(__gen_user_data *data, void * restrict
       __gen_offset(values->InterfaceDescriptorDataStartAddress, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(const void * restrict src,
                                             struct GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD * restrict values)
@@ -9980,6 +10292,7 @@ GEN9_MEDIA_INTERFACE_DESCRIPTOR_LOAD_unpack(const void * restrict src,
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->InterfaceDescriptorDataStartAddress = __gen_unpack_offset(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_MEDIA_OBJECT_length_bias          2
 #define GEN9_MEDIA_OBJECT_header                \
@@ -10060,6 +10373,7 @@ GEN9_MEDIA_OBJECT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ScoreboardMask, 0, 7);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_OBJECT_unpack(const void * restrict src,
                          struct GEN9_MEDIA_OBJECT * restrict values)
@@ -10087,7 +10401,8 @@ GEN9_MEDIA_OBJECT_unpack(const void * restrict src,
    values->IndirectDataLength = __gen_unpack_uint(dw2, 0, 16);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   values->IndirectDataStartAddress = __gen_unpack_address(dw3, 0, 31);
+   const uint64_t qw3 __attribute__((unused)) = *(uint64_t *) &dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_address(qw3, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->ScoredboardY = __gen_unpack_uint(dw4, 16, 24);
@@ -10097,6 +10412,7 @@ GEN9_MEDIA_OBJECT_unpack(const void * restrict src,
    values->ScoreboardColor = __gen_unpack_uint(dw5, 16, 19);
    values->ScoreboardMask = __gen_unpack_uint(dw5, 0, 7);
 }
+#endif
 
 #define GEN9_MEDIA_OBJECT_GRPID_length_bias      2
 #define GEN9_MEDIA_OBJECT_GRPID_header          \
@@ -10177,6 +10493,7 @@ GEN9_MEDIA_OBJECT_GRPID_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->GroupID, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_OBJECT_GRPID_unpack(const void * restrict src,
                                struct GEN9_MEDIA_OBJECT_GRPID * restrict values)
@@ -10203,7 +10520,8 @@ GEN9_MEDIA_OBJECT_GRPID_unpack(const void * restrict src,
    values->IndirectDataLength = __gen_unpack_uint(dw2, 0, 16);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   values->IndirectDataStartAddress = __gen_unpack_address(dw3, 0, 31);
+   const uint64_t qw3 __attribute__((unused)) = *(uint64_t *) &dw[3];
+   values->IndirectDataStartAddress = __gen_unpack_address(qw3, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->ScoreboardY = __gen_unpack_uint(dw4, 16, 24);
@@ -10216,6 +10534,7 @@ GEN9_MEDIA_OBJECT_GRPID_unpack(const void * restrict src,
    const uint32_t dw6 __attribute__((unused)) = dw[6];
    values->GroupID = __gen_unpack_uint(dw6, 0, 31);
 }
+#endif
 
 #define GEN9_MEDIA_OBJECT_PRT_length          16
 #define GEN9_MEDIA_OBJECT_PRT_length_bias      2
@@ -10301,6 +10620,7 @@ GEN9_MEDIA_OBJECT_PRT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->InlineData[11], 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_OBJECT_PRT_unpack(const void * restrict src,
                              struct GEN9_MEDIA_OBJECT_PRT * restrict values)
@@ -10358,6 +10678,7 @@ GEN9_MEDIA_OBJECT_PRT_unpack(const void * restrict src,
    const uint32_t dw15 __attribute__((unused)) = dw[15];
    values->InlineData[11] = __gen_unpack_uint(dw15, 0, 31);
 }
+#endif
 
 #define GEN9_MEDIA_OBJECT_WALKER_length_bias      2
 #define GEN9_MEDIA_OBJECT_WALKER_header         \
@@ -10492,6 +10813,7 @@ GEN9_MEDIA_OBJECT_WALKER_pack(__gen_user_data *data, void * restrict dst,
       __gen_sint(values->GlobalInnerLoopUnitX, 0, 11);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_OBJECT_WALKER_unpack(const void * restrict src,
                                 struct GEN9_MEDIA_OBJECT_WALKER * restrict values)
@@ -10563,6 +10885,7 @@ GEN9_MEDIA_OBJECT_WALKER_unpack(const void * restrict src,
    values->GlobalInnerLoopUnitY = __gen_unpack_sint(dw16, 16, 27);
    values->GlobalInnerLoopUnitX = __gen_unpack_sint(dw16, 0, 11);
 }
+#endif
 
 #define GEN9_MEDIA_STATE_FLUSH_length          2
 #define GEN9_MEDIA_STATE_FLUSH_length_bias      2
@@ -10603,6 +10926,7 @@ GEN9_MEDIA_STATE_FLUSH_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->InterfaceDescriptorOffset, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_STATE_FLUSH_unpack(const void * restrict src,
                               struct GEN9_MEDIA_STATE_FLUSH * restrict values)
@@ -10621,6 +10945,7 @@ GEN9_MEDIA_STATE_FLUSH_unpack(const void * restrict src,
    values->WatermarkRequired = __gen_unpack_uint(dw1, 6, 6);
    values->InterfaceDescriptorOffset = __gen_unpack_uint(dw1, 0, 5);
 }
+#endif
 
 #define GEN9_MEDIA_VFE_STATE_length            9
 #define GEN9_MEDIA_VFE_STATE_length_bias       2
@@ -10637,7 +10962,7 @@ struct GEN9_MEDIA_VFE_STATE {
    uint32_t                             MediaCommandOpcode;
    uint32_t                             SubOpcode;
    uint32_t                             DWordLength;
-   uint64_t                             ScratchSpaceBasePointer;
+   __gen_address_type                   ScratchSpaceBasePointer;
    uint32_t                             StackSize;
    uint32_t                             PerThreadScratchSpace;
    uint32_t                             MaximumNumberofThreads;
@@ -10688,11 +11013,12 @@ GEN9_MEDIA_VFE_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DWordLength, 0, 15);
 
    const uint64_t v1 =
-      __gen_offset(values->ScratchSpaceBasePointer, 10, 47) |
       __gen_uint(values->StackSize, 4, 7) |
       __gen_uint(values->PerThreadScratchSpace, 0, 3);
-   dw[1] = v1;
-   dw[2] = v1 >> 32;
+   const uint64_t v1_address =
+      __gen_combine_address(data, &dw[1], values->ScratchSpaceBasePointer, v1);
+   dw[1] = v1_address;
+   dw[2] = v1_address >> 32;
 
    dw[3] =
       __gen_uint(values->MaximumNumberofThreads, 16, 31) |
@@ -10732,6 +11058,7 @@ GEN9_MEDIA_VFE_STATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_sint(values->Scoreboard4DeltaX, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MEDIA_VFE_STATE_unpack(const void * restrict src,
                             struct GEN9_MEDIA_VFE_STATE * restrict values)
@@ -10746,7 +11073,8 @@ GEN9_MEDIA_VFE_STATE_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 15);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->ScratchSpaceBasePointer = __gen_unpack_offset(dw1, 10, 47);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->ScratchSpaceBasePointer = __gen_unpack_address(qw1, 0, 63);
    values->StackSize = __gen_unpack_uint(dw1, 4, 7);
    values->PerThreadScratchSpace = __gen_unpack_uint(dw1, 0, 3);
 
@@ -10787,6 +11115,7 @@ GEN9_MEDIA_VFE_STATE_unpack(const void * restrict src,
    values->Scoreboard4DeltaY = __gen_unpack_sint(dw8, 4, 7);
    values->Scoreboard4DeltaX = __gen_unpack_sint(dw8, 0, 3);
 }
+#endif
 
 #define GEN9_MI_ARB_CHECK_length               1
 #define GEN9_MI_ARB_CHECK_length_bias          1
@@ -10810,6 +11139,7 @@ GEN9_MI_ARB_CHECK_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MICommandOpcode, 23, 28);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_ARB_CHECK_unpack(const void * restrict src,
                          struct GEN9_MI_ARB_CHECK * restrict values)
@@ -10820,6 +11150,7 @@ GEN9_MI_ARB_CHECK_unpack(const void * restrict src,
    values->CommandType = __gen_unpack_uint(dw0, 29, 31);
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
 }
+#endif
 
 #define GEN9_MI_ATOMIC_length                  3
 #define GEN9_MI_ATOMIC_length_bias             2
@@ -10880,6 +11211,7 @@ GEN9_MI_ATOMIC_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = v1_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_ATOMIC_unpack(const void * restrict src,
                       struct GEN9_MI_ATOMIC * restrict values)
@@ -10899,9 +11231,34 @@ GEN9_MI_ATOMIC_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->MemoryAddress = __gen_unpack_address(dw1, 2, 47);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->MemoryAddress = __gen_unpack_address(qw1, 0, 63);
 
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->Operand1DataDword0 = __gen_unpack_uint(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->Operand2DataDword0 = __gen_unpack_uint(dw4, 0, 31);
+
+   const uint32_t dw5 __attribute__((unused)) = dw[5];
+   values->Operand1DataDword1 = __gen_unpack_uint(dw5, 0, 31);
+
+   const uint32_t dw6 __attribute__((unused)) = dw[6];
+   values->Operand2DataDword1 = __gen_unpack_uint(dw6, 0, 31);
+
+   const uint32_t dw7 __attribute__((unused)) = dw[7];
+   values->Operand1DataDword2 = __gen_unpack_uint(dw7, 0, 31);
+
+   const uint32_t dw8 __attribute__((unused)) = dw[8];
+   values->Operand2DataDword2 = __gen_unpack_uint(dw8, 0, 31);
+
+   const uint32_t dw9 __attribute__((unused)) = dw[9];
+   values->Operand1DataDword3 = __gen_unpack_uint(dw9, 0, 31);
+
+   const uint32_t dw10 __attribute__((unused)) = dw[10];
+   values->Operand2DataDword3 = __gen_unpack_uint(dw10, 0, 31);
 }
+#endif
 
 #define GEN9_MI_BATCH_BUFFER_END_length        1
 #define GEN9_MI_BATCH_BUFFER_END_length_bias      1
@@ -10925,6 +11282,7 @@ GEN9_MI_BATCH_BUFFER_END_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MICommandOpcode, 23, 28);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_BATCH_BUFFER_END_unpack(const void * restrict src,
                                 struct GEN9_MI_BATCH_BUFFER_END * restrict values)
@@ -10935,6 +11293,7 @@ GEN9_MI_BATCH_BUFFER_END_unpack(const void * restrict src,
    values->CommandType = __gen_unpack_uint(dw0, 29, 31);
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
 }
+#endif
 
 #define GEN9_MI_BATCH_BUFFER_START_length      3
 #define GEN9_MI_BATCH_BUFFER_START_length_bias      2
@@ -10950,7 +11309,7 @@ struct GEN9_MI_BATCH_BUFFER_START {
 #define Firstlevelbatch                          0
 #define Secondlevelbatch                         1
    bool                                 AddOffsetEnable;
-   uint32_t                             PredicationEnable;
+   bool                                 PredicationEnable;
    bool                                 ResourceStreamerEnable;
    uint32_t                             AddressSpaceIndicator;
 #define ASI_GGTT                                 0
@@ -10981,6 +11340,7 @@ GEN9_MI_BATCH_BUFFER_START_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = v1_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_BATCH_BUFFER_START_unpack(const void * restrict src,
                                   struct GEN9_MI_BATCH_BUFFER_START * restrict values)
@@ -10998,9 +11358,10 @@ GEN9_MI_BATCH_BUFFER_START_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->BatchBufferStartAddress = __gen_unpack_address(dw1, 2, 63);
-
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->BatchBufferStartAddress = __gen_unpack_address(qw1, 0, 63);
 }
+#endif
 
 #define GEN9_MI_CLFLUSH_length_bias            2
 #define GEN9_MI_CLFLUSH_header                  \
@@ -11011,9 +11372,7 @@ GEN9_MI_BATCH_BUFFER_START_unpack(const void * restrict src,
 struct GEN9_MI_CLFLUSH {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTT;
-#define PerProcessGraphicsAddress                0
-#define GlobalGraphicsAddress                    1
+   bool                                 UseGlobalGTT;
    uint32_t                             DWordLength;
    __gen_address_type                   PageBaseAddress;
    uint32_t                             StartingCachelineOffset;
@@ -11040,6 +11399,7 @@ GEN9_MI_CLFLUSH_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = v1_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_CLFLUSH_unpack(const void * restrict src,
                        struct GEN9_MI_CLFLUSH * restrict values)
@@ -11053,24 +11413,24 @@ GEN9_MI_CLFLUSH_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 9);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->PageBaseAddress = __gen_unpack_address(dw1, 12, 47);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->PageBaseAddress = __gen_unpack_address(qw1, 0, 63);
    values->StartingCachelineOffset = __gen_unpack_uint(dw1, 6, 11);
-
 }
+#endif
 
 #define GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_length      4
 #define GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_length_bias      2
 #define GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_header\
    .CommandType                         =      0,  \
    .MICommandOpcode                     =     54,  \
-   .UseGlobalGTT                        =      0,  \
    .CompareSemaphore                    =      0,  \
    .DWordLength                         =      2
 
 struct GEN9_MI_CONDITIONAL_BATCH_BUFFER_END {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTT;
+   bool                                 UseGlobalGTT;
    uint32_t                             CompareSemaphore;
    uint32_t                             CompareMaskMode;
 #define CompareMaskModeDisabled                  0
@@ -11103,6 +11463,7 @@ GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_pack(__gen_user_data *data, void * restrict
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_unpack(const void * restrict src,
                                             struct GEN9_MI_CONDITIONAL_BATCH_BUFFER_END * restrict values)
@@ -11121,9 +11482,10 @@ GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_unpack(const void * restrict src,
    values->CompareDataDword = __gen_unpack_uint(dw1, 0, 31);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->CompareAddress = __gen_unpack_address(dw2, 3, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->CompareAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_COPY_MEM_MEM_length            5
 #define GEN9_MI_COPY_MEM_MEM_length_bias       2
@@ -11135,12 +11497,8 @@ GEN9_MI_CONDITIONAL_BATCH_BUFFER_END_unpack(const void * restrict src,
 struct GEN9_MI_COPY_MEM_MEM {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTTSource;
-#define PerProcessGraphicsAddress                0
-#define GlobalGraphicsAddress                    1
-   uint32_t                             UseGlobalGTTDestination;
-#define PerProcessGraphicsAddress                0
-#define GlobalGraphicsAddress                    1
+   bool                                 UseGlobalGTTSource;
+   bool                                 UseGlobalGTTDestination;
    uint32_t                             DWordLength;
    __gen_address_type                   DestinationMemoryAddress;
    __gen_address_type                   SourceMemoryAddress;
@@ -11170,6 +11528,7 @@ GEN9_MI_COPY_MEM_MEM_pack(__gen_user_data *data, void * restrict dst,
    dw[4] = v3_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_COPY_MEM_MEM_unpack(const void * restrict src,
                             struct GEN9_MI_COPY_MEM_MEM * restrict values)
@@ -11184,12 +11543,14 @@ GEN9_MI_COPY_MEM_MEM_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->DestinationMemoryAddress = __gen_unpack_address(dw1, 2, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->DestinationMemoryAddress = __gen_unpack_address(qw1, 0, 63);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   values->SourceMemoryAddress = __gen_unpack_address(dw3, 2, 63);
-
+   const uint64_t qw3 __attribute__((unused)) = *(uint64_t *) &dw[3];
+   values->SourceMemoryAddress = __gen_unpack_address(qw3, 0, 63);
 }
+#endif
 
 #define GEN9_MI_DISPLAY_FLIP_length            3
 #define GEN9_MI_DISPLAY_FLIP_length_bias       2
@@ -11250,6 +11611,7 @@ GEN9_MI_DISPLAY_FLIP_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = __gen_combine_address(data, &dw[2], values->DisplayBufferBaseAddress, v2);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_DISPLAY_FLIP_unpack(const void * restrict src,
                             struct GEN9_MI_DISPLAY_FLIP * restrict values)
@@ -11269,9 +11631,15 @@ GEN9_MI_DISPLAY_FLIP_unpack(const void * restrict src,
    values->TileParameter = __gen_unpack_uint(dw1, 0, 2);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->DisplayBufferBaseAddress = __gen_unpack_address(dw2, 12, 31);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->DisplayBufferBaseAddress = __gen_unpack_address(qw2, 0, 63);
    values->FlipType = __gen_unpack_uint(dw2, 0, 1);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   const uint64_t qw3 __attribute__((unused)) = *(uint64_t *) &dw[3];
+   values->LeftEyeDisplayBufferBaseAddress = __gen_unpack_address(qw3, 0, 63);
 }
+#endif
 
 #define GEN9_MI_FORCE_WAKEUP_length            2
 #define GEN9_MI_FORCE_WAKEUP_length_bias       2
@@ -11306,6 +11674,7 @@ GEN9_MI_FORCE_WAKEUP_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ForceMediaAwake, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_FORCE_WAKEUP_unpack(const void * restrict src,
                             struct GEN9_MI_FORCE_WAKEUP * restrict values)
@@ -11322,6 +11691,7 @@ GEN9_MI_FORCE_WAKEUP_unpack(const void * restrict src,
    values->ForceRenderAwake = __gen_unpack_uint(dw1, 1, 1);
    values->ForceMediaAwake = __gen_unpack_uint(dw1, 0, 0);
 }
+#endif
 
 #define GEN9_MI_LOAD_REGISTER_IMM_length       3
 #define GEN9_MI_LOAD_REGISTER_IMM_length_bias      2
@@ -11358,6 +11728,7 @@ GEN9_MI_LOAD_REGISTER_IMM_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DataDWord, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_REGISTER_IMM_unpack(const void * restrict src,
                                  struct GEN9_MI_LOAD_REGISTER_IMM * restrict values)
@@ -11376,6 +11747,7 @@ GEN9_MI_LOAD_REGISTER_IMM_unpack(const void * restrict src,
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->DataDWord = __gen_unpack_uint(dw2, 0, 31);
 }
+#endif
 
 #define GEN9_MI_LOAD_REGISTER_MEM_length       4
 #define GEN9_MI_LOAD_REGISTER_MEM_length_bias      2
@@ -11387,7 +11759,7 @@ GEN9_MI_LOAD_REGISTER_IMM_unpack(const void * restrict src,
 struct GEN9_MI_LOAD_REGISTER_MEM {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTT;
+   bool                                 UseGlobalGTT;
    bool                                 AsyncModeEnable;
    uint32_t                             DWordLength;
    uint64_t                             RegisterAddress;
@@ -11416,6 +11788,7 @@ GEN9_MI_LOAD_REGISTER_MEM_pack(__gen_user_data *data, void * restrict dst,
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_REGISTER_MEM_unpack(const void * restrict src,
                                  struct GEN9_MI_LOAD_REGISTER_MEM * restrict values)
@@ -11433,9 +11806,10 @@ GEN9_MI_LOAD_REGISTER_MEM_unpack(const void * restrict src,
    values->RegisterAddress = __gen_unpack_offset(dw1, 2, 22);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->MemoryAddress = __gen_unpack_address(dw2, 2, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->MemoryAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_LOAD_REGISTER_REG_length       3
 #define GEN9_MI_LOAD_REGISTER_REG_length_bias      2
@@ -11470,6 +11844,7 @@ GEN9_MI_LOAD_REGISTER_REG_pack(__gen_user_data *data, void * restrict dst,
       __gen_offset(values->DestinationRegisterAddress, 2, 22);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_REGISTER_REG_unpack(const void * restrict src,
                                  struct GEN9_MI_LOAD_REGISTER_REG * restrict values)
@@ -11487,6 +11862,7 @@ GEN9_MI_LOAD_REGISTER_REG_unpack(const void * restrict src,
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->DestinationRegisterAddress = __gen_unpack_offset(dw2, 2, 22);
 }
+#endif
 
 #define GEN9_MI_LOAD_SCAN_LINES_EXCL_length      2
 #define GEN9_MI_LOAD_SCAN_LINES_EXCL_length_bias      2
@@ -11524,6 +11900,7 @@ GEN9_MI_LOAD_SCAN_LINES_EXCL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->EndScanLineNumber, 0, 12);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_SCAN_LINES_EXCL_unpack(const void * restrict src,
                                     struct GEN9_MI_LOAD_SCAN_LINES_EXCL * restrict values)
@@ -11540,6 +11917,7 @@ GEN9_MI_LOAD_SCAN_LINES_EXCL_unpack(const void * restrict src,
    values->StartScanLineNumber = __gen_unpack_uint(dw1, 16, 28);
    values->EndScanLineNumber = __gen_unpack_uint(dw1, 0, 12);
 }
+#endif
 
 #define GEN9_MI_LOAD_SCAN_LINES_INCL_length      2
 #define GEN9_MI_LOAD_SCAN_LINES_INCL_length_bias      2
@@ -11579,6 +11957,7 @@ GEN9_MI_LOAD_SCAN_LINES_INCL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->EndScanLineNumber, 0, 12);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_SCAN_LINES_INCL_unpack(const void * restrict src,
                                     struct GEN9_MI_LOAD_SCAN_LINES_INCL * restrict values)
@@ -11596,6 +11975,7 @@ GEN9_MI_LOAD_SCAN_LINES_INCL_unpack(const void * restrict src,
    values->StartScanLineNumber = __gen_unpack_uint(dw1, 16, 28);
    values->EndScanLineNumber = __gen_unpack_uint(dw1, 0, 12);
 }
+#endif
 
 #define GEN9_MI_LOAD_URB_MEM_length            4
 #define GEN9_MI_LOAD_URB_MEM_length_bias       2
@@ -11632,6 +12012,7 @@ GEN9_MI_LOAD_URB_MEM_pack(__gen_user_data *data, void * restrict dst,
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_LOAD_URB_MEM_unpack(const void * restrict src,
                             struct GEN9_MI_LOAD_URB_MEM * restrict values)
@@ -11647,9 +12028,10 @@ GEN9_MI_LOAD_URB_MEM_unpack(const void * restrict src,
    values->URBAddress = __gen_unpack_uint(dw1, 2, 14);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->MemoryAddress = __gen_unpack_address(dw2, 6, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->MemoryAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_MATH_length_bias               2
 #define GEN9_MI_MATH_header                     \
@@ -11684,6 +12066,7 @@ GEN9_MI_MATH_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ALUINSTRUCTION2, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_MATH_unpack(const void * restrict src,
                     struct GEN9_MI_MATH * restrict values)
@@ -11701,6 +12084,7 @@ GEN9_MI_MATH_unpack(const void * restrict src,
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->ALUINSTRUCTION2 = __gen_unpack_uint(dw2, 0, 31);
 }
+#endif
 
 #define GEN9_MI_NOOP_length                    1
 #define GEN9_MI_NOOP_length_bias               1
@@ -11728,6 +12112,7 @@ GEN9_MI_NOOP_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->IdentificationNumber, 0, 21);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_NOOP_unpack(const void * restrict src,
                     struct GEN9_MI_NOOP * restrict values)
@@ -11740,6 +12125,7 @@ GEN9_MI_NOOP_unpack(const void * restrict src,
    values->IdentificationNumberRegisterWriteEnable = __gen_unpack_uint(dw0, 22, 22);
    values->IdentificationNumber = __gen_unpack_uint(dw0, 0, 21);
 }
+#endif
 
 #define GEN9_MI_PREDICATE_length               1
 #define GEN9_MI_PREDICATE_length_bias          1
@@ -11778,6 +12164,7 @@ GEN9_MI_PREDICATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->CompareOperation, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_PREDICATE_unpack(const void * restrict src,
                          struct GEN9_MI_PREDICATE * restrict values)
@@ -11791,6 +12178,7 @@ GEN9_MI_PREDICATE_unpack(const void * restrict src,
    values->CombineOperation = __gen_unpack_uint(dw0, 3, 4);
    values->CompareOperation = __gen_unpack_uint(dw0, 0, 1);
 }
+#endif
 
 #define GEN9_MI_REPORT_HEAD_length             1
 #define GEN9_MI_REPORT_HEAD_length_bias        1
@@ -11814,6 +12202,7 @@ GEN9_MI_REPORT_HEAD_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MICommandOpcode, 23, 28);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_REPORT_HEAD_unpack(const void * restrict src,
                            struct GEN9_MI_REPORT_HEAD * restrict values)
@@ -11824,6 +12213,7 @@ GEN9_MI_REPORT_HEAD_unpack(const void * restrict src,
    values->CommandType = __gen_unpack_uint(dw0, 29, 31);
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
 }
+#endif
 
 #define GEN9_MI_REPORT_PERF_COUNT_length       4
 #define GEN9_MI_REPORT_PERF_COUNT_length_bias      2
@@ -11838,7 +12228,7 @@ struct GEN9_MI_REPORT_PERF_COUNT {
    uint32_t                             DWordLength;
    __gen_address_type                   MemoryAddress;
    uint32_t                             CoreModeEnable;
-   uint32_t                             UseGlobalGTT;
+   bool                                 UseGlobalGTT;
    uint32_t                             ReportID;
 };
 
@@ -11865,6 +12255,7 @@ GEN9_MI_REPORT_PERF_COUNT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ReportID, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_REPORT_PERF_COUNT_unpack(const void * restrict src,
                                  struct GEN9_MI_REPORT_PERF_COUNT * restrict values)
@@ -11877,13 +12268,15 @@ GEN9_MI_REPORT_PERF_COUNT_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 5);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->MemoryAddress = __gen_unpack_address(dw1, 6, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->MemoryAddress = __gen_unpack_address(qw1, 0, 63);
    values->CoreModeEnable = __gen_unpack_uint(dw1, 4, 4);
    values->UseGlobalGTT = __gen_unpack_uint(dw1, 0, 0);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->ReportID = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_MI_RS_CONTEXT_length              1
 #define GEN9_MI_RS_CONTEXT_length_bias         1
@@ -11911,6 +12304,7 @@ GEN9_MI_RS_CONTEXT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ResourceStreamerSave, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_RS_CONTEXT_unpack(const void * restrict src,
                           struct GEN9_MI_RS_CONTEXT * restrict values)
@@ -11922,6 +12316,7 @@ GEN9_MI_RS_CONTEXT_unpack(const void * restrict src,
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
    values->ResourceStreamerSave = __gen_unpack_uint(dw0, 0, 0);
 }
+#endif
 
 #define GEN9_MI_RS_CONTROL_length              1
 #define GEN9_MI_RS_CONTROL_length_bias         1
@@ -11949,6 +12344,7 @@ GEN9_MI_RS_CONTROL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->ResourceStreamerControl, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_RS_CONTROL_unpack(const void * restrict src,
                           struct GEN9_MI_RS_CONTROL * restrict values)
@@ -11960,6 +12356,7 @@ GEN9_MI_RS_CONTROL_unpack(const void * restrict src,
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
    values->ResourceStreamerControl = __gen_unpack_uint(dw0, 0, 0);
 }
+#endif
 
 #define GEN9_MI_RS_STORE_DATA_IMM_length       4
 #define GEN9_MI_RS_STORE_DATA_IMM_length_bias      2
@@ -11999,6 +12396,7 @@ GEN9_MI_RS_STORE_DATA_IMM_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DataDWord0, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_RS_STORE_DATA_IMM_unpack(const void * restrict src,
                                  struct GEN9_MI_RS_STORE_DATA_IMM * restrict values)
@@ -12011,12 +12409,14 @@ GEN9_MI_RS_STORE_DATA_IMM_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->DestinationAddress = __gen_unpack_address(dw1, 2, 63);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->DestinationAddress = __gen_unpack_address(qw1, 0, 63);
    values->CoreModeEnable = __gen_unpack_uint(dw1, 0, 0);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->DataDWord0 = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_MI_SEMAPHORE_SIGNAL_length        2
 #define GEN9_MI_SEMAPHORE_SIGNAL_length_bias      2
@@ -12056,6 +12456,7 @@ GEN9_MI_SEMAPHORE_SIGNAL_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->TargetContextID, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_SEMAPHORE_SIGNAL_unpack(const void * restrict src,
                                 struct GEN9_MI_SEMAPHORE_SIGNAL * restrict values)
@@ -12072,6 +12473,7 @@ GEN9_MI_SEMAPHORE_SIGNAL_unpack(const void * restrict src,
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->TargetContextID = __gen_unpack_uint(dw1, 0, 31);
 }
+#endif
 
 #define GEN9_MI_SEMAPHORE_WAIT_length          4
 #define GEN9_MI_SEMAPHORE_WAIT_length_bias      2
@@ -12127,6 +12529,7 @@ GEN9_MI_SEMAPHORE_WAIT_pack(__gen_user_data *data, void * restrict dst,
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_SEMAPHORE_WAIT_unpack(const void * restrict src,
                               struct GEN9_MI_SEMAPHORE_WAIT * restrict values)
@@ -12146,9 +12549,10 @@ GEN9_MI_SEMAPHORE_WAIT_unpack(const void * restrict src,
    values->SemaphoreDataDword = __gen_unpack_uint(dw1, 0, 31);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->SemaphoreAddress = __gen_unpack_address(dw2, 2, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->SemaphoreAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_SET_CONTEXT_length             2
 #define GEN9_MI_SET_CONTEXT_length_bias        2
@@ -12191,6 +12595,7 @@ GEN9_MI_SET_CONTEXT_pack(__gen_user_data *data, void * restrict dst,
    dw[1] = __gen_combine_address(data, &dw[1], values->LogicalContextAddress, v1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_SET_CONTEXT_unpack(const void * restrict src,
                            struct GEN9_MI_SET_CONTEXT * restrict values)
@@ -12203,7 +12608,8 @@ GEN9_MI_SET_CONTEXT_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->LogicalContextAddress = __gen_unpack_address(dw1, 12, 31);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->LogicalContextAddress = __gen_unpack_address(qw1, 0, 63);
    values->ReservedMustbe1 = __gen_unpack_uint(dw1, 8, 8);
    values->CoreModeEnable = __gen_unpack_uint(dw1, 4, 4);
    values->ResourceStreamerStateSaveEnable = __gen_unpack_uint(dw1, 3, 3);
@@ -12211,6 +12617,7 @@ GEN9_MI_SET_CONTEXT_unpack(const void * restrict src,
    values->ForceRestore = __gen_unpack_uint(dw1, 1, 1);
    values->RestoreInhibit = __gen_unpack_uint(dw1, 0, 0);
 }
+#endif
 
 #define GEN9_MI_SET_PREDICATE_length           1
 #define GEN9_MI_SET_PREDICATE_length_bias      1
@@ -12245,6 +12652,7 @@ GEN9_MI_SET_PREDICATE_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->PREDICATEENABLE, 0, 3);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_SET_PREDICATE_unpack(const void * restrict src,
                              struct GEN9_MI_SET_PREDICATE * restrict values)
@@ -12256,6 +12664,7 @@ GEN9_MI_SET_PREDICATE_unpack(const void * restrict src,
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
    values->PREDICATEENABLE = __gen_unpack_uint(dw0, 0, 3);
 }
+#endif
 
 #define GEN9_MI_STORE_DATA_IMM_length          4
 #define GEN9_MI_STORE_DATA_IMM_length_bias      2
@@ -12267,7 +12676,7 @@ GEN9_MI_SET_PREDICATE_unpack(const void * restrict src,
 struct GEN9_MI_STORE_DATA_IMM {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTT;
+   bool                                 UseGlobalGTT;
    uint32_t                             StoreQword;
    uint32_t                             DWordLength;
    __gen_address_type                   Address;
@@ -12300,6 +12709,7 @@ GEN9_MI_STORE_DATA_IMM_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DataDWord0, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_STORE_DATA_IMM_unpack(const void * restrict src,
                               struct GEN9_MI_STORE_DATA_IMM * restrict values)
@@ -12314,12 +12724,17 @@ GEN9_MI_STORE_DATA_IMM_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 9);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->Address = __gen_unpack_address(dw1, 2, 47);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->Address = __gen_unpack_address(qw1, 0, 63);
    values->CoreModeEnable = __gen_unpack_uint(dw1, 0, 0);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
    values->DataDWord0 = __gen_unpack_uint(dw3, 0, 31);
+
+   const uint32_t dw4 __attribute__((unused)) = dw[4];
+   values->DataDWord1 = __gen_unpack_uint(dw4, 0, 31);
 }
+#endif
 
 #define GEN9_MI_STORE_DATA_INDEX_length        3
 #define GEN9_MI_STORE_DATA_INDEX_length_bias      2
@@ -12357,6 +12772,7 @@ GEN9_MI_STORE_DATA_INDEX_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DataDWord0, 0, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_STORE_DATA_INDEX_unpack(const void * restrict src,
                                 struct GEN9_MI_STORE_DATA_INDEX * restrict values)
@@ -12374,7 +12790,11 @@ GEN9_MI_STORE_DATA_INDEX_unpack(const void * restrict src,
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
    values->DataDWord0 = __gen_unpack_uint(dw2, 0, 31);
+
+   const uint32_t dw3 __attribute__((unused)) = dw[3];
+   values->DataDWord1 = __gen_unpack_uint(dw3, 0, 31);
 }
+#endif
 
 #define GEN9_MI_STORE_REGISTER_MEM_length      4
 #define GEN9_MI_STORE_REGISTER_MEM_length_bias      2
@@ -12386,7 +12806,7 @@ GEN9_MI_STORE_DATA_INDEX_unpack(const void * restrict src,
 struct GEN9_MI_STORE_REGISTER_MEM {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             UseGlobalGTT;
+   bool                                 UseGlobalGTT;
    bool                                 PredicateEnable;
    uint32_t                             DWordLength;
    uint64_t                             RegisterAddress;
@@ -12415,6 +12835,7 @@ GEN9_MI_STORE_REGISTER_MEM_pack(__gen_user_data *data, void * restrict dst,
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_STORE_REGISTER_MEM_unpack(const void * restrict src,
                                   struct GEN9_MI_STORE_REGISTER_MEM * restrict values)
@@ -12432,9 +12853,10 @@ GEN9_MI_STORE_REGISTER_MEM_unpack(const void * restrict src,
    values->RegisterAddress = __gen_unpack_offset(dw1, 2, 22);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->MemoryAddress = __gen_unpack_address(dw2, 2, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->MemoryAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_STORE_URB_MEM_length           4
 #define GEN9_MI_STORE_URB_MEM_length_bias      2
@@ -12471,6 +12893,7 @@ GEN9_MI_STORE_URB_MEM_pack(__gen_user_data *data, void * restrict dst,
    dw[3] = v2_address >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_STORE_URB_MEM_unpack(const void * restrict src,
                              struct GEN9_MI_STORE_URB_MEM * restrict values)
@@ -12486,9 +12909,10 @@ GEN9_MI_STORE_URB_MEM_unpack(const void * restrict src,
    values->URBAddress = __gen_unpack_uint(dw1, 2, 14);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->MemoryAddress = __gen_unpack_address(dw2, 6, 63);
-
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->MemoryAddress = __gen_unpack_address(qw2, 0, 63);
 }
+#endif
 
 #define GEN9_MI_SUSPEND_FLUSH_length           1
 #define GEN9_MI_SUSPEND_FLUSH_length_bias      1
@@ -12514,6 +12938,7 @@ GEN9_MI_SUSPEND_FLUSH_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->SuspendFlush, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_SUSPEND_FLUSH_unpack(const void * restrict src,
                              struct GEN9_MI_SUSPEND_FLUSH * restrict values)
@@ -12525,6 +12950,7 @@ GEN9_MI_SUSPEND_FLUSH_unpack(const void * restrict src,
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
    values->SuspendFlush = __gen_unpack_uint(dw0, 0, 0);
 }
+#endif
 
 #define GEN9_MI_TOPOLOGY_FILTER_length         1
 #define GEN9_MI_TOPOLOGY_FILTER_length_bias      1
@@ -12535,7 +12961,7 @@ GEN9_MI_SUSPEND_FLUSH_unpack(const void * restrict src,
 struct GEN9_MI_TOPOLOGY_FILTER {
    uint32_t                             CommandType;
    uint32_t                             MICommandOpcode;
-   uint32_t                             TopologyFilterValue;
+   enum GEN9_3D_Prim_Topo_Type          TopologyFilterValue;
 };
 
 static inline void
@@ -12550,6 +12976,7 @@ GEN9_MI_TOPOLOGY_FILTER_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->TopologyFilterValue, 0, 5);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_TOPOLOGY_FILTER_unpack(const void * restrict src,
                                struct GEN9_MI_TOPOLOGY_FILTER * restrict values)
@@ -12561,6 +12988,7 @@ GEN9_MI_TOPOLOGY_FILTER_unpack(const void * restrict src,
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
    values->TopologyFilterValue = __gen_unpack_uint(dw0, 0, 5);
 }
+#endif
 
 #define GEN9_MI_URB_ATOMIC_ALLOC_length        1
 #define GEN9_MI_URB_ATOMIC_ALLOC_length_bias      1
@@ -12588,6 +13016,7 @@ GEN9_MI_URB_ATOMIC_ALLOC_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->URBAtomicStorageSize, 0, 8);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_URB_ATOMIC_ALLOC_unpack(const void * restrict src,
                                 struct GEN9_MI_URB_ATOMIC_ALLOC * restrict values)
@@ -12600,6 +13029,7 @@ GEN9_MI_URB_ATOMIC_ALLOC_unpack(const void * restrict src,
    values->URBAtomicStorageOffset = __gen_unpack_uint(dw0, 12, 19);
    values->URBAtomicStorageSize = __gen_unpack_uint(dw0, 0, 8);
 }
+#endif
 
 #define GEN9_MI_USER_INTERRUPT_length          1
 #define GEN9_MI_USER_INTERRUPT_length_bias      1
@@ -12623,6 +13053,7 @@ GEN9_MI_USER_INTERRUPT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->MICommandOpcode, 23, 28);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_USER_INTERRUPT_unpack(const void * restrict src,
                               struct GEN9_MI_USER_INTERRUPT * restrict values)
@@ -12633,6 +13064,7 @@ GEN9_MI_USER_INTERRUPT_unpack(const void * restrict src,
    values->CommandType = __gen_unpack_uint(dw0, 29, 31);
    values->MICommandOpcode = __gen_unpack_uint(dw0, 23, 28);
 }
+#endif
 
 #define GEN9_MI_WAIT_FOR_EVENT_length          1
 #define GEN9_MI_WAIT_FOR_EVENT_length_bias      1
@@ -12692,6 +13124,7 @@ GEN9_MI_WAIT_FOR_EVENT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->DisplayPlnae1AScanLineWaitEnable, 0, 0);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_MI_WAIT_FOR_EVENT_unpack(const void * restrict src,
                               struct GEN9_MI_WAIT_FOR_EVENT * restrict values)
@@ -12720,6 +13153,7 @@ GEN9_MI_WAIT_FOR_EVENT_unpack(const void * restrict src,
    values->DisplayPlane1FlipPendingWaitEnable = __gen_unpack_uint(dw0, 1, 1);
    values->DisplayPlnae1AScanLineWaitEnable = __gen_unpack_uint(dw0, 0, 0);
 }
+#endif
 
 #define GEN9_PIPELINE_SELECT_length            1
 #define GEN9_PIPELINE_SELECT_length_bias       1
@@ -12760,6 +13194,7 @@ GEN9_PIPELINE_SELECT_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->PipelineSelection, 0, 1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_PIPELINE_SELECT_unpack(const void * restrict src,
                             struct GEN9_PIPELINE_SELECT * restrict values)
@@ -12776,6 +13211,7 @@ GEN9_PIPELINE_SELECT_unpack(const void * restrict src,
    values->MediaSamplerDOPClockGateEnable = __gen_unpack_uint(dw0, 4, 4);
    values->PipelineSelection = __gen_unpack_uint(dw0, 0, 1);
 }
+#endif
 
 #define GEN9_PIPE_CONTROL_length               6
 #define GEN9_PIPE_CONTROL_length_bias          2
@@ -12801,10 +13237,8 @@ struct GEN9_PIPE_CONTROL {
 #define MMIOWriteImmediateData                   1
    uint32_t                             StoreDataIndex;
    bool                                 CommandStreamerStallEnable;
-   uint32_t                             GlobalSnapshotCountReset;
-#define DontReset                                0
-#define Reset                                    1
-   uint32_t                             TLBInvalidate;
+   bool                                 GlobalSnapshotCountReset;
+   bool                                 TLBInvalidate;
    bool                                 GenericMediaStateClear;
    uint32_t                             PostSyncOperation;
 #define NoWrite                                  0
@@ -12876,6 +13310,7 @@ GEN9_PIPE_CONTROL_pack(__gen_user_data *data, void * restrict dst,
    dw[5] = v4 >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_PIPE_CONTROL_unpack(const void * restrict src,
                          struct GEN9_PIPE_CONTROL * restrict values)
@@ -12914,12 +13349,13 @@ GEN9_PIPE_CONTROL_unpack(const void * restrict src,
    values->DepthCacheFlushEnable = __gen_unpack_uint(dw1, 0, 0);
 
    const uint32_t dw2 __attribute__((unused)) = dw[2];
-   values->Address = __gen_unpack_address(dw2, 2, 47);
+   const uint64_t qw2 __attribute__((unused)) = *(uint64_t *) &dw[2];
+   values->Address = __gen_unpack_address(qw2, 0, 63);
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
    values->ImmediateData = __gen_unpack_uint(dw4, 0, 63);
-
 }
+#endif
 
 #define GEN9_STATE_BASE_ADDRESS_length        19
 #define GEN9_STATE_BASE_ADDRESS_length_bias      2
@@ -13071,6 +13507,7 @@ GEN9_STATE_BASE_ADDRESS_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->BindlessSurfaceStateSize, 12, 31);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_STATE_BASE_ADDRESS_unpack(const void * restrict src,
                                struct GEN9_STATE_BASE_ADDRESS * restrict values)
@@ -13085,31 +13522,36 @@ GEN9_STATE_BASE_ADDRESS_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->GeneralStateBaseAddress = __gen_unpack_address(dw1, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[1], &values->GeneralStateMemoryObjectControlState);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->GeneralStateBaseAddress = __gen_unpack_address(qw1, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->GeneralStateBaseAddressModifyEnable = __gen_unpack_uint(dw1, 0, 0);
 
    const uint32_t dw3 __attribute__((unused)) = dw[3];
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[3], &values->StatelessDataPortAccessMemoryObjectControlState);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
 
    const uint32_t dw4 __attribute__((unused)) = dw[4];
-   values->SurfaceStateBaseAddress = __gen_unpack_address(dw4, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[4], &values->SurfaceStateMemoryObjectControlState);
+   const uint64_t qw4 __attribute__((unused)) = *(uint64_t *) &dw[4];
+   values->SurfaceStateBaseAddress = __gen_unpack_address(qw4, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->SurfaceStateBaseAddressModifyEnable = __gen_unpack_uint(dw4, 0, 0);
 
    const uint32_t dw6 __attribute__((unused)) = dw[6];
-   values->DynamicStateBaseAddress = __gen_unpack_address(dw6, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[6], &values->DynamicStateMemoryObjectControlState);
+   const uint64_t qw6 __attribute__((unused)) = *(uint64_t *) &dw[6];
+   values->DynamicStateBaseAddress = __gen_unpack_address(qw6, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->DynamicStateBaseAddressModifyEnable = __gen_unpack_uint(dw6, 0, 0);
 
    const uint32_t dw8 __attribute__((unused)) = dw[8];
-   values->IndirectObjectBaseAddress = __gen_unpack_address(dw8, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[8], &values->IndirectObjectMemoryObjectControlState);
+   const uint64_t qw8 __attribute__((unused)) = *(uint64_t *) &dw[8];
+   values->IndirectObjectBaseAddress = __gen_unpack_address(qw8, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->IndirectObjectBaseAddressModifyEnable = __gen_unpack_uint(dw8, 0, 0);
 
    const uint32_t dw10 __attribute__((unused)) = dw[10];
-   values->InstructionBaseAddress = __gen_unpack_address(dw10, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[10], &values->InstructionMemoryObjectControlState);
+   const uint64_t qw10 __attribute__((unused)) = *(uint64_t *) &dw[10];
+   values->InstructionBaseAddress = __gen_unpack_address(qw10, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->InstructionBaseAddressModifyEnable = __gen_unpack_uint(dw10, 0, 0);
 
    const uint32_t dw12 __attribute__((unused)) = dw[12];
@@ -13129,13 +13571,15 @@ GEN9_STATE_BASE_ADDRESS_unpack(const void * restrict src,
    values->InstructionBuffersizeModifyEnable = __gen_unpack_uint(dw15, 0, 0);
 
    const uint32_t dw16 __attribute__((unused)) = dw[16];
-   values->BindlessSurfaceStateBaseAddress = __gen_unpack_address(dw16, 12, 63);
-   GEN9_MEMORY_OBJECT_CONTROL_STATE_unpack(&dw[16], &values->BindlessSurfaceStateMemoryObjectControlState);
+   const uint64_t qw16 __attribute__((unused)) = *(uint64_t *) &dw[16];
+   values->BindlessSurfaceStateBaseAddress = __gen_unpack_address(qw16, 0, 63);
+/* struct MEMORY_OBJECT_CONTROL_STATE */
    values->BindlessSurfaceStateBaseAddressModifyEnable = __gen_unpack_uint(dw16, 0, 0);
 
    const uint32_t dw18 __attribute__((unused)) = dw[18];
    values->BindlessSurfaceStateSize = __gen_unpack_uint(dw18, 12, 31);
 }
+#endif
 
 #define GEN9_STATE_PREFETCH_length             2
 #define GEN9_STATE_PREFETCH_length_bias        2
@@ -13174,6 +13618,7 @@ GEN9_STATE_PREFETCH_pack(__gen_user_data *data, void * restrict dst,
    dw[1] = __gen_combine_address(data, &dw[1], values->PrefetchPointer, v1);
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_STATE_PREFETCH_unpack(const void * restrict src,
                            struct GEN9_STATE_PREFETCH * restrict values)
@@ -13188,9 +13633,11 @@ GEN9_STATE_PREFETCH_unpack(const void * restrict src,
    values->DWordLength = __gen_unpack_uint(dw0, 0, 7);
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
-   values->PrefetchPointer = __gen_unpack_address(dw1, 6, 31);
+   const uint64_t qw1 __attribute__((unused)) = *(uint64_t *) &dw[1];
+   values->PrefetchPointer = __gen_unpack_address(qw1, 0, 63);
    values->PrefetchCount = __gen_unpack_uint(dw1, 0, 2);
 }
+#endif
 
 #define GEN9_STATE_SIP_length                  3
 #define GEN9_STATE_SIP_length_bias             2
@@ -13229,6 +13676,7 @@ GEN9_STATE_SIP_pack(__gen_user_data *data, void * restrict dst,
    dw[2] = v1 >> 32;
 }
 
+#ifdef __gen_unpack_address
 static inline void
 GEN9_STATE_SIP_unpack(const void * restrict src,
                       struct GEN9_STATE_SIP * restrict values)
@@ -13244,8 +13692,8 @@ GEN9_STATE_SIP_unpack(const void * restrict src,
 
    const uint32_t dw1 __attribute__((unused)) = dw[1];
    values->SystemInstructionPointer = __gen_unpack_offset(dw1, 4, 63);
-
 }
+#endif
 
 #define GEN9_L3CNTLREG_num                0x7034
 #define GEN9_L3CNTLREG_length                  1
@@ -13271,3 +13719,132 @@ GEN9_L3CNTLREG_pack(__gen_user_data *data, void * restrict dst,
       __gen_uint(values->AllAllocation, 25, 31);
 }
 
+#ifdef __gen_unpack_address
+static inline void
+GEN9_L3CNTLREG_unpack(const void * restrict src,
+                      struct GEN9_L3CNTLREG * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->SLMEnable = __gen_unpack_uint(dw0, 0, 0);
+   values->URBAllocation = __gen_unpack_uint(dw0, 1, 7);
+   values->ROAllocation = __gen_unpack_uint(dw0, 11, 17);
+   values->DCAllocation = __gen_unpack_uint(dw0, 18, 24);
+   values->AllAllocation = __gen_unpack_uint(dw0, 25, 31);
+}
+#endif
+
+#define GEN9_SO_WRITE_OFFSET0_num         0x5280
+#define GEN9_SO_WRITE_OFFSET0_length           1
+struct GEN9_SO_WRITE_OFFSET0 {
+   uint64_t                             WriteOffset;
+};
+
+static inline void
+GEN9_SO_WRITE_OFFSET0_pack(__gen_user_data *data, void * restrict dst,
+                           const struct GEN9_SO_WRITE_OFFSET0 * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_offset(values->WriteOffset, 2, 31);
+}
+
+#ifdef __gen_unpack_address
+static inline void
+GEN9_SO_WRITE_OFFSET0_unpack(const void * restrict src,
+                             struct GEN9_SO_WRITE_OFFSET0 * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->WriteOffset = __gen_unpack_offset(dw0, 2, 31);
+}
+#endif
+
+#define GEN9_SO_WRITE_OFFSET1_num         0x5284
+#define GEN9_SO_WRITE_OFFSET1_length           1
+struct GEN9_SO_WRITE_OFFSET1 {
+   uint64_t                             WriteOffset;
+};
+
+static inline void
+GEN9_SO_WRITE_OFFSET1_pack(__gen_user_data *data, void * restrict dst,
+                           const struct GEN9_SO_WRITE_OFFSET1 * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_offset(values->WriteOffset, 2, 31);
+}
+
+#ifdef __gen_unpack_address
+static inline void
+GEN9_SO_WRITE_OFFSET1_unpack(const void * restrict src,
+                             struct GEN9_SO_WRITE_OFFSET1 * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->WriteOffset = __gen_unpack_offset(dw0, 2, 31);
+}
+#endif
+
+#define GEN9_SO_WRITE_OFFSET2_num         0x5288
+#define GEN9_SO_WRITE_OFFSET2_length           1
+struct GEN9_SO_WRITE_OFFSET2 {
+   uint64_t                             WriteOffset;
+};
+
+static inline void
+GEN9_SO_WRITE_OFFSET2_pack(__gen_user_data *data, void * restrict dst,
+                           const struct GEN9_SO_WRITE_OFFSET2 * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_offset(values->WriteOffset, 2, 31);
+}
+
+#ifdef __gen_unpack_address
+static inline void
+GEN9_SO_WRITE_OFFSET2_unpack(const void * restrict src,
+                             struct GEN9_SO_WRITE_OFFSET2 * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->WriteOffset = __gen_unpack_offset(dw0, 2, 31);
+}
+#endif
+
+#define GEN9_SO_WRITE_OFFSET3_num         0x528c
+#define GEN9_SO_WRITE_OFFSET3_length           1
+struct GEN9_SO_WRITE_OFFSET3 {
+   uint64_t                             WriteOffset;
+};
+
+static inline void
+GEN9_SO_WRITE_OFFSET3_pack(__gen_user_data *data, void * restrict dst,
+                           const struct GEN9_SO_WRITE_OFFSET3 * restrict values)
+{
+   uint32_t * restrict dw = (uint32_t * restrict) dst;
+
+   dw[0] =
+      __gen_offset(values->WriteOffset, 2, 31);
+}
+
+#ifdef __gen_unpack_address
+static inline void
+GEN9_SO_WRITE_OFFSET3_unpack(const void * restrict src,
+                             struct GEN9_SO_WRITE_OFFSET3 * restrict values)
+{
+   const uint32_t *dw = (const uint32_t *) src;
+
+   const uint32_t dw0 __attribute__((unused)) = dw[0];
+   values->WriteOffset = __gen_unpack_offset(dw0, 2, 31);
+}
+#endif
+
+#endif /* GEN9_PACK_H */

@@ -48,13 +48,6 @@
 
 #include "gen9_pack.h"
 
-#define BIM_PERSPECTIVE_PIXEL		 1
-#define BIM_PERSPECTIVE_CENTROID	 2
-#define BIM_PERSPECTIVE_SAMPLE		 4
-#define BIM_LINEAR_PIXEL		 8
-#define BIM_LINEAR_CENTROID		16
-#define BIM_LINEAR_SAMPLE		32
-
 static inline int
 memfd_create(const char *name, unsigned int flags)
 {
@@ -588,7 +581,7 @@ struct surface {
 	int height;
 	int stride;
 	int cpp;
-	enum GEN9_TileMode tile_mode;
+	enum GEN9_TILE_MODE tile_mode;
 };
 
 bool

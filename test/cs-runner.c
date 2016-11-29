@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
 		idd.SamplerCount = 0;
 		idd.BindingTablePointer = binding_table_offset;
 		idd.BindingTableEntryCount = 1;
-		idd.ConstantIndirectURBEntryReadLength = curbe_size / 32;
+		idd.ConstantURBEntryReadLength = curbe_size / 32;
 		idd.ConstantURBEntryReadOffset = 0;
 		idd.BarrierEnable = false;
 		idd.SharedLocalMemorySize = 0;
