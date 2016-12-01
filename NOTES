@@ -72,6 +72,8 @@ it into the shader as a regular load.
 
 * EU
 
+** Use immediate AVX2 shift when EU operand is an immediate
+
 ** All the instructions
 
 ** Indirect addressing
