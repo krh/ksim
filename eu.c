@@ -118,6 +118,45 @@ region_tag(uint32_t vstride, uint32_t width, uint32_t hstride,
 }
 
 static int
+builder_emit_src_modifiers(struct builder *bld,
+			   struct inst *inst, struct inst_src *src, int reg)
+{
+	/* FIXME: Build the load above into the source modifier when possible, eg:
+	 *
+	 *     vpabsd 0x456(%rdi), %ymm1
+	 */
+
+	if (src->abs) {
+		if (src->type == BRW_HW_REG_TYPE_F) {
+			int tmp_reg = builder_get_reg_with_uniform(bld, 0x7fffffff);
+			builder_emit_vpand(bld, tmp_reg, reg, tmp_reg);
+			bld->regs[tmp_reg].contents = 0;
+			reg = tmp_reg;
+		} else {
+			int tmp_reg = builder_get_reg(bld);
+			builder_emit_vpabsd(bld, tmp_reg, reg);
+			reg = tmp_reg;
+		}
+	}
+
+	if (src->negate) {
+		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
+
+		if (is_logic_instruction(inst)) {
+			builder_emit_vpxor(bld, tmp_reg, reg, tmp_reg);
+		} else if (src->type == BRW_HW_REG_TYPE_F) {
+			builder_emit_vsubps(bld, tmp_reg, reg, tmp_reg);
+		} else {
+			builder_emit_vpsubd(bld, tmp_reg, reg, tmp_reg);
+		}
+		bld->regs[tmp_reg].contents = 0;
+		reg = tmp_reg;
+	}
+
+	return reg;
+}
+
+static int
 builder_emit_da_src_load(struct builder *bld,
 			 struct inst *inst, struct inst_src *src, int subnum_bytes)
 {
@@ -134,7 +173,7 @@ builder_emit_da_src_load(struct builder *bld,
 		      areg->offset == offset &&
 		      areg->region == region)) {
 
-		int reg = areg - bld->regs;
+		int reg = builder_use_reg(bld, areg);
 		if (trace_mask & TRACE_AVX) {
 			char subnum_str[16];
 
@@ -148,7 +187,7 @@ builder_emit_da_src_load(struct builder *bld,
 				   eu_type_to_string(src->type), reg);
 		}
 
-		return builder_use_reg(bld, areg);
+		return builder_emit_src_modifiers(bld, inst, src, reg);
 	}
 
 	int reg = builder_get_reg(bld);
@@ -224,39 +263,7 @@ builder_emit_da_src_load(struct builder *bld,
 		     src->num, subnum, src->vstride, src->width, src->hstride);
 	}
 
-	/* FIXME: Build the load above into the source modifier when possible, eg:
-	 *
-	 *     vpabsd 0x456(%rdi), %ymm1
-	 */
-
-	if (src->abs) {
-		if (src->type == BRW_HW_REG_TYPE_F) {
-			int tmp_reg = builder_get_reg_with_uniform(bld, 0x7fffffff);
-			builder_emit_vpand(bld, tmp_reg, reg, tmp_reg);
-			bld->regs[tmp_reg].contents = 0;
-			reg = tmp_reg;
-		} else {
-			int tmp_reg = builder_get_reg(bld);
-			builder_emit_vpabsd(bld, tmp_reg, reg);
-			reg = tmp_reg;
-		}
-	}
-
-	if (src->negate) {
-		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
-
-		if (is_logic_instruction(inst)) {
-			builder_emit_vpxor(bld, tmp_reg, reg, tmp_reg);
-		} else if (src->type == BRW_HW_REG_TYPE_F) {
-			builder_emit_vsubps(bld, tmp_reg, reg, tmp_reg);
-		} else {
-			builder_emit_vpsubd(bld, tmp_reg, reg, tmp_reg);
-		}
-		bld->regs[tmp_reg].contents = 0;
-		reg = tmp_reg;
-	}
-
-	return reg;
+	return builder_emit_src_modifiers(bld, inst, src, reg);
 }
 
 static int
