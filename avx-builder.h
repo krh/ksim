@@ -6,16 +6,23 @@ enum builder_reg_contents {
 	BUILDER_REG_CONTENTS_EU_REG	= (1 << 1)
 };
 
+struct eu_region {
+	uint32_t offset; /* num * 32 + subnum */
+	uint32_t type_size;
+	uint32_t exec_size;
+	uint32_t vstride;
+	uint32_t width;
+	uint32_t hstride;
+};
+
+
 struct avx2_reg {
 	uint32_t contents;
 	uint32_t uniform;
 
-	struct {
-		uint32_t offset; /* num * 32 + subnum */
-		uint32_t region;
-	};
-
         struct list link;
+	struct eu_region region;
+
 };
 
 struct builder {

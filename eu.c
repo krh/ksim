@@ -107,14 +107,53 @@ static const struct {
    [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
 };
 
-static uint32_t
-region_tag(uint32_t vstride, uint32_t width, uint32_t hstride,
-	   uint32_t type_size, uint32_t exec_size)
+static void
+fill_region_for_src(struct eu_region *region, struct inst_src *src,
+		    uint32_t subnum_bytes, struct builder *bld)
 {
-	if (width == vstride && hstride == 1)
-		return (type_size << 24) | (exec_size << 16) | (exec_size << 8) | 1;
+	int row_offset = bld->exec_offset / src->width;
 
-	return (type_size << 24) | (vstride << 16) | (width << 8) | hstride;
+	region->offset = src->num * 32 + subnum_bytes +
+		row_offset * src->vstride * type_size(src->type);
+	region->type_size = type_size(src->type);
+	region->exec_size = bld->exec_size;
+	region->hstride = src->hstride;
+
+	if (src->width == src->vstride && src->hstride == 1) {
+		region->vstride = bld->exec_size;
+		region->width = bld->exec_size;
+	} else {
+		region->vstride = src->vstride;
+		region->width = src->width;
+	}
+}
+
+static void
+fill_region_for_dst(struct eu_region *region, struct inst_dst *dst,
+		    uint32_t offset, struct builder *bld)
+{
+	region->offset = offset;
+	region->type_size = type_size(dst->type);
+	region->exec_size = bld->exec_size;
+	region->vstride = bld->exec_size;
+	region->width = bld->exec_size;
+	region->hstride = 1;
+}
+
+static bool
+regions_overlap(struct eu_region *a, struct eu_region *b)
+{
+	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
+	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
+
+	/* This is a coarse approximation, but probably sufficient: if
+	 * the "bounding boxs" of the regions overlap, we consider the
+	 * regions overlapping. This misses cases where a region could
+	 * be contained in a gap (ie, where width < vstride) of
+	 * another region or two regions could be interleaved. */
+
+	return a->offset + a_size > b->offset &&
+		 b->offset + b_size > a->offset;
 }
 
 static int
@@ -162,17 +201,15 @@ builder_emit_da_src_load(struct builder *bld,
 {
 	int subnum = subnum_bytes / type_size(src->type);
 	struct avx2_reg *areg;
+	struct eu_region region;
 
 	subnum += bld->exec_offset / src->width * src->vstride;
 
-	uint32_t offset = src->num * 32 + subnum * type_size(src->type);
-	uint32_t region = region_tag(src->vstride, src->width, src->hstride,
-				     type_size(src->type), bld->exec_size);
+	fill_region_for_src(&region, src, subnum_bytes, bld);
+
 	if (list_find(areg, &bld->regs_lru_list, link,
 		      (areg->contents & BUILDER_REG_CONTENTS_EU_REG) &&
-		      areg->offset == offset &&
-		      areg->region == region)) {
-
+		      memcmp(&region, &areg->region, sizeof(region)) == 0)) {
 		int reg = builder_use_reg(bld, areg);
 		if (trace_mask & TRACE_AVX) {
 			char subnum_str[16];
@@ -192,8 +229,7 @@ builder_emit_da_src_load(struct builder *bld,
 
 	int reg = builder_get_reg(bld);
 	bld->regs[reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-	bld->regs[reg].offset = offset;
-	bld->regs[reg].region = region;
+	memcpy(&bld->regs[reg].region, &region, sizeof(region));
 
 	if (src->hstride == 1 && src->width == src->vstride) {
 		switch (type_size(src->type) * bld->exec_size) {
@@ -464,6 +500,21 @@ builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
 }
 
 static void
+builder_invalidate_region(struct builder *bld, struct eu_region *r)
+{
+	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
+		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
+		    regions_overlap(r, &bld->regs[i].region)) {
+			bld->regs[i].contents &= ~BUILDER_REG_CONTENTS_EU_REG;
+			ksim_trace(TRACE_AVX,
+				   "*** invalidate g%d.%d (ymm%d)\n",
+				   bld->regs[i].region.offset / 32,
+				   bld->regs[i].region.offset & 31, i);
+		}
+	}
+}
+
+static void
 builder_emit_dst_store(struct builder *bld, int avx_reg,
 		       struct inst *inst, struct inst_dst *dst)
 {
@@ -488,39 +539,32 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 	else
 		subnum = dst->da16_subnum;
 
-	uint32_t offset = offsetof(struct thread, grf[dst->num]) + subnum;
+	uint32_t offset =
+		offsetof(struct thread, grf[dst->num]) + subnum +
+		bld->exec_offset * dst->hstride * type_size(dst->type);
+
 	switch (bld->exec_size * type_size(dst->type)) {
 	case 32:
-		builder_emit_m256i_store(bld, avx_reg,
-					 bld->exec_offset * type_size(dst->type) + offset);
-
-		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-		bld->regs[avx_reg].offset = offset;
-		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
-						       type_size(dst->type), bld->exec_size);
-
+		builder_emit_m256i_store(bld, avx_reg, offset);
 		break;
 	case 16:
 		builder_emit_m128i_store(bld, avx_reg, offset);
-
-		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-		bld->regs[avx_reg].offset = offset;
-		bld->regs[avx_reg].region = region_tag(bld->exec_size, bld->exec_size, 1,
-						       type_size(dst->type), bld->exec_size);
-
 		break;
 	case 4:
 		builder_emit_u32_store(bld, avx_reg, offset);
-
-		bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-		bld->regs[avx_reg].offset = offset;
-		bld->regs[avx_reg].region = region_tag(0, 1, 0,
-						       type_size(dst->type), bld->exec_size);
 		break;
 	default:
 		stub("eu: type size %d in dest store", type_size(dst->type));
 		break;
 	}
+
+	/* FIXME: For a straight move, this makes the AVX2 register
+	 * refer to the dst region.  That's fine, but the register may
+	 * still also shadow the src region, but since we only track
+	 * one region per AVX2 reg, that is lost. */
+	fill_region_for_dst(&bld->regs[avx_reg].region, dst, offset, bld);
+	builder_invalidate_region(bld, &bld->regs[avx_reg].region);
+	bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
 }
 
 static inline int
@@ -1111,6 +1155,21 @@ void brw_uncompact_instruction(const struct gen_device_info *devinfo,
 
 static const struct gen_device_info ksim_devinfo = { .gen = 9 };
 
+static void
+dump_register_cache(struct builder *bld)
+{
+	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
+		if (bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG)
+			fprintf(trace_file, "  ymm%d: g%d.%d<%d,%d,%d>\n",
+				i,
+				bld->regs[i].region.offset / 32,
+				bld->regs[i].region.offset & 31,
+				bld->regs[i].region.vstride,
+				bld->regs[i].region.width,
+				bld->regs[i].region.hstride);
+	}
+}
+
 struct shader *
 compile_shader(uint64_t kernel_offset,
 	       uint64_t surfaces, uint64_t samplers)
@@ -1144,9 +1203,12 @@ compile_shader(uint64_t kernel_offset,
 
 		eot = do_compile_inst(&bld, insn);
 
-		if (trace_mask & TRACE_AVX)
+		if (trace_mask & TRACE_AVX) {
+			dump_register_cache(&bld);
+
 			while (builder_disasm(&bld))
 				fprintf(trace_file, "      %s\n", bld.disasm_output);
+		}
 	} while (!eot);
 
 	builder_finish(&bld);
