@@ -63,13 +63,34 @@ blend_unorm8_argb(struct reg *src, __m256i dst_argb)
 }
 
 __m256 _ZGVdN8vv_powf(__m256 x, __m256 y);
+
+static inline void
+gamma_correct(enum GEN9_SURFACE_FORMAT format, struct reg *c)
+{
+	if (srgb_format(format)) {
+		const __m256 inv_gamma = _mm256_set1_ps(1.0f / 2.4f);
+		c[0].reg = _ZGVdN8vv_powf(c[0].reg, inv_gamma);
+		c[1].reg = _ZGVdN8vv_powf(c[1].reg, inv_gamma);
+		c[2].reg = _ZGVdN8vv_powf(c[2].reg, inv_gamma);
+	}
+}
+
 static void
 sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 						    const struct sfid_render_cache_args *args)
 {
 	const __m128 scale = _mm_set1_ps(255.0f);
 	const __m128 half =  _mm_set1_ps(0.5f);
-	 struct reg *src = &t->grf[args->src];
+	struct reg src[1];
+
+	memcpy(src, &t->grf[args->src], sizeof(src));
+
+	if (srgb_format(args->rt.format)) {
+		const __m256 inv_gamma = _mm256_set1_ps(1.0f / 2.4f);
+		src[0].reg = _ZGVdN8vv_powf(src[0].reg, inv_gamma);
+		/* Don't gamma correct alpha */
+		src[0].f[3] = t->grf[args->src].f[3];
+	}
 
 	__m128 bgra = _mm_shuffle_ps(_mm256_castps256_ps128(src[0].reg),
 				     _mm256_castps256_ps128(src[0].reg),
@@ -109,7 +130,16 @@ sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
 {
 	const __m128 scale = _mm_set1_ps(255.0f);
 	const __m128 half =  _mm_set1_ps(0.5f);
-	struct reg *src = &t->grf[args->src];
+	struct reg src[1];
+
+	memcpy(src, &t->grf[args->src], sizeof(src));
+
+	if (srgb_format(args->rt.format)) {
+		const __m256 inv_gamma = _mm256_set1_ps(1.0f / 2.4f);
+		src[0].reg = _ZGVdN8vv_powf(src[0].reg, inv_gamma);
+		/* Don't gamma correct alpha */
+		src[0].f[3] = t->grf[args->src].f[3];
+	}
 
 	__m128 rgba = _mm256_castps256_ps128(src[0].reg);
 

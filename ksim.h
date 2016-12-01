@@ -560,6 +560,7 @@ void dispatch_primitive(void);
 void dispatch_compute(void);
 
 bool valid_vertex_format(uint32_t format);
+bool srgb_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 uint32_t format_channels(uint32_t format);
 uint32_t format_block_size(uint32_t format);
