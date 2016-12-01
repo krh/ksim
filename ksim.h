@@ -409,6 +409,13 @@ struct gt {
 		float clear_value;
 	} depth;
 
+	struct {
+		enum GEN9_3D_Color_Buffer_Blend_Factor src_factor;
+		enum GEN9_3D_Color_Buffer_Blend_Factor dst_factor;
+		enum GEN9_3D_Color_Buffer_Blend_Function function;
+		bool enable;
+	} blend;
+
 	char urb[URB_SIZE];
 
 	bool curbe_dynamic_state_base;

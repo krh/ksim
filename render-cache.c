@@ -21,6 +21,8 @@
  * IN THE SOFTWARE.
  */
 
+#include <string.h>
+
 #include "eu.h"
 #include "avx-builder.h"
 
@@ -29,6 +31,38 @@ struct sfid_render_cache_args {
 	struct surface rt;
 };
 
+static inline void
+blend_unorm8_argb(struct reg *src, __m256i dst_argb)
+{
+	if (gt.blend.enable) {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+		struct reg dst[4];
+
+		/* Convert to float */
+		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(dst_argb, mask)), scale);
+		dst_argb = _mm256_srli_epi32(dst_argb, 8);
+		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(dst_argb, mask)), scale);
+		dst_argb = _mm256_srli_epi32(dst_argb, 8);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(dst_argb, mask)), scale);
+		dst_argb = _mm256_srli_epi32(dst_argb, 8);
+		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(dst_argb, mask)), scale);
+
+		/* Blend, assuming src BLENDFACTOR_SRC_ALPHA, dst
+		 * BLENDFACTOR_INV_SRC_ALPHA, and BLENDFUNCTION_ADD. */
+		const __m256 inv_alpha = _mm256_sub_ps(_mm256_set1_ps(1.0f), src[3].reg);
+		src[0].reg = _mm256_add_ps(_mm256_mul_ps(src[3].reg, src[0].reg),
+					   _mm256_mul_ps(inv_alpha, dst[0].reg));
+		src[1].reg = _mm256_add_ps(_mm256_mul_ps(src[3].reg, src[1].reg),
+					   _mm256_mul_ps(inv_alpha, dst[1].reg));
+		src[2].reg = _mm256_add_ps(_mm256_mul_ps(src[3].reg, src[2].reg),
+					   _mm256_mul_ps(inv_alpha, dst[2].reg));
+		src[3].reg = _mm256_add_ps(_mm256_mul_ps(src[3].reg, src[3].reg),
+					   _mm256_mul_ps(inv_alpha, dst[3].reg));
+	}
+}
+
+__m256 _ZGVdN8vv_powf(__m256 x, __m256 y);
 static void
 sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 						    const struct sfid_render_cache_args *args)
@@ -128,7 +162,24 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 	const int y = t->grf[1].uw[5];
 	__m256i argb;
 	const float scale = 255.0f;
-	const struct reg *src = &t->grf[args->src];
+	struct reg src[4];
+
+	memcpy(src, &t->grf[args->src], sizeof(src));
+
+	const int cpp = 4;
+	void *base = xmajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
+
+	if (gt.blend.enable) {
+		/* Load unorm8 */
+		__m128i lo = _mm_load_si128(base);
+		__m128i hi = _mm_load_si128(base + 512);
+		__m256i dst_argb = _mm256_inserti128_si256(_mm256_castsi128_si256(lo), hi, 1);
+		dst_argb = _mm256_permute4x64_epi64(dst_argb, SWIZZLE(0, 2, 1, 3));
+
+		blend_unorm8_argb(src, dst_argb);
+	}
+
+	gamma_correct(args->rt.format, src);
 
 	const __m256i r = to_unorm(src[0].reg, scale);
 	const __m256i g = to_unorm(src[1].reg, scale);
@@ -146,9 +197,6 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 	 * form linear owords of pixels. */
 	argb = _mm256_permute4x64_epi64(argb, SWIZZLE(0, 2, 1, 3));
 	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
-
-	const int cpp = 4;
-	void *base = xmajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
 
 	_mm_maskstore_epi32(base,
 			    _mm256_extractf128_si256(mask, 0),

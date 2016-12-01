@@ -952,6 +952,25 @@ static void
 handle_3dstate_blend_state_pointers(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_BLEND_STATE_POINTERS\n");
+
+	struct GEN9_3DSTATE_BLEND_STATE_POINTERS v;
+	GEN9_3DSTATE_BLEND_STATE_POINTERS_unpack(p, &v);
+
+	const uint64_t offset = v.BlendStatePointer +
+		gt.dynamic_state_base_address;
+
+	uint64_t range;
+	void *bsp = map_gtt_offset(offset, &range);
+
+	struct GEN9_BLEND_STATE state;
+	GEN9_BLEND_STATE_unpack(bsp, &state);
+	struct GEN9_BLEND_STATE_ENTRY entry;
+	GEN9_BLEND_STATE_ENTRY_unpack(bsp + 4, &entry);
+
+	gt.blend.enable = entry.ColorBufferBlendEnable;
+	gt.blend.src_factor = entry.SourceBlendFactor;
+	gt.blend.dst_factor = entry.DestinationBlendFactor;
+	gt.blend.function = entry.ColorBlendFunction;
 }
 
 static void
