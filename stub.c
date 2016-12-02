@@ -90,7 +90,7 @@ static LIST_INITIALIZER(pending_map_list);
 static LIST_INITIALIZER(dirty_map_list);
 static LIST_INITIALIZER(clean_map_list);
 
-static struct stub_bo bos[1024], *bo_free_list;
+static struct stub_bo bos[4096], *bo_free_list;
 static int next_handle = 1;
 #define gtt_order 20
 static const uint64_t gtt_size = 4096ul << gtt_order;
