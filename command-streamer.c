@@ -777,6 +777,8 @@ handle_3dstate_clip(uint32_t *p)
 	GEN9_3DSTATE_CLIP_unpack(p, &v);
 
 	gt.clip.perspective_divide_disable = v.PerspectiveDivideDisable;
+	gt.clip.guardband_clip_test_enable = v.GuardbandClipTestEnable;
+	gt.clip.viewport_clip_test_enable = v.ViewportXYClipTestEnable;
 }
 
 static void
@@ -953,8 +955,12 @@ handle_3dstate_viewport_state_pointer_cc(uint32_t *p)
 	struct GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC v;
 	GEN9_3DSTATE_VIEWPORT_STATE_POINTERS_CC_unpack(p, &v);
 
-	gt.cc.viewport_pointer =
-		gt.dynamic_state_base_address + v.CCViewportPointer;
+	const uint64_t offset = v.CCViewportPointer +
+		gt.dynamic_state_base_address;
+
+	uint64_t range;
+	gt.cc.viewport = map_gtt_offset(offset, &range);
+	ksim_assert(range >= 2 * sizeof(gt.cc.viewport[0]));
 }
 
 static void
@@ -1266,6 +1272,8 @@ handle_3dstate_raster(uint32_t *p)
 	struct GEN9_3DSTATE_RASTER v;
 	GEN9_3DSTATE_RASTER_unpack(p, &v);
 
+	gt.clip.viewport_zfar_clip_test_enable = v.ViewportZFarClipTestEnable;
+	gt.clip.viewport_znear_clip_test_enable = v.ViewportZNearClipTestEnable;
 	gt.wm.front_winding = v.FrontWinding;
 	gt.wm.cull_mode = v.CullMode;
 	gt.wm.scissor_rectangle_enable = v.ScissorRectangleEnable;

@@ -227,13 +227,24 @@ dump_sf_clip_viewport(void)
 	spam("guardband: %f,%f - %f,%f\n",
 	     gt.sf.guardband.x0, gt.sf.guardband.y0,
 	     gt.sf.guardband.x1, gt.sf.guardband.y1);
+	spam("depth viewport: %f-%f\n",
+	     gt.cc.viewport[0], gt.cc.viewport[1]);
 }
+
+enum vue_flag {
+	VUE_FLAG_CLIP = 1
+};
 
 static void
 setup_prim(struct value **vue_in, uint32_t parity)
 {
 	struct value *vue[3];
 	uint32_t provoking;
+
+	for (int i = 0; i < 3; i++) {
+		if (vue_in[i][0].u[0] & VUE_FLAG_CLIP)
+			return;
+	}
 
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
@@ -281,6 +292,7 @@ transform_and_queue_vues(struct value **vue, int count)
 {
 	const float *vp = gt.sf.viewport;
 	float m00, m11, m22, m30, m31, m32;
+	struct rectanglef clip;
 
 	if (gt.sf.viewport_transform_enable) {
 		m00 = vp[0];
@@ -291,6 +303,15 @@ transform_and_queue_vues(struct value **vue, int count)
 		m32 = vp[5];
 	}
 
+	if (gt.clip.guardband_clip_test_enable) {
+		clip = gt.sf.guardband;
+	} else {
+		clip.x0 = -1;
+		clip.y0 = -1;
+		clip.x1 = 1;
+		clip.y1 = 1;
+	}
+
 	for (int i = 0; i < count; i++) {
 		struct vec4 *pos = &vue[i][1].vec4;
 		if (!gt.clip.perspective_divide_disable) {
@@ -298,7 +319,18 @@ transform_and_queue_vues(struct value **vue, int count)
 			pos->x *= inv_w;
 			pos->y *= inv_w;
 			pos->z *= inv_w;
-			pos->w = 1;
+			pos->w = inv_w;
+		}
+
+		if (gt.clip.guardband_clip_test_enable ||
+		    gt.clip.viewport_clip_test_enable) {
+			const struct vec4 v = vue[i][1].vec4;
+			if (v.x < clip.x0 || clip.x1 < v.x ||
+			    v.y < clip.y0 || clip.y1 < v.y || v.z > 1.0f) {
+				vue[i][0].u[0] = VUE_FLAG_CLIP;
+			} else {
+				vue[i][0].u[0] = 0;
+			}
 		}
 
 		if (gt.sf.viewport_transform_enable) {

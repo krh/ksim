@@ -393,10 +393,14 @@ struct gt {
 
 	struct {
 		bool perspective_divide_disable;
+		bool guardband_clip_test_enable;
+		bool viewport_clip_test_enable;
+		bool viewport_zfar_clip_test_enable;
+		bool viewport_znear_clip_test_enable;
 	} clip;
 
 	struct {
-		uint64_t viewport_pointer;
+		float *viewport;
 		uint32_t state;
 	} cc;
 
@@ -538,7 +542,7 @@ struct value {
 		struct { int32_t x, y, z, w; } ivec4;
 		struct { uint32_t x, y, z, w; } uvec4;
 		int32_t v[4];
-		int32_t u[4];
+		uint32_t u[4];
 		float f[4];
 		int16_t h[4];
 		uint16_t uh[4];
