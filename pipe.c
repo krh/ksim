@@ -221,9 +221,12 @@ dump_sf_clip_viewport(void)
 {
 	const float *vp = gt.sf.viewport;
 
-	spam("sf_clip viewport:\n");
-	for (uint32_t i = 0; i < 14; i++)
+	spam("viewport matrix:\n");
+	for (uint32_t i = 0; i < 6; i++)
 		spam("  %20.4f\n", vp[i]);
+	spam("guardband: %f,%f - %f,%f\n",
+	     gt.sf.guardband.x0, gt.sf.guardband.y0,
+	     gt.sf.guardband.x1, gt.sf.guardband.y1);
 }
 
 static void

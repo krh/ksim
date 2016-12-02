@@ -211,6 +211,13 @@ struct rectangle {
 	int32_t y1;
 };
 
+struct rectanglef {
+	float x0;
+	float y0;
+	float x1;
+	float y1;
+};
+
 struct gt {
 	uint32_t pipeline;
 
@@ -313,6 +320,7 @@ struct gt {
 		uint32_t tri_strip_provoking;
 		uint32_t line_strip_provoking;
 		uint32_t tri_fan_provoking;
+		struct rectanglef guardband;
 	} sf;
 
 	struct {

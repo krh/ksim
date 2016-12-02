@@ -938,6 +938,11 @@ handle_3dstate_viewport_state_pointer_sf_clip(uint32_t *p)
 	uint64_t range;
 	gt.sf.viewport = map_gtt_offset(offset, &range);
 	ksim_assert(range >= 14 * sizeof(gt.sf.viewport[0]));
+
+	gt.sf.guardband.x0 = gt.sf.viewport[8];
+	gt.sf.guardband.x1 = gt.sf.viewport[9];
+	gt.sf.guardband.y0 = gt.sf.viewport[10];
+	gt.sf.guardband.y1 = gt.sf.viewport[11];
 }
 
 static void
