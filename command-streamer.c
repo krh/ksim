@@ -932,8 +932,12 @@ handle_3dstate_viewport_state_pointer_sf_clip(uint32_t *p)
 	 * STATE_BASE_ADDRESS, which sounds like the dynamic state
 	 * base address is used by the command streamer. */
 
-	gt.sf.viewport_pointer =
-		gt.dynamic_state_base_address + v.SFClipViewportPointer;
+	const uint64_t offset = v.SFClipViewportPointer +
+		gt.dynamic_state_base_address;
+
+	uint64_t range;
+	gt.sf.viewport = map_gtt_offset(offset, &range);
+	ksim_assert(range >= 14 * sizeof(gt.sf.viewport[0]));
 }
 
 static void

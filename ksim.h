@@ -308,7 +308,7 @@ struct gt {
 	} gs;
 
 	struct {
-		uint64_t viewport_pointer;
+		float *viewport;
 		bool viewport_transform_enable;
 		uint32_t tri_strip_provoking;
 		uint32_t line_strip_provoking;

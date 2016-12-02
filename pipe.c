@@ -219,18 +219,11 @@ validate_vf_state(void)
 static void
 dump_sf_clip_viewport(void)
 {
-	uint64_t range;
-	float *p = map_gtt_offset(gt.sf.viewport_pointer, &range);
+	const float *vp = gt.sf.viewport;
 
-	spam("gt.sf.viewport_pointer: 0x%08x, (w/o dyn base: 0x%08x)\n",
-	     gt.sf.viewport_pointer,
-	     gt.sf.viewport_pointer - gt.dynamic_state_base_address);
-
-	ksim_assert(range >= 14 * sizeof(*p));
-
-	spam("sf_clip viewport: %08x\n", gt.sf.viewport_pointer);
+	spam("sf_clip viewport:\n");
 	for (uint32_t i = 0; i < 14; i++)
-		spam("  %20.4f\n", p[i]);
+		spam("  %20.4f\n", vp[i]);
 }
 
 static void
@@ -283,16 +276,17 @@ setup_prim(struct value **vue_in, uint32_t parity)
 static void
 transform_and_queue_vues(struct value **vue, int count)
 {
-	uint64_t range;
-	const float *vp = map_gtt_offset(gt.sf.viewport_pointer, &range);
-	ksim_assert(range >= 14 * sizeof(vp[0]));
+	const float *vp = gt.sf.viewport;
+	float m00, m11, m22, m30, m31, m32;
 
-	float m00 = vp[0];
-	float m11 = vp[1];
-	float m22 = vp[2];
-	float m30 = vp[3];
-	float m31 = vp[4];
-	float m32 = vp[5];
+	if (gt.sf.viewport_transform_enable) {
+		m00 = vp[0];
+		m11 = vp[1];
+		m22 = vp[2];
+		m30 = vp[3];
+		m31 = vp[4];
+		m32 = vp[5];
+	}
 
 	for (int i = 0; i < count; i++) {
 		struct vec4 *pos = &vue[i][1].vec4;
