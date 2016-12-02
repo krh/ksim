@@ -128,6 +128,7 @@ create_bo(uint64_t size)
 		bo = bo_free_list;
 		bo_free_list = bo->next;
 	} else {
+		ksim_assert(next_handle < ARRAY_LENGTH(bos));
 		bo = &bos[next_handle++];
 	}
 
