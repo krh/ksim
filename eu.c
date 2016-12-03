@@ -195,99 +195,78 @@ builder_emit_src_modifiers(struct builder *bld,
 	return reg;
 }
 
-static int
-builder_emit_da_src_load(struct builder *bld,
-			 struct inst *inst, struct inst_src *src, int subnum_bytes)
+int
+builder_emit_region_load(struct builder *bld, struct eu_region *region)
 {
-	int subnum = subnum_bytes / type_size(src->type);
 	struct avx2_reg *areg;
-	struct eu_region region;
-
-	subnum += bld->exec_offset / src->width * src->vstride;
-
-	fill_region_for_src(&region, src, subnum_bytes, bld);
 
 	if (list_find(areg, &bld->regs_lru_list, link,
 		      (areg->contents & BUILDER_REG_CONTENTS_EU_REG) &&
-		      memcmp(&region, &areg->region, sizeof(region)) == 0)) {
+		      memcmp(region, &areg->region, sizeof(*region)) == 0)) {
 		int reg = builder_use_reg(bld, areg);
 		if (trace_mask & TRACE_AVX) {
-			char subnum_str[16];
-
-			subnum_str[0] = '\0';
-			if (subnum > 0)
-				snprintf(subnum_str, sizeof(subnum_str), ".%d", subnum);
-
-			ksim_trace(TRACE_AVX, "*** found match for reg g%d%s<%d,%d,%d>%s: %%ymm%d\n",
-				   src->num, subnum_str,
-				   src->vstride, src->width, src->hstride,
-				   eu_type_to_string(src->type), reg);
+			ksim_trace(TRACE_AVX, "*** found match for reg g%d.%d<%d,%d,%d>%d: %%ymm%d\n",
+				   region->offset / 32, region->offset & 31,
+				   region->vstride, region->width, region->hstride,
+				   region->type_size, reg);
 		}
 
-		return builder_emit_src_modifiers(bld, inst, src, reg);
+		return reg;
 	}
 
 	int reg = builder_get_reg(bld);
 	bld->regs[reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-	memcpy(&bld->regs[reg].region, &region, sizeof(region));
+	memcpy(&bld->regs[reg].region, region, sizeof(*region));
 
-	if (src->hstride == 1 && src->width == src->vstride) {
-		switch (type_size(src->type) * bld->exec_size) {
+	if (region->hstride == 1 && region->width == region->vstride) {
+		switch (region->type_size * bld->exec_size) {
 		case 32:
-			builder_emit_m256i_load(bld, reg,
-						offsetof(struct thread, grf[src->num].ud[subnum]));
+			builder_emit_m256i_load(bld, reg, region->offset);
 			break;
 		case 16:
 		default:
 			/* Could do broadcastq/d/w for sizes 8, 4 and
 			 * 2 to avoid loading too much */
-			builder_emit_m128i_load(bld, reg,
-						offsetof(struct thread, grf[src->num].uw[subnum]));
+			builder_emit_m128i_load(bld, reg, region->offset);
 			break;
 		}
-	} else if (src->hstride == 0 && src->vstride == 0 && src->width == 1) {
-		switch (type_size(src->type)) {
+	} else if (region->hstride == 0 && region->vstride == 0 && region->width == 1) {
+		switch (region->type_size) {
 		case 4:
-			builder_emit_vpbroadcastd(bld, reg,
-						  offsetof(struct thread,
-							   grf[src->num].ud[subnum]));
+			builder_emit_vpbroadcastd(bld, reg, region->offset);
 			break;
 		default:
-			stub("unhandled broadcast load size %d\n", type_size(src->type));
+			stub("unhandled broadcast load size %d\n", region->type_size);
 			break;
 		}
-	} else if (src->hstride == 0 && src->width == 4 && src->vstride == 1 &&
-		   type_size(src->type) == 2) {
+	} else if (region->hstride == 0 && region->width == 4 && region->vstride == 1 &&
+		   region->type_size == 2) {
 		int tmp0_reg = builder_get_reg(bld);
 		int tmp1_reg = builder_get_reg(bld);
 
 		/* Handle the frag coord region */
-		builder_emit_vpbroadcastw(bld, tmp0_reg,
-					  offsetof(struct thread, grf[src->num].uw[subnum]));
-		builder_emit_vpbroadcastw(bld, tmp1_reg,
-					  offsetof(struct thread, grf[src->num].uw[subnum + 2]));
+		builder_emit_vpbroadcastw(bld, tmp0_reg, region->offset);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 4);
 		builder_emit_vinserti128(bld, tmp0_reg, tmp1_reg, tmp0_reg, 1);
 
-		builder_emit_vpbroadcastw(bld, reg,
-					  offsetof(struct thread, grf[src->num].uw[subnum + 1]));
-		builder_emit_vpbroadcastw(bld, tmp1_reg,
-					  offsetof(struct thread, grf[src->num].uw[subnum + 3]));
+		builder_emit_vpbroadcastw(bld, reg, region->offset + 2);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 6);
 		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
 
 		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
-	} else if (src->hstride == 1 && src->width * src->type == 8) {
-		for (int i = 0; i < bld->exec_size / src->width; i++) {
-			int offset = offsetof(struct thread, grf[src->num].uw[subnum + i * src->vstride]);
+	} else if (region->hstride == 1 && region->width * region->type_size) {
+		for (int i = 0; i < bld->exec_size / region->width; i++) {
+			int offset = region->offset + i * region->vstride * region->type_size;
 			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
 		}
-	} else if (type_size(src->type) == 4) {
+	} else if (region->type_size == 4) {
 		int offset, i = 0, tmp_reg = reg;
 
-		for (int y = 0; y < bld->exec_size / src->width; y++) {
-			for (int x = 0; x < src->width; x++) {
+		for (int y = 0; y < bld->exec_size / region->width; y++) {
+			for (int x = 0; x < region->width; x++) {
 				if (i == 4)
 					tmp_reg = builder_get_reg(bld);
-				offset = offsetof(struct thread, grf[src->num].ud[subnum + y * src->vstride + x * src->hstride]);
+				offset = region->offset + (y * region->vstride + x * region->hstride) * region->type_size;
 				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
 				i++;
 			}
@@ -296,10 +275,11 @@ builder_emit_da_src_load(struct builder *bld,
 			builder_emit_vinserti128(bld, reg, tmp_reg, reg, 1);
 	} else {
 		stub("src: g%d.%d<%d,%d,%d>",
-		     src->num, subnum, src->vstride, src->width, src->hstride);
+		     region->offset / 32, region->offset & 31,
+		     region->vstride, region->width, region->hstride);
 	}
 
-	return builder_emit_src_modifiers(bld, inst, src, reg);
+	return reg;
 }
 
 static int
@@ -443,10 +423,16 @@ builder_emit_src_load(struct builder *bld,
 			ksim_unreachable("invalid imm type");
 		}
 
-	} else if (common.access_mode == BRW_ALIGN_1) {
-		reg = builder_emit_da_src_load(bld, inst, src, src->da1_subnum);
-	} else if (common.access_mode == BRW_ALIGN_16) {
-		reg = builder_emit_da_src_load(bld, inst, src, src->da16_subnum);
+	} else if (src->file == BRW_GENERAL_REGISTER_FILE) {
+		struct eu_region region;
+
+		if (common.access_mode == BRW_ALIGN_1)
+			fill_region_for_src(&region, src, src->da1_subnum, bld);
+		else
+			fill_region_for_src(&region, src, src->da16_subnum, bld);
+
+		reg = builder_emit_region_load(bld, &region);
+		reg = builder_emit_src_modifiers(bld, inst, src, reg);
 	} else {
 		stub("unhandled src");
 		reg = 0;
