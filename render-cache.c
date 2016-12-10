@@ -457,7 +457,7 @@ sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5] + slice_y;
-	const int cpp = 1;
+	const int cpp = 4;
 	struct reg *src = &t->grf[args->src];
 	const __m256 scale = _mm256_set1_ps(255.0f);
 	const __m256 half =  _mm256_set1_ps(0.5f);
@@ -482,12 +482,12 @@ sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
 		return;
 	}
 
-	rgba = _mm256_slli_epi32(r, 8);
-	rgba = _mm256_or_si256(rgba, g);
-	rgba = _mm256_slli_epi32(rgba, 8);
+	rgba = _mm256_slli_epi32(a, 8);
 	rgba = _mm256_or_si256(rgba, b);
 	rgba = _mm256_slli_epi32(rgba, 8);
-	rgba = _mm256_or_si256(rgba, a);
+	rgba = _mm256_or_si256(rgba, g);
+	rgba = _mm256_slli_epi32(rgba, 8);
+	rgba = _mm256_or_si256(rgba, r);
 
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
