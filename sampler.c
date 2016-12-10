@@ -247,6 +247,22 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		break;
 	}
+
+	case SF_B8G8R8X8_UNORM: {
+		const __m256i mask = _mm256_set1_epi32(0xff);
+		const __m256 scale = _mm256_set1_ps(1.0f / 255.0f);
+		struct reg bgrx;
+
+		bgrx.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		bgrx.ireg = _mm256_srli_epi32(bgrx.ireg, 8);
+		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		bgrx.ireg = _mm256_srli_epi32(bgrx.ireg, 8);
+		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+	}
+
 	case SF_R8G8B8A8_UINT: {
 		const __m256i mask = _mm256_set1_epi32(0xff);
 		struct reg rgba;
