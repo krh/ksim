@@ -451,38 +451,20 @@ builder_emit_src_load(struct builder *bld,
 static void
 builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
 {
-	switch (modifier) {
-	case BRW_CONDITIONAL_NONE:
-		/* assert: must have both pred */
-		break;
-	case BRW_CONDITIONAL_Z:
-		builder_emit_vcmpps(bld, 0, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_NZ:
-		builder_emit_vcmpps(bld, 4, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_G:
-		builder_emit_vcmpps(bld, 14, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_GE:
-		builder_emit_vcmpps(bld, 13, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_L:
-		builder_emit_vcmpps(bld, 1, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_LE:
-		builder_emit_vcmpps(bld, 2, dst, src0, src1);
-		break;
-	case BRW_CONDITIONAL_R:
-		stub("BRW_CONDITIONAL_R");
-		break;
-	case BRW_CONDITIONAL_O:
-		stub("BRW_CONDITIONAL_O");
-		break;
-	case BRW_CONDITIONAL_U:
-		stub("BRW_CONDITIONAL_U");
-		break;
-	}
+	static uint32_t eu_to_avx_cmp[] = {
+		[BRW_CONDITIONAL_NONE]	= 0,
+		[BRW_CONDITIONAL_Z]	= _CMP_EQ_OQ,
+		[BRW_CONDITIONAL_NZ]	= _CMP_NEQ_OQ,
+		[BRW_CONDITIONAL_G]	= _CMP_GT_OQ,
+		[BRW_CONDITIONAL_GE]	= _CMP_GE_OQ,
+		[BRW_CONDITIONAL_L]	= _CMP_LT_OQ,
+		[BRW_CONDITIONAL_LE]	= _CMP_LE_OQ,
+		[BRW_CONDITIONAL_R]	= 0,
+		[BRW_CONDITIONAL_O]	= 0,
+		[BRW_CONDITIONAL_U]	= 0,
+	};
+
+	builder_emit_vcmpps(bld, eu_to_avx_cmp[modifier], dst, src0, src1);
 }
 
 static void
