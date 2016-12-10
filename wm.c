@@ -89,15 +89,16 @@ get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 	struct GEN9_RENDER_SURFACE_STATE v;
 	GEN9_RENDER_SURFACE_STATE_unpack(state, &v);
 
+	s->type = v.SurfaceType;
 	s->width = v.Width + 1;
 	s->height = v.Height + 1;
 	s->stride = v.SurfacePitch + 1;
 	s->format = v.SurfaceFormat;
 	s->cpp = format_size(s->format);
 	s->tile_mode = v.TileMode;
-
-	offset = v.SurfaceBaseAddress;
-	s->pixels = map_gtt_offset(offset, &range);
+	s->qpitch = v.SurfaceQPitch << 2;
+	s->minimum_array_element = v.MinimumArrayElement;
+	s->pixels = map_gtt_offset(v.SurfaceBaseAddress, &range);
 
 	const uint32_t block_size = format_block_size(s->format);
 	const uint32_t height_in_blocks = DIV_ROUND_UP(s->height, block_size);

@@ -347,31 +347,72 @@ sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *
 struct sample_position {
 	struct reg u;
 	struct reg v;
+	struct reg r;
 };
 
 static void
 transform_sample_position(const struct sfid_sampler_args *args, struct reg *src,
 			  struct sample_position *coords)
 {
+	struct reg u, v;
+
+	if (args->tex.type == SURFTYPE_CUBE) {
+		/* Compare x and z first so we end up with x or z as u. */
+		__m256i abs_mask = _mm256_set1_epi32(0x7fffffff);
+		__m256 x = (__m256) _mm256_and_si256(src[0].ireg, abs_mask);
+		__m256 z = (__m256)_mm256_and_si256(src[2].ireg, abs_mask);
+		__m256 xz_mask = _mm256_cmp_ps(x, z, _CMP_GT_OQ);
+		__m256 abs_xz_major = _mm256_blendv_ps(z, x, xz_mask);
+		__m256 xz_major = _mm256_blendv_ps(src[2].reg, src[0].reg, xz_mask);
+		__m256 us = _mm256_blendv_ps(src[0].reg, src[2].reg, xz_mask);
+		__m256i face = _mm256_blendv_epi8(_mm256_set1_epi32(4),
+						  _mm256_set1_epi32(0),
+						  (__m256i) xz_mask);
+
+		__m256 y = (__m256) _mm256_and_si256(src[1].ireg, abs_mask);
+		__m256 y_mask = _mm256_cmp_ps(y, abs_xz_major, _CMP_GT_OQ);
+		__m256 major = _mm256_blendv_ps(xz_major, src[1].reg, y_mask);
+		__m256 vs = _mm256_blendv_ps(src[1].reg, xz_major, y_mask);
+		face = _mm256_blendv_epi8(face, _mm256_set1_epi32(2),
+					  (__m256i) y_mask);
+
+		const __m256 mhalf = _mm256_set1_ps(-0.5f);
+		const __m256 half = _mm256_set1_ps(0.5f);
+		us = _mm256_add_ps(_mm256_mul_ps(us, half), half);
+		vs = _mm256_add_ps(_mm256_mul_ps(vs, mhalf), half);
+
+		/* For cases where x > z and y > both, we end up with
+		 * u = z and v = x. That's the wrong ordering, so swap
+		 * those. */
+		__m256i swap_xz_mask = _mm256_and_si256((__m256i) xz_mask,
+							(__m256i) y_mask);
+		u.reg = _mm256_blendv_ps(us, vs, (__m256) swap_xz_mask);
+		v.reg = _mm256_blendv_ps(vs, us, (__m256) swap_xz_mask);
+
+		/* FIXME: Missing negation on u for +x and -z cases,
+		 * on v for +y case. */
+
+		/* Add sign bit to determine positive or negative face */
+		coords->r.ireg =
+			_mm256_add_epi32(face, _mm256_srli_epi32((__m256i) major, 31));
+
+	} else {
+		/* Wrap */
+		u.reg = _mm256_floor_ps(src[0].reg);
+		u.reg = _mm256_sub_ps(src[0].reg, u.reg);
+
+		v.reg = _mm256_floor_ps(src[1].reg);
+		v.reg = _mm256_sub_ps(src[1].reg, v.reg);
+
 #if 0
-	/* Clamp */
-	struct reg u;
-	u.reg = _mm256_min_ps(src[0].reg, _mm256_set1_ps(1.0f));
-	u.reg = _mm256_max_ps(u.reg, _mm256_setzero_ps());
+		/* Clamp */
+		u.reg = _mm256_min_ps(src[0].reg, _mm256_set1_ps(1.0f));
+		u.reg = _mm256_max_ps(u.reg, _mm256_setzero_ps());
 
-	struct reg v;
-	v.reg = _mm256_min_ps(src[1].reg, _mm256_set1_ps(1.0f));
-	v.reg = _mm256_max_ps(v.reg, _mm256_setzero_ps());
+		v.reg = _mm256_min_ps(src[1].reg, _mm256_set1_ps(1.0f));
+		v.reg = _mm256_max_ps(v.reg, _mm256_setzero_ps());
 #endif
-
-	/* Wrap */
-	struct reg u;
-	u.reg = _mm256_floor_ps(src[0].reg);
-	u.reg = _mm256_sub_ps(src[0].reg, u.reg);
-
-	struct reg v;
-	v.reg = _mm256_floor_ps(src[1].reg);
-	v.reg = _mm256_sub_ps(src[1].reg, v.reg);
+	}
 
 	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width));
 	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height));
@@ -413,6 +454,15 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 	__m256i tile_y = _mm256_srli_epi32(pos.v.ireg, 5);
 	__m256i stride_in_tiles = _mm256_set1_epi32(4096 * args->tex.stride / 128);
 	__m256i tile_base = _mm256_mullo_epi32(tile_y, stride_in_tiles);
+
+	if (args->tex.type == SURFTYPE_CUBE) {
+		__m256i slice_stride =
+			_mm256_set1_epi32(args->tex.stride * args->tex.qpitch);
+		__m256i slice_base =
+			_mm256_mullo_epi32(pos.r.ireg, slice_stride);
+
+		tile_base = _mm256_add_epi32(tile_base, slice_base);
+	}
 
 	__m256i oword_offset = _mm256_and_si256(u_bytes, _mm256_set1_epi32(0xf));
 	__m256i column_offset = _mm256_slli_epi32(_mm256_srli_epi32(u_bytes, 4), 9);

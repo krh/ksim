@@ -107,8 +107,9 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 	 * form linear owords of pixels. */
 	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
 
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x0 = t->grf[1].uw[4];
-	const int y0 = t->grf[1].uw[5];
+	const int y0 = t->grf[1].uw[5] + slice_y;
 	const int cpp = 4;
 	void *base0 = xmajor_offset(args->rt.pixels, x0,  y0, args->rt.stride, cpp);
 
@@ -116,7 +117,7 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 	_mm_maskstore_epi32(base0 + 512, _mm256_extractf128_si256(mask, 1), bgra_i);
 
 	const int x1 = t->grf[1].uw[8];
-	const int y1 = t->grf[1].uw[9];
+	const int y1 = t->grf[1].uw[9] + slice_y;
 	void *base1 = xmajor_offset(args->rt.pixels, x1,  y1, args->rt.stride, 4);
 
 	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
@@ -155,15 +156,16 @@ sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
 	__m256i mask0 = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
 
 	const int cpp = 4;
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x0 = t->grf[1].uw[4];
-	const int y0 = t->grf[1].uw[5];
+	const int y0 = t->grf[1].uw[5] + slice_y;
 	void *base0 = ymajor_offset(args->rt.pixels, x0, y0, args->rt.stride, cpp);
 
 	_mm_maskstore_epi32(base0, _mm256_extractf128_si256(mask0, 0), rgba_i);
 	_mm_maskstore_epi32(base0 + 16, _mm256_extractf128_si256(mask0, 1), rgba_i);
 
 	const int x1 = t->grf[1].uw[8];
-	const int y1 = t->grf[1].uw[9];
+	const int y1 = t->grf[1].uw[9] + slice_y;
 	void *base1 = ymajor_offset(args->rt.pixels, x1, y1, args->rt.stride, cpp);
 	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
 
@@ -188,8 +190,6 @@ static void
 sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 						    const struct sfid_render_cache_args *args)
 {
-	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
 	__m256i argb;
 	const float scale = 255.0f;
 	struct reg src[4];
@@ -197,6 +197,9 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 	memcpy(src, &t->grf[args->src], sizeof(src));
 
 	const int cpp = 4;
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5] + slice_y;
 	void *base = xmajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
 
 	if (gt.blend.enable) {
@@ -241,8 +244,9 @@ write_uint8_linear(struct thread *t,
 		   const struct sfid_render_cache_args *args,
 		   __m256i r, __m256i g, __m256i b, __m256i a)
 {
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
+	const int y = t->grf[1].uw[5] + slice_y;
 	__m256i rgba;
 
 	rgba = _mm256_slli_epi32(a, 8);
@@ -311,8 +315,9 @@ static void
 sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 						    const struct sfid_render_cache_args *args)
 {
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
+	const int y = t->grf[1].uw[5] + slice_y;
 	const struct reg *src = &t->grf[args->src];
 
 	__m128i *base0 = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
@@ -355,8 +360,9 @@ write_uint16_linear(struct thread *t,
 		    const struct sfid_render_cache_args *args,
 		    __m256i r, __m256i g, __m256i b, __m256i a)
 {
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
+	const int y = t->grf[1].uw[5] + slice_y;
 	__m256i rg, ba;
 
 	rg = _mm256_slli_epi32(g, 16);
@@ -423,8 +429,9 @@ static void
 sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
 						const struct sfid_render_cache_args *args)
 {
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
+	const int y = t->grf[1].uw[5] + slice_y;
 	const int cpp = 1;
 
 	void *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
@@ -447,8 +454,9 @@ static void
 sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
 					       const struct sfid_render_cache_args *args)
 {
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
-	const int y = t->grf[1].uw[5];
+	const int y = t->grf[1].uw[5] + slice_y;
 	const int cpp = 1;
 	struct reg *src = &t->grf[args->src];
 	const __m256 scale = _mm256_set1_ps(255.0f);

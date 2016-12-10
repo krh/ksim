@@ -597,10 +597,13 @@ void rasterize_primitive(struct value **vue);
 struct surface {
 	void *pixels;
 	enum GEN9_SURFACE_FORMAT format;
+	int type;
 	int width;
 	int height;
 	int stride;
 	int cpp;
+	int qpitch;
+	int minimum_array_element;
 	enum GEN9_TILE_MODE tile_mode;
 };
 
