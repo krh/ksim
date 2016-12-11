@@ -640,7 +640,6 @@ struct thread {
 };
 
 struct shader {
-	uint8_t constant_pool[1024];
 	uint8_t code[1024] __attribute__ ((aligned (64)));
 };
 

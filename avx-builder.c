@@ -29,6 +29,9 @@
 
 static void *shader_pool, *shader_end;
 const size_t shader_pool_size = 64 * 1024;
+static void *constant_pool;
+const size_t constant_pool_size = 4096;
+uint32_t constant_pool_index;
 
 void
 reset_shader_pool(void)
@@ -42,7 +45,9 @@ reset_shader_pool(void)
 		close(fd);
 	}
 
-	shader_end = shader_pool;
+	constant_pool = shader_pool;
+	constant_pool_index = 0;
+	shader_end = shader_pool + constant_pool_size;
 }
 
 static int
@@ -66,7 +71,6 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 {
 	bld->shader = align_ptr(shader_end, 64);
 	bld->p = bld->shader->code;
-	bld->pool_index = 0;
 	bld->binding_table_address = surfaces;
 	bld->sampler_state_address = samplers;
 
@@ -97,12 +101,12 @@ builder_finish(struct builder *bld)
 void *
 builder_get_const_data(struct builder *bld, size_t size, size_t align)
 {
-	int offset = align_u64(bld->pool_index, align);
+	int offset = align_u64(constant_pool_index, align);
 
-	bld->pool_index = offset + size;
-	ksim_assert(bld->pool_index <= sizeof(bld->shader->constant_pool));
+	constant_pool_index = offset + size;
+	ksim_assert(offset + size <= constant_pool_size);
 
-	return bld->shader->constant_pool + offset;
+	return constant_pool + offset;
 }
 
 void

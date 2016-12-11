@@ -28,7 +28,6 @@ struct avx2_reg {
 struct builder {
 	struct shader *shader;
 	uint8_t *p;
-	int pool_index;
 	uint64_t binding_table_address;
 	uint64_t sampler_state_address;
 
