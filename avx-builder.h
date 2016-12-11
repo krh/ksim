@@ -566,7 +566,7 @@ builder_emit_region_load(struct builder *bld, struct eu_region *region);
 void
 builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers);
 
-void
+struct shader *
 builder_finish(struct builder *bld);
 
 void

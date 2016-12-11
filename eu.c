@@ -1179,10 +1179,8 @@ compile_shader(uint64_t kernel_offset,
 		}
 	} while (!eot);
 
-	builder_finish(&bld);
-
 	if (trace_mask & (TRACE_EU | TRACE_AVX))
 		fprintf(trace_file, "\n");
 
-	return bld.shader;
+	return builder_finish(&bld);
 }

@@ -84,12 +84,14 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	builder_invalidate_all(bld);
 }
 
-void
+struct shader *
 builder_finish(struct builder *bld)
 {
 	shader_end = bld->p;
 
 	ksim_assert(shader_end - shader_pool < shader_pool_size);
+
+	return bld->shader;
 }
 
 void
