@@ -527,16 +527,8 @@ builder_offset(struct builder *bld, void *p)
 	return p - (void *) bld->p;
 }
 
-static inline void *
-builder_get_const_data(struct builder *bld, size_t size, size_t align)
-{
-	int offset = align_u64(bld->pool_index, align);
-
-	bld->pool_index = offset + size;
-	ksim_assert(bld->pool_index <= sizeof(bld->shader->constant_pool));
-
-	return bld->shader->constant_pool + offset;
-}
+void *
+builder_get_const_data(struct builder *bld, size_t size, size_t align);
 
 static inline int
 builder_emit_call(struct builder *bld, void *func)
