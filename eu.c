@@ -1138,7 +1138,7 @@ dump_register_cache(struct builder *bld)
 	}
 }
 
-struct shader *
+shader_t
 compile_shader(uint64_t kernel_offset,
 	       uint64_t surfaces, uint64_t samplers)
 {

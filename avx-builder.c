@@ -70,7 +70,7 @@ void
 builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 {
 	bld->shader = align_ptr(shader_end, 64);
-	bld->p = bld->shader->code;
+	bld->p = (uint8_t *) bld->shader;
 	bld->binding_table_address = surfaces;
 	bld->sampler_state_address = samplers;
 
@@ -88,7 +88,7 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	builder_invalidate_all(bld);
 }
 
-struct shader *
+shader_t
 builder_finish(struct builder *bld)
 {
 	shader_end = bld->p;
@@ -212,10 +212,11 @@ check_reg_imm_emit_function(const char *fmt,
 		count = sscanf(bld.disasm_output, fmt, &actual_reg, &actual_imm);
 
 		if (count != 2 || reg != actual_reg || imm - delta != actual_imm) {
-			const int size = bld.p - bld.shader->code;
+			const uint8_t *code = (uint8_t *) bld.shader;
+			const int size = bld.p - code;
 			printf("fmt='%s' reg=%d imm=%d:\n    ", fmt, reg, imm);
 			for (int i = 0; i < size; i++)
-				printf("%02x ", bld.shader->code[i]);
+				printf("%02x ", code[i]);
 			printf("%s\n", bld.disasm_output);
 			exit(EXIT_FAILURE);
 		}
@@ -243,10 +244,11 @@ check_binop_emit_function(const char *fmt,
 
 			if (count != 2 ||
 			    dst != actual_dst || src != actual_src) {
-				const int size = bld.p - bld.shader->code;
+				const uint8_t *code = (uint8_t *) bld.shader;
+				const int size = bld.p - code;
 				printf("fmt='%s' dst=%d src=%d:\n    ", fmt, dst, src);
 				for (int i = 0; i < size; i++)
-					printf("%02x ", bld.shader->code[i]);
+					printf("%02x ", code[i]);
 				printf("%s", bld.disasm_output);
 				exit(EXIT_FAILURE);
 			}
@@ -279,12 +281,14 @@ check_triop_emit_function(const char *name,
 				if (count != 4 || strcmp(name, actual_name) != 0 ||
 				    dst != actual_dst || src0 != actual_src0 || src1 != actual_src1) {
 
-					const int size = bld.p - bld.shader->code;
+					const uint8_t *code = (uint8_t *) bld.shader;
+
+					const int size = bld.p - code;
 
 					printf("%s dst=%d src0=%d src1=%d:\n    ",
 					       name, dst, src0, src1);
 					for (int i = 0; i < size; i++)
-						printf("%02x ", bld.shader->code[i]);
+						printf("%02x ", code[i]);
 					printf("%s", bld.disasm_output);
 
 					exit(EXIT_FAILURE);

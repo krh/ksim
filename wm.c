@@ -496,10 +496,10 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 		gt.ps_invocation_count++;
 
 	if (count == 1 && gt.ps.enable_simd8) {
-		dispatch_shader(gt.ps.avx_shader_simd8, &t);
+		gt.ps.avx_shader_simd8(&t);
 	} else {
 		ksim_assert(gt.ps.enable_simd16);
-		dispatch_shader(gt.ps.avx_shader_simd16, &t);
+		gt.ps.avx_shader_simd16(&t);
 	}
 }
 

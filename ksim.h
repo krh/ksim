@@ -218,6 +218,33 @@ struct rectanglef {
 	float y1;
 };
 
+struct reg {
+	union {
+		__m256 reg;
+		__m256i ireg;
+		__m128 hreg;
+		__m128i ihreg;
+		float f[8];
+		uint32_t ud[8];
+		int32_t d[8];
+		uint16_t uw[16];
+		int16_t w[16];
+		uint8_t ub[16];
+		int8_t b[16];
+		uint64_t uq[4];
+		int64_t q[4];
+	};
+};
+
+struct thread {
+	struct reg grf[128];
+	__m256i mask_q1;
+	__m256i mask_q2;
+	uint32_t mask;
+};
+
+typedef void (*shader_t)(struct thread *t);
+
 struct gt {
 	uint32_t pipeline;
 
@@ -290,7 +317,7 @@ struct gt {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
-		struct shader *avx_shader;
+		shader_t avx_shader;
 	} vs;
 
 	struct {
@@ -386,9 +413,9 @@ struct gt {
 		bool fast_clear;
 		uint32_t resolve_type;
 		bool enable;
-		struct shader *avx_shader_simd8;
-		struct shader *avx_shader_simd16;
-		struct shader *avx_shader_simd32;
+		shader_t avx_shader_simd8;
+		shader_t avx_shader_simd16;
+		shader_t avx_shader_simd32;
 	} ps;
 
 	struct {
@@ -482,7 +509,7 @@ struct gt {
 		uint32_t end_y;
 		uint32_t start_z;
 		uint32_t end_z;
-		struct shader *avx_shader;
+		shader_t avx_shader;
 	} compute;
 
 	struct {
@@ -614,43 +641,6 @@ void wm_stall(void);
 void wm_flush(void);
 void depth_clear(void);
 
-struct reg {
-	union {
-		__m256 reg;
-		__m256i ireg;
-		__m128 hreg;
-		__m128i ihreg;
-		float f[8];
-		uint32_t ud[8];
-		int32_t d[8];
-		uint16_t uw[16];
-		int16_t w[16];
-		uint8_t ub[16];
-		int8_t b[16];
-		uint64_t uq[4];
-		int64_t q[4];
-	};
-};
-
-struct thread {
-	struct reg grf[128];
-	__m256i mask_q1;
-	__m256i mask_q2;
-	uint32_t mask;
-};
-
-struct shader {
-	uint8_t code[1024] __attribute__ ((aligned (64)));
-};
-
-static inline void
-dispatch_shader(struct shader *shader, struct thread *t)
-{
-	void (*f)(struct thread *t) = (void *) shader->code;
-
-	f(t);
-}
-
 /* URB handles are indexes to 64 byte blocks in the URB. */
 
 static inline uint32_t
@@ -693,8 +683,8 @@ void builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
 void prepare_shaders(void);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void reset_shader_pool(void);
-struct shader *compile_shader(uint64_t kernel_offset,
-			      uint64_t surfaces, uint64_t samplers);
+shader_t compile_shader(uint64_t kernel_offset,
+			uint64_t surfaces, uint64_t samplers);
 
 struct list {
 	struct list *prev;

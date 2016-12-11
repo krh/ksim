@@ -57,7 +57,7 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 		}
 	};
 
-	dispatch_shader(gt.compute.avx_shader, &t);
+	gt.compute.avx_shader(&t);
 }
 
 void

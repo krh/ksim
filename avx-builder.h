@@ -26,7 +26,7 @@ struct avx2_reg {
 };
 
 struct builder {
-	struct shader *shader;
+	shader_t shader;
 	uint8_t *p;
 	uint64_t binding_table_address;
 	uint64_t sampler_state_address;
@@ -557,7 +557,7 @@ builder_emit_region_load(struct builder *bld, struct eu_region *region);
 void
 builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers);
 
-struct shader *
+shader_t
 builder_finish(struct builder *bld);
 
 void
