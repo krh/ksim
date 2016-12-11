@@ -285,6 +285,9 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
 		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		dst[1].reg = dst[0].reg;
+		dst[2].reg = dst[0].reg;
+		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
 
@@ -307,6 +310,12 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
 		dst[0].ireg = _mm256_and_si256(rgba.ireg, mask);
+		/* Not sure this makes sense, but the spec clearly
+		 * says 0.0 and 1.0, even though this is a UINT
+		 * format. */
+		dst[1].reg = dst[0].reg;
+		dst[2].reg = dst[0].reg;
+		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
 
@@ -317,6 +326,9 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 
 		r.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
 		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(r.ireg, mask)), scale);
+		dst[1].reg = dst[0].reg;
+		dst[2].reg = dst[0].reg;
+		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
 
