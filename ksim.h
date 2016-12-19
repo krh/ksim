@@ -598,13 +598,19 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 void dispatch_primitive(void);
 void dispatch_compute(void);
 
+struct vf_buffer {
+	struct thread t;
+	struct reg vue_handles;
+	struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
+};
+
 bool valid_vertex_format(uint32_t format);
 bool srgb_format(uint32_t format);
 uint32_t format_size(uint32_t format);
 uint32_t format_channels(uint32_t format);
 uint32_t format_block_size(uint32_t format);
-struct value fetch_format(void *p, uint32_t format);
 uint32_t depth_format_size(uint32_t format);
+void load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i mask, struct reg *dst);
 
 struct blit {
 	int32_t raster_op;

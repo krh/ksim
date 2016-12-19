@@ -295,47 +295,6 @@ format_block_size(uint32_t format)
 	return formats[format].block_size;
 }
 
-struct value
-fetch_format(void *p, uint32_t format)
-{
-	struct value *v = p;
-
-	switch (format) {
-	case SF_R32_FLOAT:
-		return vec4(v->f[0], 0.0f, 0.0f, 0.0f);
-	case SF_R32G32_FLOAT:
-		return vec4(v->f[0], v->f[1], 0.0f, 0.0f);
-	case SF_R32G32B32_FLOAT:
-		return vec4(v->f[0], v->f[1], v->f[2], 0.0f);
-	case SF_R32G32B32A32_FLOAT:
-		return vec4(v->f[0], v->f[1], v->f[2], v->f[3]);
-	case SF_R32_UINT:
-		return uvec4(v->u[0], 0, 0, 1);
-	case SF_R32G32_UINT:
-		return uvec4(v->u[0], v->u[1], 0, 1);
-	case SF_R32G32B32_UINT:
-		return uvec4(v->u[0], v->u[1], v->u[2], 1);
-	case SF_R32G32B32A32_UINT:
-		return uvec4(v->u[0], v->u[1], v->u[2], v->u[3]);
-	case SF_R8G8B8A8_UNORM: {
-		const float scale = 1.0f / 255.0f;
-		return vec4(v->ub[0] * scale, v->ub[1] * scale,
-			    v->ub[2] * scale, v->ub[3] * scale);
-	}
-	case SF_R16G16_SSCALED:
-		return vec4(v->h[0], v->h[1], 0.0f, 1.0f);
-	case SF_R16G16_USCALED:
-		return vec4(v->uh[0], v->uh[1], 0.0f, 1.0f);
-	case SF_R16G16B16_SSCALED:
-		return vec4(v->h[0], v->h[1], v->h[2], 1.0f);
-	case SF_R16G16B16_USCALED:
-		return vec4(v->uh[0], v->uh[1], v->uh[2], 1.0f);
-	default:
-		stub("vertex fetch format %d", format);
-		assert(0);
-	}
-}
-
 static const struct format_info depth_formats[] = {
 	[D32_FLOAT]				= { .size = 4 },
 	[D24_UNORM_X8_UINT]			= { .size = 4 },
