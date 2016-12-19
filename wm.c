@@ -72,7 +72,7 @@ struct primitive {
 bool
 get_surface(uint32_t binding_table_offset, int i, struct surface *s)
 {
-	uint64_t offset, range;
+	uint64_t range;
 	const uint32_t *binding_table;
 	const uint32_t *state;
 
