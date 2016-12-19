@@ -60,7 +60,6 @@ fetch_vertex(uint32_t instance_id, uint32_t vertex_id)
 	vue = alloc_urb_entry(&gt.vs.urb);
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
 		struct ve *ve = &gt.vf.ve[i];
-		ksim_assert((1 << ve->vb) & gt.vf.vb_valid);
 		struct vb *vb = &gt.vf.vb[ve->vb];
 
 		if (!gt.vf.ve[i].valid)
@@ -140,8 +139,6 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	if (!gt.vs.enable)
 		return;
 
-	assert(gt.vs.simd8);
-
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
@@ -198,6 +195,7 @@ validate_vf_state(void)
 
 	vb_used = 0;
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
+		ksim_assert((1 << gt.vf.ve[i].vb) & gt.vf.vb_valid);
 		ksim_assert(valid_vertex_format(gt.vf.ve[i].format));
 		if (gt.vf.ve[i].valid)
 			vb_used |= 1 << gt.vf.ve[i].vb;
@@ -483,6 +481,8 @@ dispatch_primitive(void)
 
 	if (gt.sf.viewport_transform_enable)
 		dump_sf_clip_viewport();
+
+	ksim_assert(gt.vs.simd8 || !gt.vs.enable);
 
 	prepare_shaders();
 
