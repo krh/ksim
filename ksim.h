@@ -455,7 +455,7 @@ struct gt {
 		bool enable;
 	} blend;
 
-	char urb[URB_SIZE];
+	char urb[URB_SIZE] __attribute__((__aligned__(32)));
 
 	bool curbe_dynamic_state_base;
 
