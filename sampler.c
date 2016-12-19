@@ -182,6 +182,60 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 	 * add the offset. */
 
 	switch (format) {
+	case SF_R32_FLOAT:
+	case SF_R32_SINT:
+	case SF_R32_UINT:
+		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[1].reg = _mm256_setzero_ps();
+		dst[2].reg = _mm256_setzero_ps();
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	case SF_R32G32_FLOAT:
+	case SF_R32G32_SINT:
+	case SF_R32G32_UINT:
+		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		dst[2].reg = _mm256_setzero_ps();
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	case SF_R32G32B32_FLOAT:
+	case SF_R32G32B32_SINT:
+	case SF_R32G32B32_UINT:
+		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		dst[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	case SF_R16G16_SSCALED:
+	case SF_R16G16_USCALED: {
+		struct reg rg;
+		const __m256i mask = _mm256_set1_epi32(0xffff);
+
+		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
+		dst[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
+		dst[2].reg = _mm256_setzero_ps();
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+	}
+
+	case SF_R16G16B16_SSCALED:
+	case SF_R16G16B16_USCALED: {
+		struct reg rg, ba;
+		const __m256i mask = _mm256_set1_epi32(0xffff);
+
+		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
+		dst[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
+		dst[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
+		ba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		dst[2].reg = _mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask));
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+	}
+
 	case SF_R32G32B32A32_FLOAT:
 	case SF_R32G32B32A32_SINT:
 	case SF_R32G32B32A32_UINT:
