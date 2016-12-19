@@ -190,6 +190,7 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		dst[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
 		dst[3].ireg = _mm256_mask_i32gather_epi32(zero, (p + 12), offsets, emask, 1);
 		break;
+
 	case SF_R16G16B16A16_UINT: {
 		const __m256i mask = _mm256_set1_epi32(0xffff);
 		struct reg rg, ba;
@@ -285,8 +286,8 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
 		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
-		dst[1].reg = dst[0].reg;
-		dst[2].reg = dst[0].reg;
+		dst[1].reg = _mm256_setzero_ps();
+		dst[2].reg = _mm256_setzero_ps();
 		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
@@ -313,8 +314,8 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		/* Not sure this makes sense, but the spec clearly
 		 * says 0.0 and 1.0, even though this is a UINT
 		 * format. */
-		dst[1].reg = dst[0].reg;
-		dst[2].reg = dst[0].reg;
+		dst[1].reg = _mm256_setzero_ps();
+		dst[2].reg = _mm256_setzero_ps();
 		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
