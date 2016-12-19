@@ -176,63 +176,72 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	rasterize_primitive(vue);
 }
 
-static void
-transform_and_queue_vues(struct value **vue, uint32_t mask)
+void
+transform_vertices(struct vf_buffer *buffer);
+
+void
+transform_vertices(struct vf_buffer *buffer)
 {
-	const float *vp = gt.sf.viewport;
-	float m00, m11, m22, m30, m31, m32;
-	struct rectanglef clip;
-	uint32_t i;
+	if (!gt.clip.perspective_divide_disable) {
+		/* vrcpps doesn't have sufficient precision for
+		 * perspective divide. We can use vdivps (latency
+		 * 21/throughput 13) or do a Newton-Raphson step on
+		 * vrcpps.  This turns into vrcpps, vfnmadd213ps and
+		 * vmulps, with latencies 7, 5 and 5, which is
+		 * slightly better.
+		 */
+		__m256 inv_w0 = _mm256_rcp_ps(buffer->data[7].reg);
+
+		/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
+		__m256 inv_w = _mm256_mul_ps(inv_w0, _mm256_fnmadd_ps(buffer->data[7].reg, inv_w0,
+								      _mm256_set1_ps(2.0f)));
+
+		buffer->data[4].reg = _mm256_mul_ps(buffer->data[4].reg, inv_w);
+		buffer->data[5].reg = _mm256_mul_ps(buffer->data[5].reg, inv_w);
+		buffer->data[6].reg = _mm256_mul_ps(buffer->data[6].reg, inv_w);
+		buffer->data[7].reg = inv_w;
+ 	}
+
+	if (gt.clip.guardband_clip_test_enable ||
+	    gt.clip.viewport_clip_test_enable) {
+		__m256 x0, y0, x1, y1;
+		if (gt.clip.guardband_clip_test_enable) {
+			x0 = _mm256_set1_ps(gt.sf.guardband.x0);
+			y0 = _mm256_set1_ps(gt.sf.guardband.y0);
+			x1 = _mm256_set1_ps(gt.sf.guardband.x1);
+			y1 = _mm256_set1_ps(gt.sf.guardband.y1);
+		} else {
+			x0 = _mm256_set1_ps(-1.0f);
+			y0 = _mm256_set1_ps(-1.0f);
+			x1 = _mm256_set1_ps(1.0f);
+			y1 = _mm256_set1_ps(1.0f);
+ 		}
+
+		__m256 l = _mm256_cmp_ps(buffer->data[4].reg, x0, _CMP_LT_OS);
+		__m256 r = _mm256_cmp_ps(buffer->data[4].reg, x1, _CMP_GT_OS);
+		__m256 t = _mm256_cmp_ps(buffer->data[5].reg, y0, _CMP_LT_OS);
+		__m256 b = _mm256_cmp_ps(buffer->data[5].reg, y1, _CMP_GT_OS);
+
+		buffer->data[0].ireg = 
+			_mm256_or_si256(_mm256_or_si256(_mm256_castps_si256(l),
+							_mm256_castps_si256(r)),
+					_mm256_or_si256(_mm256_castps_si256(t),
+							_mm256_castps_si256(b)));
+	}
 
 	if (gt.sf.viewport_transform_enable) {
-		m00 = vp[0];
-		m11 = vp[1];
-		m22 = vp[2];
-		m30 = vp[3];
-		m31 = vp[4];
-		m32 = vp[5];
+		const float *vp = gt.sf.viewport;
+		__m256 m00 = _mm256_set1_ps(vp[0]);
+		__m256 m11 = _mm256_set1_ps(vp[1]);
+		__m256 m22 = _mm256_set1_ps(vp[2]);
+		__m256 m30 = _mm256_set1_ps(vp[3]);
+		__m256 m31 = _mm256_set1_ps(vp[4]);
+		__m256 m32 = _mm256_set1_ps(vp[5]);
+
+		buffer->data[4].reg = _mm256_fmadd_ps(m00, buffer->data[4].reg, m30);
+		buffer->data[5].reg = _mm256_fmadd_ps(m11, buffer->data[5].reg, m31);
+		buffer->data[6].reg = _mm256_fmadd_ps(m22, buffer->data[6].reg, m32);
 	}
-
-	if (gt.clip.guardband_clip_test_enable) {
-		clip = gt.sf.guardband;
-	} else {
-		clip.x0 = -1;
-		clip.y0 = -1;
-		clip.x1 = 1;
-		clip.y1 = 1;
-	}
-
-	for_each_bit(i, mask) {
-		struct vec4 *pos = &vue[i][1].vec4;
-		if (!gt.clip.perspective_divide_disable) {
-			float inv_w = 1.0f / pos->w;
-			pos->x *= inv_w;
-			pos->y *= inv_w;
-			pos->z *= inv_w;
-			pos->w = inv_w;
-		}
-
-		if (gt.clip.guardband_clip_test_enable ||
-		    gt.clip.viewport_clip_test_enable) {
-			const struct vec4 v = vue[i][1].vec4;
-			if (v.x < clip.x0 || clip.x1 < v.x ||
-			    v.y < clip.y0 || clip.y1 < v.y || v.z > 1.0f) {
-				vue[i][0].u[0] = VUE_FLAG_CLIP;
-			} else {
-				vue[i][0].u[0] = 0;
-			}
-		}
-
-		if (gt.sf.viewport_transform_enable) {
-			pos->x = m00 * pos->x + m30;
-			pos->y = m11 * pos->y + m31;
-			pos->z = m22 * pos->z + m32;
-		}
-
-		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = vue[i];
-	}
-
-	ksim_assert(gt.ia.queue.head - gt.ia.queue.tail < 16);
 }
 
 static void
@@ -470,7 +479,7 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 }
 
 static void
-flush_to_vues(struct vf_buffer *buffer, struct value **vues, __m256i mask)
+flush_to_vues(struct vf_buffer *buffer, __m256i mask)
 {
 	/* Transpose the SIMD8 vf_buffer back into individual VUEs */
 	const struct reg m = { .ireg = mask };
@@ -483,8 +492,10 @@ flush_to_vues(struct vf_buffer *buffer, struct value **vues, __m256i mask)
 		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
 			vue[i] = _mm256_i32gather_epi32(&buffer->data[i * 8].d[c], offsets, 4);
 
-		vues[c] = (struct value *) vue;
+		gt.ia.queue.vue[gt.ia.queue.head++ & 15] = (struct value *) vue;
  	}
+
+	ksim_assert(gt.ia.queue.head - gt.ia.queue.tail < 16);
 }
 
 void
@@ -526,13 +537,10 @@ dispatch_primitive(void)
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			__m256i vid = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(i));
 			__m256i mask = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(gt.prim.vertex_count - i));
-			struct value *vues[8];
-			uint32_t dwmask = _mm256_movemask_ps((__m256) mask);
-
 			fetch_vertices(&buffer, iid, vid, mask);
 			dispatch_vs(&buffer, mask);
-			flush_to_vues(&buffer, vues, mask);
-			transform_and_queue_vues(vues, dwmask);
+			transform_vertices(&buffer);
+			flush_to_vues(&buffer, mask);
 			assemble_primitives();
 		}
 
