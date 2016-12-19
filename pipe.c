@@ -24,10 +24,10 @@
 #include "ksim.h"
 
 static void
-dispatch_vs(struct value **vue, uint32_t mask)
+dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 {
-	struct thread t;
-	uint32_t g, c;
+	struct reg *grf = &buffer->t.grf[0];
+	uint32_t g;
 
 	if (!gt.vs.enable)
 		return;
@@ -35,9 +35,11 @@ dispatch_vs(struct value **vue, uint32_t mask)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t.mask = mask;
+	buffer->t.mask = _mm256_movemask_ps((__m256) mask);
+	buffer->t.mask_q1 = mask;
+
 	/* Fixed function header */
-	t.grf[0] = (struct reg) {
+	grf[0] = (struct reg) {
 		.ud = {
 			/* R0.0 - R0.2: MBZ */
 			0,
@@ -57,24 +59,20 @@ dispatch_vs(struct value **vue, uint32_t mask)
 		}
 	};
 
-	for_each_bit(c, mask)
-		t.grf[1].ud[c] = urb_entry_to_handle(vue[c]);
+	grf[1].ireg = buffer->vue_handles.ireg;
 
-	g = load_constants(&t, &gt.vs.curbe, gt.vs.urb_start_grf);
+	g = load_constants(&buffer->t, &gt.vs.curbe, gt.vs.urb_start_grf);
 
 	/* SIMD8 VS payload */
-	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2; i++) {
-		for_each_bit(c, mask) {
-			for (uint32_t j = 0; j < 4; j++)
-				t.grf[g + j].ud[c] = vue[c][gt.vs.vue_read_offset * 2 + i].v[j];
-		}
-		g += 4;
-	}
+	__m256i *src = &buffer->data[gt.vs.vue_read_offset * 2 * 4].ireg;
+	__m256i *dst = &grf[g].ireg;
+	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2 * 4; i++)
+		dst[i] = src[i];
 
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
 
-	gt.vs.avx_shader(&t);
+	gt.vs.avx_shader(&buffer->t);
 }
 
 static void
@@ -532,8 +530,8 @@ dispatch_primitive(void)
 			uint32_t dwmask = _mm256_movemask_ps((__m256) mask);
 
 			fetch_vertices(&buffer, iid, vid, mask);
+			dispatch_vs(&buffer, mask);
 			flush_to_vues(&buffer, vues, mask);
-			dispatch_vs(vues, dwmask);
 			transform_and_queue_vues(vues, dwmask);
 			assemble_primitives();
 		}
