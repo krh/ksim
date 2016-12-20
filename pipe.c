@@ -120,10 +120,6 @@ dump_sf_clip_viewport(void)
 	     gt.cc.viewport[0], gt.cc.viewport[1]);
 }
 
-enum vue_flag {
-	VUE_FLAG_CLIP = 1
-};
-
 static void
 setup_prim(struct value **vue_in, uint32_t parity)
 {
@@ -176,10 +172,7 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	rasterize_primitive(vue);
 }
 
-void
-transform_vertices(struct vf_buffer *buffer);
-
-void
+static void
 transform_vertices(struct vf_buffer *buffer)
 {
 	if (!gt.clip.perspective_divide_disable) {
