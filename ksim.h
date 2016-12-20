@@ -568,6 +568,7 @@ struct value {
 		struct vec4 { float x, y, z, w; } vec4;
 		struct { int32_t x, y, z, w; } ivec4;
 		struct { uint32_t x, y, z, w; } uvec4;
+		struct { uint32_t clip_flags, rt_index, vp_index, point_width; } header;
 		int32_t v[4];
 		uint32_t u[4];
 		float f[4];
@@ -601,7 +602,16 @@ void dispatch_compute(void);
 struct vf_buffer {
 	struct thread t;
 	struct reg vue_handles;
-	struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
+	union {
+		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
+		struct {
+			struct reg clip_flags;
+			struct reg rt_index;
+			struct reg vp_index;
+			struct reg point_width;
+			__m256 x, y, z, w;
+		};
+	};
 };
 
 bool valid_vertex_format(uint32_t format);

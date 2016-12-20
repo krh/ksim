@@ -127,7 +127,7 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	uint32_t provoking;
 
 	for (int i = 0; i < 3; i++) {
-		if (vue_in[i][0].u[0] & VUE_FLAG_CLIP)
+		if (vue_in[i][0].header.clip_flags)
 			return;
 	}
 
@@ -183,16 +183,16 @@ transform_vertices(struct vf_buffer *buffer)
 		 * vmulps, with latencies 7, 5 and 5, which is
 		 * slightly better.
 		 */
-		__m256 inv_w0 = _mm256_rcp_ps(buffer->data[7].reg);
+		__m256 inv_w0 = _mm256_rcp_ps(buffer->w);
 
 		/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
-		__m256 inv_w = _mm256_mul_ps(inv_w0, _mm256_fnmadd_ps(buffer->data[7].reg, inv_w0,
+		__m256 inv_w = _mm256_mul_ps(inv_w0, _mm256_fnmadd_ps(buffer->w, inv_w0,
 								      _mm256_set1_ps(2.0f)));
 
-		buffer->data[4].reg = _mm256_mul_ps(buffer->data[4].reg, inv_w);
-		buffer->data[5].reg = _mm256_mul_ps(buffer->data[5].reg, inv_w);
-		buffer->data[6].reg = _mm256_mul_ps(buffer->data[6].reg, inv_w);
-		buffer->data[7].reg = inv_w;
+		buffer->x = _mm256_mul_ps(buffer->x, inv_w);
+		buffer->y = _mm256_mul_ps(buffer->y, inv_w);
+		buffer->z = _mm256_mul_ps(buffer->z, inv_w);
+		buffer->w = inv_w;
  	}
 
 	if (gt.clip.guardband_clip_test_enable ||
@@ -210,12 +210,12 @@ transform_vertices(struct vf_buffer *buffer)
 			y1 = _mm256_set1_ps(1.0f);
  		}
 
-		__m256 l = _mm256_cmp_ps(buffer->data[4].reg, x0, _CMP_LT_OS);
-		__m256 r = _mm256_cmp_ps(buffer->data[4].reg, x1, _CMP_GT_OS);
-		__m256 t = _mm256_cmp_ps(buffer->data[5].reg, y0, _CMP_LT_OS);
-		__m256 b = _mm256_cmp_ps(buffer->data[5].reg, y1, _CMP_GT_OS);
+		__m256 l = _mm256_cmp_ps(buffer->x, x0, _CMP_LT_OS);
+		__m256 r = _mm256_cmp_ps(buffer->x, x1, _CMP_GT_OS);
+		__m256 t = _mm256_cmp_ps(buffer->y, y0, _CMP_LT_OS);
+		__m256 b = _mm256_cmp_ps(buffer->y, y1, _CMP_GT_OS);
 
-		buffer->data[0].ireg = 
+		buffer->clip_flags.ireg = 
 			_mm256_or_si256(_mm256_or_si256(_mm256_castps_si256(l),
 							_mm256_castps_si256(r)),
 					_mm256_or_si256(_mm256_castps_si256(t),
@@ -231,9 +231,9 @@ transform_vertices(struct vf_buffer *buffer)
 		__m256 m31 = _mm256_set1_ps(vp[4]);
 		__m256 m32 = _mm256_set1_ps(vp[5]);
 
-		buffer->data[4].reg = _mm256_fmadd_ps(m00, buffer->data[4].reg, m30);
-		buffer->data[5].reg = _mm256_fmadd_ps(m11, buffer->data[5].reg, m31);
-		buffer->data[6].reg = _mm256_fmadd_ps(m22, buffer->data[6].reg, m32);
+		buffer->x = _mm256_fmadd_ps(m00, buffer->x, m30);
+		buffer->y = _mm256_fmadd_ps(m11, buffer->y, m31);
+		buffer->z = _mm256_fmadd_ps(m22, buffer->z, m32);
 	}
 }
 
