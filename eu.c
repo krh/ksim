@@ -196,7 +196,7 @@ builder_emit_src_modifiers(struct builder *bld,
 }
 
 int
-builder_emit_region_load(struct builder *bld, struct eu_region *region)
+builder_emit_region_load(struct builder *bld, const struct eu_region *region)
 {
 	struct avx2_reg *areg;
 

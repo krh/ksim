@@ -105,59 +105,37 @@ validate_urb_state(void)
 
 }
 
-struct sfid_urb_args {
-	int src;
-	int offset;
-	int len;
-};
-
 static void
-sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args)
+builder_emit_sfid_urb_simd8_write(struct builder *bld, struct inst *inst)
 {
-	if (trace_mask & TRACE_URB) {
-		ksim_trace(TRACE_URB,
-			   "urb simd8 write, src g%d, global offset %d, mlen %lu, mask %02x\n",
-			   args->src, args->offset, args->len, t->mask);
+	struct inst_send send = unpack_inst_send(inst);
+	uint32_t src = unpack_inst_2src_src0(inst).num + 1;
+	uint32_t vue_offset = field(send.function_control, 4, 14);
 
-		ksim_trace(TRACE_URB, "  grf%d:", args->src);
-		for (int c = 0; c < 8; c++)
-			ksim_trace(TRACE_URB, "  %6d", t->grf[args->src].d[c]);
-		ksim_trace(TRACE_URB, "\n");
+	for (uint32_t i = 0; i < send.mlen; i++) {
+		const struct eu_region r = {
+			.offset = (src + i) * 32,
+			.type_size = 4,
+			.exec_size = 8,
+			.exec_size = 8,
+			.vstride = 8,
+			.width = 8,
+			.hstride = 1
+		};
 
-		for (int i = 1; i < args->len; i++) {
-			ksim_trace(TRACE_URB, "  grf%d:", args->src + i);
-			for (int c = 0; c < 8; c++)
-				ksim_trace(TRACE_URB,
-					   "  %6.1f", t->grf[args->src + i].f[c]);
-			ksim_trace(TRACE_URB, "\n");
-		}
+		int reg = builder_emit_region_load(bld, &r);
+		uint32_t offset = offsetof(struct vf_buffer, data[vue_offset * 4 + i]);
+		builder_emit_m256i_store(bld, reg, offset);
 	}
-
-	/* FIXME: Check the handles match buffer->vue_handles */
-
-	struct vf_buffer *buffer = container_of(t, buffer, t);
-	__m256i *values = &t->grf[args->src + 1].ireg;
-	__m256i *dst = &buffer->data[args->offset * 4].ireg;
-	for (uint32_t i = 0; i < args->len; i++)
-		dst[i] = values[i];
 }
 
 void
 builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
-	struct sfid_urb_args *args;
-	void *func = NULL;
-
-	args = builder_get_const_data(bld, sizeof *args, 8);
-	args->src = unpack_inst_2src_src0(inst).num;
-	args->len = send.mlen;
-	args->offset = field(send.function_control, 4, 14);
 
 	uint32_t opcode = field(send.function_control, 0, 3);
 	bool per_slot_offset = field(send.function_control, 17, 17);
-
-	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
 	switch (opcode) {
 	case 0: /* write HWord */
@@ -173,16 +151,13 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 		ksim_assert(send.header_present);
 		ksim_assert(send.rlen == 0);
 		ksim_assert(!per_slot_offset);
-		func = sfid_urb_simd8_write;
+		builder_emit_sfid_urb_simd8_write(bld, inst);
+		if (send.eot)
+			builder_emit_ret(bld);
 		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", opcode);
 		break;
 	}
 
-	if (send.eot) {
-		builder_emit_jmp_relative(bld, (uint8_t *) func - bld->p);
-	} else {
-		builder_emit_call(bld, func);
-	}
 }
