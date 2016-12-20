@@ -286,12 +286,6 @@ struct gt {
 
 	struct {
 		uint32_t topology;
-		struct {
-			struct value *vue[16];
-			uint32_t head, tail;
-		} queue;
-		int tristrip_parity;
-		struct value *trifan_first_vertex;
 	} ia;
 
 	struct {
