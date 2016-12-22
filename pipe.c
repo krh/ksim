@@ -380,6 +380,36 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 		buffer->vue_handles.ud[c] = urb_entry_to_handle(entry);
 	}
 
+	__m256i vertex_index;
+	if (gt.prim.access_type == RANDOM) {
+		uint64_t range;
+		void *ib = map_gtt_offset(gt.vf.ib.address, &range);
+
+		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
+
+		switch (gt.vf.ib.format) {
+			/* FIXME: INDEX_BYTE and INDEX_WORD
+			 * can read outside the index
+			 * buffer. */
+		case INDEX_BYTE:
+			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 1);
+			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xff));
+			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
+			break;
+		case INDEX_WORD:
+			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 2);
+			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xffff));
+			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
+			break;
+		case INDEX_DWORD:
+			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 4);
+			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
+			break;
+		}
+	} else {
+		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
+	}
+
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
 		struct ve *ve = &gt.vf.ve[i];
 		struct vb *vb = &gt.vf.vb[ve->vb];
@@ -390,33 +420,8 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 
 		if (gt.vf.ve[i].instancing) {
 			index = _mm256_set1_epi32(gt.prim.start_instance + iid / gt.vf.ve[i].step_rate);
-		} else if (gt.prim.access_type == RANDOM) {
-			uint64_t range;
-			void *ib = map_gtt_offset(gt.vf.ib.address, &range);
-
-			index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
-
-			switch (gt.vf.ib.format) {
-				/* FIXME: INDEX_BYTE and INDEX_WORD
-				 * can read outside the index
-				 * buffer. */
-			case INDEX_BYTE:
-				index = _mm256_mask_i32gather_epi32(zero, ib, index, mask, 1);
-				index = _mm256_and_si256(index, _mm256_set1_epi32(0xff));
-				index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), index);
-				break;
-			case INDEX_WORD:
-				index = _mm256_mask_i32gather_epi32(zero, ib, index, mask, 2);
-				index = _mm256_and_si256(index, _mm256_set1_epi32(0xffff));
-				index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), index);
-				break;
-			case INDEX_DWORD:
-				index = _mm256_mask_i32gather_epi32(zero, ib, index, mask, 4);
-				index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), index);
-				break;
-			}
 		} else {
-			index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
+			index = vertex_index;
 		}
 
 		__m256i offset =
