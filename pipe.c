@@ -176,33 +176,6 @@ setup_prim(struct value **vue_in, uint32_t parity)
 static void
 transform_vertices(struct vf_buffer *buffer)
 {
-	if (gt.clip.guardband_clip_test_enable ||
-	    gt.clip.viewport_clip_test_enable) {
-		__m256 x0, y0, x1, y1;
-		if (gt.clip.guardband_clip_test_enable) {
-			x0 = _mm256_set1_ps(gt.sf.guardband.x0);
-			y0 = _mm256_set1_ps(gt.sf.guardband.y0);
-			x1 = _mm256_set1_ps(gt.sf.guardband.x1);
-			y1 = _mm256_set1_ps(gt.sf.guardband.y1);
-		} else {
-			x0 = _mm256_set1_ps(-1.0f);
-			y0 = _mm256_set1_ps(-1.0f);
-			x1 = _mm256_set1_ps(1.0f);
-			y1 = _mm256_set1_ps(1.0f);
- 		}
-
-		__m256 l = _mm256_cmp_ps(buffer->x, x0, _CMP_LT_OS);
-		__m256 r = _mm256_cmp_ps(buffer->x, x1, _CMP_GT_OS);
-		__m256 t = _mm256_cmp_ps(buffer->y, y0, _CMP_LT_OS);
-		__m256 b = _mm256_cmp_ps(buffer->y, y1, _CMP_GT_OS);
-
-		buffer->clip_flags.ireg = 
-			_mm256_or_si256(_mm256_or_si256(_mm256_castps_si256(l),
-							_mm256_castps_si256(r)),
-					_mm256_or_si256(_mm256_castps_si256(t),
-							_mm256_castps_si256(b)));
-	}
-
 	if (gt.sf.viewport_transform_enable) {
 		const float *vp = gt.sf.viewport;
 		__m256 m00 = _mm256_set1_ps(vp[0]);
@@ -477,11 +450,26 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 }
 
 static int
+load_uniform(struct builder *bld, uint32_t offset)
+{
+	struct eu_region r = {
+		.offset = offset,
+		.type_size = 4,
+		.exec_size = 1,
+		.vstride = 0,
+		.width = 1,
+		.hstride = 0
+	};
+
+	return builder_emit_region_load(bld, &r);
+}
+
+static int
 load_v8(struct builder *bld, uint32_t offset)
 {
 	struct eu_region r = {
 		.offset = offset,
-		.type_size = 8,
+		.type_size = 4,
 		.exec_size = 8,
 		.vstride = 8,
 		.width = 8,
@@ -530,6 +518,8 @@ compile_vs(void)
 		 * slightly better.
 		 */
 
+		ksim_trace(TRACE_EU, "[ff perspective divide]\n");
+
 		int w = load_v8(&bld, offsetof(struct vf_buffer, w));
 		int inv_w = builder_get_reg(&bld);
 		builder_emit_vrcpps(&bld, inv_w, w);
@@ -559,10 +549,51 @@ compile_vs(void)
 		builder_release_regs(&bld);
 	}
 
+	if (gt.clip.guardband_clip_test_enable ||
+	    gt.clip.viewport_clip_test_enable) {
+		ksim_trace(TRACE_EU, "[ff clip tests]\n");
+
+		int x0 = load_uniform(&bld, offsetof(struct vf_buffer, clip.x0));
+		int x1 = load_uniform(&bld, offsetof(struct vf_buffer, clip.x1));
+		int y0 = load_uniform(&bld, offsetof(struct vf_buffer, clip.y0));
+		int y1 = load_uniform(&bld, offsetof(struct vf_buffer, clip.y1));
+		int x = load_v8(&bld, offsetof(struct vf_buffer, x));
+		int y = load_v8(&bld, offsetof(struct vf_buffer, y));
+
+		builder_emit_vcmpps(&bld, _CMP_LT_OS, x0, x0, x);
+		builder_emit_vcmpps(&bld, _CMP_GT_OS, x1, x1, x);
+		builder_emit_vcmpps(&bld, _CMP_LT_OS, y0, y0, y);
+		builder_emit_vcmpps(&bld, _CMP_GT_OS, y1, y1, y);
+
+		builder_emit_vpor(&bld, x0, x0, x1);
+		builder_emit_vpor(&bld, y0, y0, y1);
+		builder_emit_vpor(&bld, x0, x0, y0);
+
+		store_v8(&bld, offsetof(struct vf_buffer, clip_flags), x0);
+
+		builder_trace(&bld, trace_file);
+		builder_release_regs(&bld);
+	}
+
 	builder_emit_ret(&bld);
 	builder_trace(&bld, trace_file);
+	builder_release_regs(&bld);
 
 	gt.vs.avx_shader = builder_finish(&bld);
+}
+
+static void
+init_vf_buffer(struct vf_buffer *buffer)
+{
+	uint64_t range;
+	buffer->index_buffer = map_gtt_offset(gt.vf.ib.address, &range);
+
+	if (gt.clip.guardband_clip_test_enable) {
+		buffer->clip = gt.sf.guardband;
+	} else {
+		struct rectanglef vp_clip = { -1.0f, -1.0f, 1.0f, 1.0f };
+		buffer->clip = vp_clip;
+	}
 }
 
 void
@@ -602,9 +633,7 @@ dispatch_primitive(void)
 
 	struct vf_buffer buffer;
 
-	uint64_t index_buffer_range;
-	buffer.index_buffer = map_gtt_offset(gt.vf.ib.address,
-					     &index_buffer_range);
+	init_vf_buffer(&buffer);
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };
