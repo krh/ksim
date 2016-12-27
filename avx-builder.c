@@ -348,6 +348,7 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vpsllvd", builder_emit_vpsllvd);
 	check_triop_emit_function("vfmadd132ps", builder_emit_vfmadd132ps);
 	check_triop_emit_function("vfmadd231ps", builder_emit_vfmadd231ps);
+	check_triop_emit_function("vfnmadd132ps", builder_emit_vfnmadd132ps);
 
 	check_binop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
 	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
