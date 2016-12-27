@@ -556,6 +556,7 @@ compile_vs(void)
 		store_v8(&bld, offsetof(struct vf_buffer, w), inv_w);
 
 		builder_trace(&bld, trace_file);
+		builder_release_regs(&bld);
 	}
 
 	builder_emit_ret(&bld);
