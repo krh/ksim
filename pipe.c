@@ -476,6 +476,36 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 	ksim_assert(s->head - s->tail < 16);
 }
 
+static int
+load_v8(struct builder *bld, uint32_t offset)
+{
+	struct eu_region r = {
+		.offset = offset,
+		.type_size = 8,
+		.exec_size = 8,
+		.vstride = 8,
+		.width = 8,
+		.hstride = 1
+	};
+
+	return builder_emit_region_load(bld, &r);
+}
+
+static void
+store_v8(struct builder *bld, uint32_t offset, int reg)
+{
+	const struct eu_region r = {
+		.offset = offset,
+		.type_size = 4,
+		.exec_size = 8,
+		.vstride = 8,
+		.width = 8,
+		.hstride = 1
+	};
+
+	builder_emit_region_store(bld, &r, reg);
+}
+
 static void
 compile_vs(void)
 {
@@ -500,16 +530,7 @@ compile_vs(void)
 		 * slightly better.
 		 */
 
-		struct eu_region r = {
-			.offset = offsetof(struct vf_buffer, w),
-			.type_size = 4,
-			.exec_size = 8,
-			.vstride = 8,
-			.width = 8,
-			.hstride = 1
-		};
-
-		int w = builder_emit_region_load(&bld, &r);
+		int w = load_v8(&bld, offsetof(struct vf_buffer, w));
 		int inv_w = builder_get_reg(&bld);
 		builder_emit_vrcpps(&bld, inv_w, w);
 
@@ -520,23 +541,19 @@ compile_vs(void)
 		builder_emit_vfnmadd132ps(&bld, w, inv_w, two);
 		builder_emit_vmulps(&bld, inv_w, inv_w, w);
 
-		r.offset = offsetof(struct vf_buffer, x);
-		int x = builder_emit_region_load(&bld, &r);
+		const int x = load_v8(&bld, offsetof(struct vf_buffer, x));
 		builder_emit_vmulps(&bld, x, x, inv_w);
-		builder_emit_region_store(&bld, &r, x);
+		store_v8(&bld, offsetof(struct vf_buffer, x), x);
 
-		r.offset = offsetof(struct vf_buffer, y);
-		int y = builder_emit_region_load(&bld, &r);
+		const int y = load_v8(&bld, offsetof(struct vf_buffer, y));
 		builder_emit_vmulps(&bld, y, y, inv_w);
-		builder_emit_region_store(&bld, &r, y);
+		store_v8(&bld, offsetof(struct vf_buffer, y), y);
 
-		r.offset = offsetof(struct vf_buffer, z);
-		int z = builder_emit_region_load(&bld, &r);
+		const int z = load_v8(&bld, offsetof(struct vf_buffer, z));
 		builder_emit_vmulps(&bld, z, z, inv_w);
-		builder_emit_region_store(&bld, &r, z);
+		store_v8(&bld, offsetof(struct vf_buffer, z), z);
 
-		r.offset = offsetof(struct vf_buffer, w);
-		builder_emit_region_store(&bld, &r, inv_w);
+		store_v8(&bld, offsetof(struct vf_buffer, w), inv_w);
 
 		builder_trace(&bld, trace_file);
 	}
