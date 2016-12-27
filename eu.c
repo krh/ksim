@@ -144,7 +144,7 @@ fill_region_for_dst(struct eu_region *region, struct inst_dst *dst,
 }
 
 static bool
-regions_overlap(struct eu_region *a, struct eu_region *b)
+regions_overlap(const struct eu_region *a, const struct eu_region *b)
 {
 	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
 	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
@@ -471,7 +471,7 @@ builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
 }
 
 static void
-builder_invalidate_region(struct builder *bld, struct eu_region *r)
+builder_invalidate_region(struct builder *bld, const struct eu_region *r)
 {
 	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
 		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
@@ -504,15 +504,14 @@ builder_emit_region_store(struct builder *bld,
 		break;
 	}
 
-	if (bld->regs[dst].contents & BUILDER_REG_CONTENTS_EU_REG)
-		builder_invalidate_region(bld, &bld->regs[dst].region);
+	builder_invalidate_region(bld, region);
 
 	/* FIXME: For a straight move, this makes the AVX2 register
 	 * refer to the dst region.  That's fine, but the register may
 	 * still also shadow the src region, but since we only track
 	 * one region per AVX2 reg, that is lost. */
 	bld->regs[dst].region = *region;
-	bld->regs[dst].contents = BUILDER_REG_CONTENTS_EU_REG;
+	bld->regs[dst].contents |= BUILDER_REG_CONTENTS_EU_REG;
 }
 
 static void
