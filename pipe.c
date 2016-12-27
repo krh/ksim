@@ -176,26 +176,6 @@ setup_prim(struct value **vue_in, uint32_t parity)
 static void
 transform_vertices(struct vf_buffer *buffer)
 {
-	if (!gt.clip.perspective_divide_disable) {
-		/* vrcpps doesn't have sufficient precision for
-		 * perspective divide. We can use vdivps (latency
-		 * 21/throughput 13) or do a Newton-Raphson step on
-		 * vrcpps.  This turns into vrcpps, vfnmadd213ps and
-		 * vmulps, with latencies 7, 5 and 5, which is
-		 * slightly better.
-		 */
-		__m256 inv_w0 = _mm256_rcp_ps(buffer->w);
-
-		/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
-		__m256 inv_w = _mm256_mul_ps(inv_w0, _mm256_fnmadd_ps(buffer->w, inv_w0,
-								      _mm256_set1_ps(2.0f)));
-
-		buffer->x = _mm256_mul_ps(buffer->x, inv_w);
-		buffer->y = _mm256_mul_ps(buffer->y, inv_w);
-		buffer->z = _mm256_mul_ps(buffer->z, inv_w);
-		buffer->w = inv_w;
- 	}
-
 	if (gt.clip.guardband_clip_test_enable ||
 	    gt.clip.viewport_clip_test_enable) {
 		__m256 x0, y0, x1, y1;
@@ -513,7 +493,59 @@ compile_vs(void)
 	if (gt.vs.enable)
 		builder_emit_shader(&bld, gt.vs.ksp);
 
+
+	if (!gt.clip.perspective_divide_disable) {
+		/* vrcpps doesn't have sufficient precision for
+		 * perspective divide. We can use vdivps (latency
+		 * 21/throughput 13) or do a Newton-Raphson step on
+		 * vrcpps.  This turns into vrcpps, vfnmadd213ps and
+		 * vmulps, with latencies 7, 5 and 5, which is
+		 * slightly better.
+		 */
+
+		struct eu_region r = {
+			.offset = offsetof(struct vf_buffer, w),
+			.type_size = 4,
+			.exec_size = 8,
+			.vstride = 8,
+			.width = 8,
+			.hstride = 1
+		};
+
+		int w = builder_emit_region_load(&bld, &r);
+		int inv_w = builder_get_reg(&bld);
+		builder_emit_vrcpps(&bld, inv_w, w);
+
+		/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
+		int two = builder_get_reg_with_uniform(&bld,
+						       float_to_u32(2.0f));
+
+		builder_emit_vfnmadd132ps(&bld, w, inv_w, two);
+		builder_emit_vmulps(&bld, inv_w, inv_w, w);
+
+		r.offset = offsetof(struct vf_buffer, x);
+		int x = builder_emit_region_load(&bld, &r);
+		builder_emit_vmulps(&bld, x, x, inv_w);
+		builder_emit_region_store(&bld, &r, x);
+
+		r.offset = offsetof(struct vf_buffer, y);
+		int y = builder_emit_region_load(&bld, &r);
+		builder_emit_vmulps(&bld, y, y, inv_w);
+		builder_emit_region_store(&bld, &r, y);
+
+		r.offset = offsetof(struct vf_buffer, z);
+		int z = builder_emit_region_load(&bld, &r);
+		builder_emit_vmulps(&bld, z, z, inv_w);
+		builder_emit_region_store(&bld, &r, z);
+
+		r.offset = offsetof(struct vf_buffer, w);
+		builder_emit_region_store(&bld, &r, inv_w);
+
+		builder_trace(&bld, trace_file);
+	}
+
 	builder_emit_ret(&bld);
+	builder_trace(&bld, trace_file);
 
 	gt.vs.avx_shader = builder_finish(&bld);
 }
