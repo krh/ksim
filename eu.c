@@ -1131,21 +1131,6 @@ void brw_uncompact_instruction(const struct gen_device_info *devinfo,
 
 static const struct gen_device_info ksim_devinfo = { .gen = 9 };
 
-static void
-dump_register_cache(struct builder *bld)
-{
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		if (bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG)
-			fprintf(trace_file, "  ymm%d: g%d.%d<%d,%d,%d>\n",
-				i,
-				bld->regs[i].region.offset / 32,
-				bld->regs[i].region.offset & 31,
-				bld->regs[i].region.vstride,
-				bld->regs[i].region.width,
-				bld->regs[i].region.hstride);
-	}
-}
-
 void
 builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
 {
@@ -1175,12 +1160,7 @@ builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
 
 		eot = do_compile_inst(bld, insn);
 
-		if (trace_mask & TRACE_AVX) {
-			dump_register_cache(bld);
-
-			while (builder_disasm(bld))
-				fprintf(trace_file, "      %s\n", bld->disasm_output);
-		}
+		builder_trace(bld, trace_file);
 	} while (!eot);
 
 	if (trace_mask & (TRACE_EU | TRACE_AVX))

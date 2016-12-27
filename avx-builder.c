@@ -176,6 +176,21 @@ builder_release_regs(struct builder *bld)
 	list_init(&bld->used_regs_list);
 }
 
+void
+builder_dump_register_cache(struct builder *bld, FILE *fp)
+{
+	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
+		if (bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG)
+			fprintf(fp, "  ymm%d: g%d.%d<%d,%d,%d>\n",
+				i,
+				bld->regs[i].region.offset / 32,
+				bld->regs[i].region.offset & 31,
+				bld->regs[i].region.vstride,
+				bld->regs[i].region.width,
+				bld->regs[i].region.hstride);
+	}
+}
+
 bool
 builder_disasm(struct builder *bld)
 {
