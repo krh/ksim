@@ -395,18 +395,16 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 		case INDEX_BYTE:
 			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 1);
 			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xff));
-			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
 			break;
 		case INDEX_WORD:
 			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 2);
 			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xffff));
-			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
 			break;
 		case INDEX_DWORD:
 			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 4);
-			vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
 			break;
 		}
+		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
 	} else {
 		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
 	}
