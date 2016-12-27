@@ -595,9 +595,9 @@ static inline void
 builder_trace(struct builder *bld, FILE *fp)
 {
 	if (trace_mask & TRACE_AVX) {
-		builder_dump_register_cache(bld, fp);
-
 		while (builder_disasm(bld))
 			fprintf(fp, "      %s\n", bld->disasm_output);
+
+		builder_dump_register_cache(bld, fp);
 	}
 }
