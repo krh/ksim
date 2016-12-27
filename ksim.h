@@ -689,6 +689,7 @@ void *builder_emit_sfid_render_cache_helper(struct builder *bld,
 void builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
 
 void builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
+void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
 void prepare_shaders(void);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);

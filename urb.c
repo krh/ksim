@@ -152,8 +152,6 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 		ksim_assert(send.rlen == 0);
 		ksim_assert(!per_slot_offset);
 		builder_emit_sfid_urb_simd8_write(bld, inst);
-		if (send.eot)
-			builder_emit_ret(bld);
 		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", opcode);

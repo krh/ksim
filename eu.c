@@ -552,8 +552,6 @@ builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
 
 	ksim_assert(send.eot);
 	ksim_assert(opcode == 0 && request == 0 && resource_select == 1);
-
-	builder_emit_ret(bld);
 }
 
 struct sfid_dataport1_args {
@@ -1138,11 +1136,9 @@ dump_register_cache(struct builder *bld)
 	}
 }
 
-shader_t
-compile_shader(uint64_t kernel_offset,
-	       uint64_t surfaces, uint64_t samplers)
+void
+builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
 {
-	struct builder bld;
 	struct inst uncompacted;
 	void *insn;
 	bool eot;
@@ -1153,8 +1149,6 @@ compile_shader(uint64_t kernel_offset,
 
 	ksp = kernel_offset + gt.instruction_base_address;
 	p = map_gtt_offset(ksp, &range);
-
-	builder_init(&bld, surfaces, samplers);
 
 	do {
 		if (unpack_inst_common(p).cmpt_control) {
@@ -1169,18 +1163,31 @@ compile_shader(uint64_t kernel_offset,
 		if (trace_mask & TRACE_EU)
 			brw_disassemble_inst(trace_file, &ksim_devinfo, insn, false);
 
-		eot = do_compile_inst(&bld, insn);
+		eot = do_compile_inst(bld, insn);
 
 		if (trace_mask & TRACE_AVX) {
-			dump_register_cache(&bld);
+			dump_register_cache(bld);
 
-			while (builder_disasm(&bld))
-				fprintf(trace_file, "      %s\n", bld.disasm_output);
+			while (builder_disasm(bld))
+				fprintf(trace_file, "      %s\n", bld->disasm_output);
 		}
 	} while (!eot);
 
 	if (trace_mask & (TRACE_EU | TRACE_AVX))
 		fprintf(trace_file, "\n");
+}
+
+shader_t
+compile_shader(uint64_t kernel_offset,
+	       uint64_t surfaces, uint64_t samplers)
+{
+	struct builder bld;
+
+	builder_init(&bld, surfaces, samplers);
+
+	builder_emit_shader(&bld, kernel_offset);
+
+	builder_emit_ret(&bld);
 
 	return builder_finish(&bld);
 }

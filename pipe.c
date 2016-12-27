@@ -22,6 +22,7 @@
  */
 
 #include "ksim.h"
+#include "avx-builder.h"
 
 static void
 dispatch_vs(struct vf_buffer *buffer, __m256i mask)
@@ -500,6 +501,25 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 	ksim_assert(s->head - s->tail < 16);
 }
 
+static void
+compile_vs(void)
+{
+	struct builder bld;
+
+	ksim_trace(TRACE_EU | TRACE_AVX, "jit vs\n");
+
+	builder_init(&bld,
+		     gt.vs.binding_table_address,
+		     gt.vs.sampler_state_address);
+
+	if (gt.vs.enable)
+		builder_emit_shader(&bld, gt.vs.ksp);
+
+	builder_emit_ret(&bld);
+
+	gt.vs.avx_shader = builder_finish(&bld);
+}
+
 void
 dispatch_primitive(void)
 {
@@ -513,6 +533,8 @@ dispatch_primitive(void)
 	ksim_assert(gt.vs.simd8 || !gt.vs.enable);
 
 	prepare_shaders();
+
+	compile_vs();
 
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;

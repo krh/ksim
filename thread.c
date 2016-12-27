@@ -57,14 +57,6 @@ prepare_shaders(void)
 
 	reset_shader_pool();
 
-	if (gt.vs.enable) {
-		ksim_trace(TRACE_EU | TRACE_AVX, "jit vs\n");
-		gt.vs.avx_shader =
-			compile_shader(gt.vs.ksp,
-				       gt.vs.binding_table_address,
-				       gt.vs.sampler_state_address);
-	}
-
 	if (gt.ps.enable) {
 		if (gt.ps.enable_simd8) {
 			ksp_simd8 = gt.ps.ksp0;
