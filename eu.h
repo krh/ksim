@@ -592,18 +592,6 @@ struct inst_imm {
 };
 
 static inline float
-u32_to_float(uint32_t ud)
-{
-	return ((union { float f; uint32_t ud; }) { .ud = ud }).f;
-}
-
-static inline uint32_t
-float_to_u32(float f)
-{
-	return ((union { float f; uint32_t ud; }) { .f = f }).ud;
-}
-
-static inline float
 vf_to_float(unsigned char vf)
 {
 	/* ±0.0f is special cased. */

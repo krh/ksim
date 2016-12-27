@@ -182,6 +182,18 @@ max_u64(uint64_t a, uint64_t b)
 	return a > b ? a : b;
 }
 
+static inline float
+u32_to_float(uint32_t ud)
+{
+	return ((union { float f; uint32_t ud; }) { .ud = ud }).f;
+}
+
+static inline uint32_t
+float_to_u32(float f)
+{
+	return ((union { float f; uint32_t ud; }) { .f = f }).ud;
+}
+
 void start_batch_buffer(uint64_t address, uint32_t ring);
 
 /* bdw gt3 */
