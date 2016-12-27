@@ -608,6 +608,7 @@ void dispatch_compute(void);
 struct vf_buffer {
 	struct thread t;
 	struct reg vue_handles;
+	void *index_buffer;
 	union {
 		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
 		struct {

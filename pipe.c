@@ -363,9 +363,6 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 
 	__m256i vertex_index;
 	if (gt.prim.access_type == RANDOM) {
-		uint64_t range;
-		void *ib = map_gtt_offset(gt.vf.ib.address, &range);
-
 		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
 
 		switch (gt.vf.ib.format) {
@@ -373,15 +370,15 @@ fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask
 			 * can read outside the index
 			 * buffer. */
 		case INDEX_BYTE:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 1);
+			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 1);
 			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xff));
 			break;
 		case INDEX_WORD:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 2);
+			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 2);
 			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xffff));
 			break;
 		case INDEX_DWORD:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, ib, vertex_index, mask, 4);
+			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 4);
 			break;
 		}
 		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
@@ -586,6 +583,11 @@ dispatch_primitive(void)
 	_mm_setcsr(csr_default);
 
 	struct vf_buffer buffer;
+
+	uint64_t index_buffer_range;
+	buffer.index_buffer = map_gtt_offset(gt.vf.ib.address,
+					     &index_buffer_range);
+
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
