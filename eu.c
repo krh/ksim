@@ -130,9 +130,12 @@ fill_region_for_src(struct eu_region *region, struct inst_src *src,
 
 static void
 fill_region_for_dst(struct eu_region *region, struct inst_dst *dst,
-		    uint32_t offset, struct builder *bld)
+		    uint32_t subnum, struct builder *bld)
 {
-	region->offset = offset;
+	region->offset =
+		offsetof(struct thread, grf[dst->num]) + subnum +
+		bld->exec_offset * dst->hstride * type_size(dst->type);
+
 	region->type_size = type_size(dst->type);
 	region->exec_size = bld->exec_size;
 	region->vstride = bld->exec_size;
@@ -482,6 +485,36 @@ builder_invalidate_region(struct builder *bld, struct eu_region *r)
 	}
 }
 
+void
+builder_emit_region_store(struct builder *bld,
+			  const struct eu_region *region, int dst)
+{
+	switch (region->exec_size * region->type_size) {
+	case 32:
+		builder_emit_m256i_store(bld, dst, region->offset);
+		break;
+	case 16:
+		builder_emit_m128i_store(bld, dst, region->offset);
+		break;
+	case 4:
+		builder_emit_u32_store(bld, dst, region->offset);
+		break;
+	default:
+		stub("eu: type size %d in dest store", region->type_size);
+		break;
+	}
+
+	if (bld->regs[dst].contents & BUILDER_REG_CONTENTS_EU_REG)
+		builder_invalidate_region(bld, &bld->regs[dst].region);
+
+	/* FIXME: For a straight move, this makes the AVX2 register
+	 * refer to the dst region.  That's fine, but the register may
+	 * still also shadow the src region, but since we only track
+	 * one region per AVX2 reg, that is lost. */
+	bld->regs[dst].region = *region;
+	bld->regs[dst].contents = BUILDER_REG_CONTENTS_EU_REG;
+}
+
 static void
 builder_emit_dst_store(struct builder *bld, int avx_reg,
 		       struct inst *inst, struct inst_dst *dst)
@@ -507,32 +540,9 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 	else
 		subnum = dst->da16_subnum;
 
-	uint32_t offset =
-		offsetof(struct thread, grf[dst->num]) + subnum +
-		bld->exec_offset * dst->hstride * type_size(dst->type);
-
-	switch (bld->exec_size * type_size(dst->type)) {
-	case 32:
-		builder_emit_m256i_store(bld, avx_reg, offset);
-		break;
-	case 16:
-		builder_emit_m128i_store(bld, avx_reg, offset);
-		break;
-	case 4:
-		builder_emit_u32_store(bld, avx_reg, offset);
-		break;
-	default:
-		stub("eu: type size %d in dest store", type_size(dst->type));
-		break;
-	}
-
-	/* FIXME: For a straight move, this makes the AVX2 register
-	 * refer to the dst region.  That's fine, but the register may
-	 * still also shadow the src region, but since we only track
-	 * one region per AVX2 reg, that is lost. */
-	fill_region_for_dst(&bld->regs[avx_reg].region, dst, offset, bld);
-	builder_invalidate_region(bld, &bld->regs[avx_reg].region);
-	bld->regs[avx_reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
+	struct eu_region region;
+	fill_region_for_dst(&region, dst, subnum, bld);
+	builder_emit_region_store(bld, &region, avx_reg);
 }
 
 static inline int
