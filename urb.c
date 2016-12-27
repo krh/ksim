@@ -113,19 +113,28 @@ builder_emit_sfid_urb_simd8_write(struct builder *bld, struct inst *inst)
 	uint32_t vue_offset = field(send.function_control, 4, 14);
 
 	for (uint32_t i = 0; i < send.mlen; i++) {
-		const struct eu_region r = {
+		const struct eu_region src_region = {
 			.offset = (src + i) * 32,
 			.type_size = 4,
-			.exec_size = 8,
 			.exec_size = 8,
 			.vstride = 8,
 			.width = 8,
 			.hstride = 1
 		};
 
-		int reg = builder_emit_region_load(bld, &r);
-		uint32_t offset = offsetof(struct vf_buffer, data[vue_offset * 4 + i]);
-		builder_emit_m256i_store(bld, reg, offset);
+		int reg = builder_emit_region_load(bld, &src_region);
+
+		const struct eu_region dst_region = {
+			.offset = offsetof(struct vf_buffer,
+					   data[vue_offset * 4 + i]),
+			.type_size = 4,
+			.exec_size = 8,
+			.vstride = 8,
+			.width = 8,
+			.hstride = 1
+		};
+
+		builder_emit_region_store(bld, &dst_region, reg);
 	}
 }
 
