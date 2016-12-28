@@ -1,5 +1,6 @@
 #include <bfd.h>
 #include <dis-asm.h>
+#include <limits.h>
 
 enum builder_reg_contents {
 	BUILDER_REG_CONTENTS_UNIFORM	= (1 << 0),
@@ -203,6 +204,12 @@ static inline void
 builder_emit_load_rsi(struct builder *bld, int offset)
 {
 	emit(bld, 0x48, 0x8b, 0xb7, emit_uint32(offset));
+}
+
+static inline void
+builder_emit_load_edi(struct builder *bld, uint32_t value)
+{
+	emit(bld, 0xbf, emit_uint32(value));
 }
 
 static inline void
@@ -543,6 +550,19 @@ builder_emit_call(struct builder *bld, void *func)
 	builder_emit_pop_rdi(bld);
 
 	return 0;
+}
+
+static inline void
+builder_emit_trap(struct builder *bld)
+{
+	builder_emit_push_rdi(bld);
+	builder_emit_load_edi(bld, SIGTRAP);
+
+	const uint64_t offset = (uint8_t *) raise - bld->p;
+	ksim_assert(offset < INT_MAX);
+	builder_emit_call_relative(bld, offset);
+
+	builder_emit_pop_rdi(bld);
 }
 
 static inline uint32_t *
