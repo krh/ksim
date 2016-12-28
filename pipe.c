@@ -173,24 +173,6 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	rasterize_primitive(vue);
 }
 
-static void
-transform_vertices(struct vf_buffer *buffer)
-{
-	if (gt.sf.viewport_transform_enable) {
-		const float *vp = gt.sf.viewport;
-		__m256 m00 = _mm256_set1_ps(vp[0]);
-		__m256 m11 = _mm256_set1_ps(vp[1]);
-		__m256 m22 = _mm256_set1_ps(vp[2]);
-		__m256 m30 = _mm256_set1_ps(vp[3]);
-		__m256 m31 = _mm256_set1_ps(vp[4]);
-		__m256 m32 = _mm256_set1_ps(vp[5]);
-
-		buffer->x = _mm256_fmadd_ps(m00, buffer->x, m30);
-		buffer->y = _mm256_fmadd_ps(m11, buffer->y, m31);
-		buffer->z = _mm256_fmadd_ps(m22, buffer->z, m32);
-	}
-}
-
 struct ia_state {
 	struct value *vue[16];
 	uint32_t head, tail;
@@ -575,6 +557,32 @@ compile_vs(void)
 		builder_release_regs(&bld);
 	}
 
+	if (gt.sf.viewport_transform_enable) {
+		ksim_trace(TRACE_EU, "[ff viewport transform]\n");
+
+		int m00 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m00));
+		int m11 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m11));
+		int m22 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m22));
+		int m30 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m30));
+		int m31 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m31));
+		int m32 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m32));
+
+		int x = load_v8(&bld, offsetof(struct vf_buffer, x));
+		int y = load_v8(&bld, offsetof(struct vf_buffer, y));
+		int z = load_v8(&bld, offsetof(struct vf_buffer, z));
+
+		builder_emit_vfmadd132ps(&bld, x, m00, m30);
+		builder_emit_vfmadd132ps(&bld, y, m11, m31);
+		builder_emit_vfmadd132ps(&bld, z, m22, m32);
+
+		store_v8(&bld, offsetof(struct vf_buffer, x), x);
+		store_v8(&bld, offsetof(struct vf_buffer, y), y);
+		store_v8(&bld, offsetof(struct vf_buffer, z), z);
+
+		builder_trace(&bld, trace_file);
+		builder_release_regs(&bld);
+	}
+
 	builder_emit_ret(&bld);
 	builder_trace(&bld, trace_file);
 	builder_release_regs(&bld);
@@ -593,6 +601,17 @@ init_vf_buffer(struct vf_buffer *buffer)
 	} else {
 		struct rectanglef vp_clip = { -1.0f, -1.0f, 1.0f, 1.0f };
 		buffer->clip = vp_clip;
+	}
+
+	if (gt.sf.viewport_transform_enable) {
+		const float *vp = gt.sf.viewport;
+
+		buffer->vp.m00 = vp[0];
+		buffer->vp.m11 = vp[1];
+		buffer->vp.m22 = vp[2];
+		buffer->vp.m30 = vp[3];
+		buffer->vp.m31 = vp[4];
+		buffer->vp.m32 = vp[5];
 	}
 }
 
@@ -643,7 +662,6 @@ dispatch_primitive(void)
 			__m256i mask = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(gt.prim.vertex_count - i));
 			fetch_vertices(&buffer, iid, vid, mask);
 			dispatch_vs(&buffer, mask);
-			transform_vertices(&buffer);
 			flush_to_vues(&buffer, mask, &state);
 			assemble_primitives(&state);
 		}

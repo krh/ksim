@@ -610,6 +610,7 @@ struct vf_buffer {
 	struct reg vue_handles;
 	void *index_buffer;
 	struct rectanglef clip;
+	struct { float m00, m11, m22, m30, m31, m32; } vp;
 	union {
 		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
 		struct {
