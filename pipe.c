@@ -62,7 +62,9 @@ dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 
 	grf[1].ireg = buffer->vue_handles.ireg;
 
-	g = load_constants(&buffer->t, &gt.vs.curbe, gt.vs.urb_start_grf);
+	g = gt.vs.urb_start_grf;
+	for (uint32_t b = 0; b < 4; b++)
+		g += gt.vs.curbe.buffer[b].length;
 
 	/* SIMD8 VS payload */
 	__m256i *src = &buffer->data[gt.vs.vue_read_offset * 2 * 4].ireg;
@@ -476,8 +478,44 @@ store_v8(struct builder *bld, uint32_t offset, int reg)
 	builder_emit_region_store(bld, &r, reg);
 }
 
+static uint32_t
+builder_emit_load_constants(struct builder *bld, struct vf_buffer *buffer,
+			    struct curbe *c, uint32_t start)
+{
+	uint32_t grf = start;
+	struct reg *regs;
+	uint64_t base, range;
+	uint32_t bc = 0;
+
+	ksim_trace(TRACE_EU, "[ff load constants]\n");
+	for (uint32_t b = 0; b < 4; b++) {
+		if (b == 0 && gt.curbe_dynamic_state_base)
+			base = gt.dynamic_state_base_address;
+		else
+			base = 0;
+
+		if (c->buffer[b].length > 0) {
+			regs = map_gtt_offset(c->buffer[b].address + base, &range);
+			ksim_assert(c->buffer[b].length * sizeof(regs[0]) <= range);
+		}
+
+		for (uint32_t i = 0; i < c->buffer[b].length; i++) {
+			buffer->constants[bc] = regs[i];
+			int reg = load_v8(bld, offsetof(struct vf_buffer, constants[bc++]));
+			store_v8(bld, offsetof(struct vf_buffer, t.grf[grf++]), reg);
+		}
+	}
+
+	ksim_assert(bc < ARRAY_LENGTH(buffer->constants));
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+
+	return grf;
+}
+
 static void
-compile_vs(void)
+compile_vs(struct vf_buffer *buffer)
 {
 	struct builder bld;
 
@@ -487,9 +525,12 @@ compile_vs(void)
 		     gt.vs.binding_table_address,
 		     gt.vs.sampler_state_address);
 
-	if (gt.vs.enable)
+	if (gt.vs.enable) {
+		builder_emit_load_constants(&bld, buffer,
+					    &gt.vs.curbe,
+					    gt.vs.urb_start_grf);
 		builder_emit_shader(&bld, gt.vs.ksp);
-
+	}
 
 	if (!gt.clip.perspective_divide_disable) {
 		/* vrcpps doesn't have sufficient precision for
@@ -629,8 +670,6 @@ dispatch_primitive(void)
 
 	prepare_shaders();
 
-	compile_vs();
-
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;
 
@@ -653,6 +692,8 @@ dispatch_primitive(void)
 	struct vf_buffer buffer;
 
 	init_vf_buffer(&buffer);
+
+	compile_vs(&buffer);
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };

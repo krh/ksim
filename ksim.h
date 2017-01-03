@@ -621,6 +621,7 @@ struct vf_buffer {
 			__m256 x, y, z, w;
 		};
 	};
+	struct reg constants[32];
 };
 
 bool valid_vertex_format(uint32_t format);
