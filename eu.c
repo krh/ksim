@@ -222,7 +222,7 @@ builder_emit_region_load(struct builder *bld, const struct eu_region *region)
 	memcpy(&bld->regs[reg].region, region, sizeof(*region));
 
 	if (region->hstride == 1 && region->width == region->vstride) {
-		switch (region->type_size * bld->exec_size) {
+		switch (region->type_size * region->exec_size) {
 		case 32:
 			builder_emit_m256i_load(bld, reg, region->offset);
 			break;
@@ -258,14 +258,14 @@ builder_emit_region_load(struct builder *bld, const struct eu_region *region)
 
 		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
 	} else if (region->hstride == 1 && region->width * region->type_size) {
-		for (int i = 0; i < bld->exec_size / region->width; i++) {
+		for (int i = 0; i < region->exec_size / region->width; i++) {
 			int offset = region->offset + i * region->vstride * region->type_size;
 			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
 		}
 	} else if (region->type_size == 4) {
 		int offset, i = 0, tmp_reg = reg;
 
-		for (int y = 0; y < bld->exec_size / region->width; y++) {
+		for (int y = 0; y < region->exec_size / region->width; y++) {
 			for (int x = 0; x < region->width; x++) {
 				if (i == 4)
 					tmp_reg = builder_get_reg(bld);
