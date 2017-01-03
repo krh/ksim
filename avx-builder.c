@@ -272,7 +272,7 @@ check_binop_emit_function(const char *fmt,
 }
 
 void
-check_triop_emit_function(const char *name,
+check_triop_emit_function(const char *fmt,
 			  void (*func)(struct builder *bld, int dst, int src0, int src1))
 {
 	struct builder bld;
@@ -281,7 +281,6 @@ check_triop_emit_function(const char *name,
 		for (int src0 = 0; src0 < 16; src0++)
 			for (int src1 = 0; src1 < 16; src1++) {
 				int count, actual_dst, actual_src0, actual_src1;
-				char actual_name[16];
 
 				reset_shader_pool();
 				builder_init(&bld, 0, 0);
@@ -290,18 +289,17 @@ check_triop_emit_function(const char *name,
 				builder_disasm(&bld);
 
 				count = sscanf(bld.disasm_output,
-					       "%16s %%ymm%d,%%ymm%d,%%ymm%d",
-					       actual_name, &actual_src0, &actual_src1, &actual_dst);
+					       fmt, &actual_src0, &actual_src1, &actual_dst);
 
-				if (count != 4 || strcmp(name, actual_name) != 0 ||
+				if (count != 3 ||
 				    dst != actual_dst || src0 != actual_src0 || src1 != actual_src1) {
 
 					const uint8_t *code = (uint8_t *) bld.shader;
 
 					const int size = bld.p - code;
 
-					printf("%s dst=%d src0=%d src1=%d:\n    ",
-					       name, dst, src0, src1);
+					printf("fmt='%s' dst=%d src0=%d src1=%d:\n    ",
+					       fmt, dst, src0, src1);
 					for (int i = 0; i < size; i++)
 						printf("%02x ", code[i]);
 					printf("%s", bld.disasm_output);
@@ -309,6 +307,30 @@ check_triop_emit_function(const char *name,
 					exit(EXIT_FAILURE);
 				}
 			}
+}
+
+static inline void
+emit_vpgatherdd_scale1(struct builder *bld, int dst, int index, int mask)
+{
+	builder_emit_vpgatherdd(bld, dst, index, mask, 1, 0);
+}
+
+static inline void
+emit_vpgatherdd_scale2(struct builder *bld, int dst, int index, int mask)
+{
+	builder_emit_vpgatherdd(bld, dst, index, mask, 2, 0);
+}
+
+static inline void
+emit_vpgatherdd_scale4(struct builder *bld, int dst, int index, int mask)
+{
+	builder_emit_vpgatherdd(bld, dst, index, mask, 4, 0);
+}
+
+static inline void
+emit_vpgatherdd_scale1_offset24(struct builder *bld, int dst, int index, int mask)
+{
+	builder_emit_vpgatherdd(bld, dst, index, mask, 1, 24);
 }
 
 int main(int argc, char *argv[])
@@ -333,22 +355,29 @@ int main(int argc, char *argv[])
 	check_reg_imm_emit_function("vmovd %%xmm%1$d, 0x%2$x(%%rdi)",
 				    builder_emit_u32_store, 0);
 
-	check_triop_emit_function("vpaddd", builder_emit_vpaddd);
-	check_triop_emit_function("vpsubd", builder_emit_vpsubd);
-	check_triop_emit_function("vpmulld", builder_emit_vpmulld);
-	check_triop_emit_function("vaddps", builder_emit_vaddps);
-	check_triop_emit_function("vmulps", builder_emit_vmulps);
-	check_triop_emit_function("vdivps", builder_emit_vdivps);
-	check_triop_emit_function("vsubps", builder_emit_vsubps);
-	check_triop_emit_function("vpand", builder_emit_vpand);
-	check_triop_emit_function("vpxor", builder_emit_vpxor);
-	check_triop_emit_function("vpor", builder_emit_vpor);
-	check_triop_emit_function("vpsrlvd", builder_emit_vpsrlvd);
-	check_triop_emit_function("vpsravd", builder_emit_vpsravd);
-	check_triop_emit_function("vpsllvd", builder_emit_vpsllvd);
-	check_triop_emit_function("vfmadd132ps", builder_emit_vfmadd132ps);
-	check_triop_emit_function("vfmadd231ps", builder_emit_vfmadd231ps);
-	check_triop_emit_function("vfnmadd132ps", builder_emit_vfnmadd132ps);
+	check_triop_emit_function("vpaddd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpaddd);
+	check_triop_emit_function("vpsubd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpsubd);
+	check_triop_emit_function("vpmulld %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpmulld);
+	check_triop_emit_function("vaddps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vaddps);
+	check_triop_emit_function("vmulps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vmulps);
+	check_triop_emit_function("vdivps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vdivps);
+	check_triop_emit_function("vsubps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vsubps);
+	check_triop_emit_function("vpand %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpand);
+	check_triop_emit_function("vpxor %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpxor);
+	check_triop_emit_function("vpor %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpor);
+	check_triop_emit_function("vpsrlvd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpsrlvd);
+	check_triop_emit_function("vpsravd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpsravd);
+	check_triop_emit_function("vpsllvd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpsllvd);
+	check_triop_emit_function("vfmadd132ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfmadd132ps);
+	check_triop_emit_function("vfmadd231ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfmadd231ps);
+	check_triop_emit_function("vfnmadd132ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfnmadd132ps);
+	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,1),%%ymm%3$d", emit_vpgatherdd_scale1);
+	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,2),%%ymm%3$d", emit_vpgatherdd_scale2);
+	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,4),%%ymm%3$d", emit_vpgatherdd_scale4);
+	check_triop_emit_function("vpgatherdd %%ymm%2$d,0x18(%%rax,%%ymm%1$d,1),%%ymm%3$d", emit_vpgatherdd_scale1_offset24);
+
+	check_triop_emit_function("vpsrld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpsrld);
+	check_triop_emit_function("vpslld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpslld);
 
 	check_binop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
 	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
@@ -357,8 +386,8 @@ int main(int argc, char *argv[])
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 
-	check_triop_emit_function("vmaxps", builder_emit_vmaxps);
-	check_triop_emit_function("vminps", builder_emit_vminps);
+	check_triop_emit_function("vmaxps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vmaxps);
+	check_triop_emit_function("vminps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vminps);
 
 	/* builder_emit_vpblendvb */
 

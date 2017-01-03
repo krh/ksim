@@ -213,6 +213,18 @@ builder_emit_load_edi(struct builder *bld, uint32_t value)
 }
 
 static inline void
+builder_emit_load_rax(struct builder *bld, uint32_t offset)
+{
+	emit(bld, 0x48, 0x8b, 0x87, emit_uint32(offset));
+}
+
+static inline void
+builder_emit_load_rax_rip_relative(struct builder *bld, uint32_t offset)
+{
+	emit(bld, 0x48, 0x8b, 0x05, emit_uint32(offset - 7));
+}
+
+static inline void
 builder_emit_long_alu(struct builder *bld, int opcode0, int opcode1, int dst, int src0, int src1)
 {
 	ksim_assert(dst < 16 && src0 < 16 && src1 < 16);
@@ -231,6 +243,23 @@ builder_emit_short_alu(struct builder *bld, int opcode, int dst, int src0, int s
 	emit(bld, 0xc4, 0xe2 - (src0 & 8) * 4 - (dst & 8) * 16, 0x7d - src1 * 8,
 	     opcode, 0xc0 + (src0 & 7) + (dst & 7) * 8);
 }
+
+static inline void
+builder_emit_vpgatherdd(struct builder *bld, int dst, int index, int mask, int scale, int offset)
+{
+	const uint32_t opcode = 0x90;
+	const uint32_t scale_log2 = __builtin_ffs(scale) - 1;
+
+	ksim_assert(offset < 128);
+
+	if (offset == 0)
+		emit(bld, 0xc4, 0xe2 - (index & 8) * 8 - (dst & 8) * 16, 0x7d - mask * 8,
+		     opcode, 0x04 + (dst & 7) * 8, (index & 7) * 8 + scale_log2 * 0x40);
+	else
+		emit(bld, 0xc4, 0xe2 - (index & 8) * 8 - (dst & 8) * 16, 0x7d - mask * 8,
+		     opcode, 0x44 + (dst & 7) * 8, (index & 7) * 8 + scale_log2 * 0x40, offset);
+}
+
 
 static inline void
 builder_emit_vpinsrq_rdi_relative(struct builder *bld, int dst, int src1, int offset, int idx)
@@ -374,6 +403,26 @@ static inline void
 builder_emit_vpsllvd(struct builder *bld, int dst, int src0, int src1)
 {
 	builder_emit_short_alu(bld, 0x47, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpsrld(struct builder *bld, int dst, int src0, int shift)
+{
+	if (src0 < 8)
+		emit(bld, 0xc5, 0xfd - dst * 8, 0x72, 0xd0 + src0, shift);
+	else
+		emit(bld, 0xc4, 0xc1, 0x7d - dst * 8,
+		     0x72, 0xd0 + (src0 & 7), shift);
+}
+
+static inline void
+builder_emit_vpslld(struct builder *bld, int dst, int src0, int shift)
+{
+	if (src0 < 8)
+		emit(bld, 0xc5, 0xfd - dst * 8, 0x72, 0xf0 + src0, shift);
+	else
+		emit(bld, 0xc4, 0xc1, 0x7d - dst * 8,
+		     0x72, 0xf0 + (src0 & 7), shift);
 }
 
 /* For the vfmaddXYZps instructions, X and Y are multiplied, Z is
