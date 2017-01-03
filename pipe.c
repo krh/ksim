@@ -28,7 +28,6 @@ static void
 dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 {
 	struct reg *grf = &buffer->t.grf[0];
-	uint32_t g;
 
 	if (!gt.vs.enable)
 		return;
@@ -61,16 +60,6 @@ dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 	};
 
 	grf[1].ireg = buffer->vue_handles.ireg;
-
-	g = gt.vs.urb_start_grf;
-	for (uint32_t b = 0; b < 4; b++)
-		g += gt.vs.curbe.buffer[b].length;
-
-	/* SIMD8 VS payload */
-	__m256i *src = &buffer->data[gt.vs.vue_read_offset * 2 * 4].ireg;
-	__m256i *dst = &grf[g].ireg;
-	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2 * 4; i++)
-		dst[i] = src[i];
 
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
@@ -515,6 +504,22 @@ builder_emit_load_constants(struct builder *bld, struct vf_buffer *buffer,
 }
 
 static void
+builder_emit_load_vue(struct builder *bld, uint32_t grf)
+{
+	uint32_t src = offsetof(struct vf_buffer, data[gt.vs.vue_read_offset * 2 * 4]);
+	uint32_t dst = offsetof(struct vf_buffer, t.grf[grf]);
+
+	ksim_trace(TRACE_EU, "[ff copy vue]\n");
+	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2 * 4; i++) {
+		int reg = load_v8(bld, src + i * 32);
+		store_v8(bld, dst + i * 32, reg);
+	}
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+}
+
+static void
 compile_vs(struct vf_buffer *buffer)
 {
 	struct builder bld;
@@ -526,9 +531,11 @@ compile_vs(struct vf_buffer *buffer)
 		     gt.vs.sampler_state_address);
 
 	if (gt.vs.enable) {
-		builder_emit_load_constants(&bld, buffer,
-					    &gt.vs.curbe,
-					    gt.vs.urb_start_grf);
+		uint32_t grf =
+			builder_emit_load_constants(&bld, buffer,
+						    &gt.vs.curbe,
+						    gt.vs.urb_start_grf);
+		builder_emit_load_vue(&bld, grf);
 		builder_emit_shader(&bld, gt.vs.ksp);
 	}
 
