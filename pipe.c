@@ -659,6 +659,102 @@ builder_emit_load_vue(struct builder *bld, uint32_t grf)
 }
 
 static void
+builder_emit_perspective_divide(struct builder *bld)
+{
+	/* vrcpps doesn't have sufficient precision for perspective
+	 * divide. We can use vdivps (latency 21/throughput 13) or do
+	 * a Newton-Raphson step on vrcpps.  This turns into vrcpps,
+	 * vfnmadd213ps and vmulps, with latencies 7, 5 and 5, which
+	 * is slightly better.
+	 */
+
+	ksim_trace(TRACE_EU, "[ff perspective divide]\n");
+
+	int w = load_v8(bld, offsetof(struct vf_buffer, w));
+	int inv_w = builder_get_reg(bld);
+	builder_emit_vrcpps(bld, inv_w, w);
+
+	/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
+	int two = builder_get_reg_with_uniform(bld,
+					       float_to_u32(2.0f));
+
+	builder_emit_vfnmadd132ps(bld, w, inv_w, two);
+	builder_emit_vmulps(bld, inv_w, inv_w, w);
+
+	const int x = load_v8(bld, offsetof(struct vf_buffer, x));
+	builder_emit_vmulps(bld, x, x, inv_w);
+	store_v8(bld, offsetof(struct vf_buffer, x), x);
+
+	const int y = load_v8(bld, offsetof(struct vf_buffer, y));
+	builder_emit_vmulps(bld, y, y, inv_w);
+	store_v8(bld, offsetof(struct vf_buffer, y), y);
+
+	const int z = load_v8(bld, offsetof(struct vf_buffer, z));
+	builder_emit_vmulps(bld, z, z, inv_w);
+	store_v8(bld, offsetof(struct vf_buffer, z), z);
+
+	store_v8(bld, offsetof(struct vf_buffer, w), inv_w);
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+}
+
+static void
+builder_emit_clip_test(struct builder *bld)
+{
+	ksim_trace(TRACE_EU, "[ff clip tests]\n");
+
+	int x0 = load_uniform(bld, offsetof(struct vf_buffer, clip.x0));
+	int x1 = load_uniform(bld, offsetof(struct vf_buffer, clip.x1));
+	int y0 = load_uniform(bld, offsetof(struct vf_buffer, clip.y0));
+	int y1 = load_uniform(bld, offsetof(struct vf_buffer, clip.y1));
+	int x = load_v8(bld, offsetof(struct vf_buffer, x));
+	int y = load_v8(bld, offsetof(struct vf_buffer, y));
+
+	builder_emit_vcmpps(bld, _CMP_LT_OS, x0, x0, x);
+	builder_emit_vcmpps(bld, _CMP_GT_OS, x1, x1, x);
+	builder_emit_vcmpps(bld, _CMP_LT_OS, y0, y0, y);
+	builder_emit_vcmpps(bld, _CMP_GT_OS, y1, y1, y);
+
+	builder_emit_vpor(bld, x0, x0, x1);
+	builder_emit_vpor(bld, y0, y0, y1);
+	builder_emit_vpor(bld, x0, x0, y0);
+
+	store_v8(bld, offsetof(struct vf_buffer, clip_flags), x0);
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+}
+
+static void
+builder_emit_viewport_transform(struct builder *bld)
+{
+	ksim_trace(TRACE_EU, "[ff viewport transform]\n");
+
+	int m00 = load_uniform(bld, offsetof(struct vf_buffer, vp.m00));
+	int m11 = load_uniform(bld, offsetof(struct vf_buffer, vp.m11));
+	int m22 = load_uniform(bld, offsetof(struct vf_buffer, vp.m22));
+	int m30 = load_uniform(bld, offsetof(struct vf_buffer, vp.m30));
+	int m31 = load_uniform(bld, offsetof(struct vf_buffer, vp.m31));
+	int m32 = load_uniform(bld, offsetof(struct vf_buffer, vp.m32));
+
+	int x = load_v8(bld, offsetof(struct vf_buffer, x));
+	int y = load_v8(bld, offsetof(struct vf_buffer, y));
+	int z = load_v8(bld, offsetof(struct vf_buffer, z));
+
+	builder_emit_vfmadd132ps(bld, x, m00, m30);
+	builder_emit_vfmadd132ps(bld, y, m11, m31);
+	builder_emit_vfmadd132ps(bld, z, m22, m32);
+
+	store_v8(bld, offsetof(struct vf_buffer, x), x);
+	store_v8(bld, offsetof(struct vf_buffer, y), y);
+	store_v8(bld, offsetof(struct vf_buffer, z), z);
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+}
+
+static void
 compile_vs(struct vf_buffer *buffer)
 {
 	struct builder bld;
@@ -684,97 +780,15 @@ compile_vs(struct vf_buffer *buffer)
 		builder_emit_shader(&bld, gt.vs.ksp);
 	}
 
-	if (!gt.clip.perspective_divide_disable) {
-		/* vrcpps doesn't have sufficient precision for
-		 * perspective divide. We can use vdivps (latency
-		 * 21/throughput 13) or do a Newton-Raphson step on
-		 * vrcpps.  This turns into vrcpps, vfnmadd213ps and
-		 * vmulps, with latencies 7, 5 and 5, which is
-		 * slightly better.
-		 */
-
-		ksim_trace(TRACE_EU, "[ff perspective divide]\n");
-
-		int w = load_v8(&bld, offsetof(struct vf_buffer, w));
-		int inv_w = builder_get_reg(&bld);
-		builder_emit_vrcpps(&bld, inv_w, w);
-
-		/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
-		int two = builder_get_reg_with_uniform(&bld,
-						       float_to_u32(2.0f));
-
-		builder_emit_vfnmadd132ps(&bld, w, inv_w, two);
-		builder_emit_vmulps(&bld, inv_w, inv_w, w);
-
-		const int x = load_v8(&bld, offsetof(struct vf_buffer, x));
-		builder_emit_vmulps(&bld, x, x, inv_w);
-		store_v8(&bld, offsetof(struct vf_buffer, x), x);
-
-		const int y = load_v8(&bld, offsetof(struct vf_buffer, y));
-		builder_emit_vmulps(&bld, y, y, inv_w);
-		store_v8(&bld, offsetof(struct vf_buffer, y), y);
-
-		const int z = load_v8(&bld, offsetof(struct vf_buffer, z));
-		builder_emit_vmulps(&bld, z, z, inv_w);
-		store_v8(&bld, offsetof(struct vf_buffer, z), z);
-
-		store_v8(&bld, offsetof(struct vf_buffer, w), inv_w);
-
-		builder_trace(&bld, trace_file);
-		builder_release_regs(&bld);
-	}
+	if (!gt.clip.perspective_divide_disable)
+		builder_emit_perspective_divide(&bld);
 
 	if (gt.clip.guardband_clip_test_enable ||
-	    gt.clip.viewport_clip_test_enable) {
-		ksim_trace(TRACE_EU, "[ff clip tests]\n");
+	    gt.clip.viewport_clip_test_enable)
+		builder_emit_clip_test(&bld);
 
-		int x0 = load_uniform(&bld, offsetof(struct vf_buffer, clip.x0));
-		int x1 = load_uniform(&bld, offsetof(struct vf_buffer, clip.x1));
-		int y0 = load_uniform(&bld, offsetof(struct vf_buffer, clip.y0));
-		int y1 = load_uniform(&bld, offsetof(struct vf_buffer, clip.y1));
-		int x = load_v8(&bld, offsetof(struct vf_buffer, x));
-		int y = load_v8(&bld, offsetof(struct vf_buffer, y));
-
-		builder_emit_vcmpps(&bld, _CMP_LT_OS, x0, x0, x);
-		builder_emit_vcmpps(&bld, _CMP_GT_OS, x1, x1, x);
-		builder_emit_vcmpps(&bld, _CMP_LT_OS, y0, y0, y);
-		builder_emit_vcmpps(&bld, _CMP_GT_OS, y1, y1, y);
-
-		builder_emit_vpor(&bld, x0, x0, x1);
-		builder_emit_vpor(&bld, y0, y0, y1);
-		builder_emit_vpor(&bld, x0, x0, y0);
-
-		store_v8(&bld, offsetof(struct vf_buffer, clip_flags), x0);
-
-		builder_trace(&bld, trace_file);
-		builder_release_regs(&bld);
-	}
-
-	if (gt.sf.viewport_transform_enable) {
-		ksim_trace(TRACE_EU, "[ff viewport transform]\n");
-
-		int m00 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m00));
-		int m11 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m11));
-		int m22 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m22));
-		int m30 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m30));
-		int m31 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m31));
-		int m32 = load_uniform(&bld, offsetof(struct vf_buffer, vp.m32));
-
-		int x = load_v8(&bld, offsetof(struct vf_buffer, x));
-		int y = load_v8(&bld, offsetof(struct vf_buffer, y));
-		int z = load_v8(&bld, offsetof(struct vf_buffer, z));
-
-		builder_emit_vfmadd132ps(&bld, x, m00, m30);
-		builder_emit_vfmadd132ps(&bld, y, m11, m31);
-		builder_emit_vfmadd132ps(&bld, z, m22, m32);
-
-		store_v8(&bld, offsetof(struct vf_buffer, x), x);
-		store_v8(&bld, offsetof(struct vf_buffer, y), y);
-		store_v8(&bld, offsetof(struct vf_buffer, z), z);
-
-		builder_trace(&bld, trace_file);
-		builder_release_regs(&bld);
-	}
+	if (gt.sf.viewport_transform_enable)
+		builder_emit_viewport_transform(&bld);
 
 	builder_emit_ret(&bld);
 	builder_trace(&bld, trace_file);
