@@ -130,6 +130,15 @@ builder_use_reg(struct builder *bld, struct avx2_reg *reg)
 	return reg - bld->regs;
 }
 
+void
+builder_release_reg(struct builder *bld, int reg_num)
+{
+	struct avx2_reg *reg = &bld->regs[reg_num];
+
+	list_remove(&reg->link);
+	list_insert(bld->regs_lru_list.prev, &reg->link);
+}
+
 int
 builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 {

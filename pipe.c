@@ -29,9 +29,6 @@ dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 {
 	struct reg *grf = &buffer->t.grf[0];
 
-	if (!gt.vs.enable)
-		return;
-
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
@@ -58,6 +55,14 @@ dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 			0,
 		}
 	};
+
+	const struct reg m = { .ireg = mask };
+	for (uint32_t c = 0; c < 8; c++) {
+		if (m.d[c] >= 0)
+			continue;
+		void *entry = alloc_urb_entry(&gt.vs.urb);
+		buffer->vue_handles.ud[c] = urb_entry_to_handle(entry);
+	}
 
 	grf[1].ireg = buffer->vue_handles.ireg;
 
@@ -294,111 +299,24 @@ reset_ia_state(struct ia_state *s)
 }
 
 static void
-fetch_vertices(struct vf_buffer *buffer, uint32_t iid, __m256i vid, __m256i mask)
+dump_fetched_vue(struct vf_buffer *buffer)
 {
-	const __m256i zero = _mm256_setzero_si256();
-	uint32_t a = 0;
+	struct reg v = buffer->vid;
+	ksim_trace(TRACE_VF, "Loaded vue for idd=%d, vid=[", buffer->iid);
+	for (uint32_t c = 0; c < 8; c++)
+		ksim_trace(TRACE_VF, " %d", v.ud[c]);
+	ksim_trace(TRACE_VF, " ]\n");
 
-	const struct reg m = { .ireg = mask };
-	for (uint32_t c = 0; c < 8; c++) {
-		if (m.d[c] >= 0)
-			continue;
-		void *entry = alloc_urb_entry(&gt.vs.urb);
-		buffer->vue_handles.ud[c] = urb_entry_to_handle(entry);
-	}
-
-	__m256i vertex_index;
-	if (gt.prim.access_type == RANDOM) {
-		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
-
-		switch (gt.vf.ib.format) {
-			/* FIXME: INDEX_BYTE and INDEX_WORD
-			 * can read outside the index
-			 * buffer. */
-		case INDEX_BYTE:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 1);
-			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xff));
-			break;
-		case INDEX_WORD:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 2);
-			vertex_index = _mm256_and_si256(vertex_index, _mm256_set1_epi32(0xffff));
-			break;
-		case INDEX_DWORD:
-			vertex_index = _mm256_mask_i32gather_epi32(zero, buffer->index_buffer, vertex_index, mask, 4);
-			break;
-		}
-		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.base_vertex), vertex_index);
-	} else {
-		vertex_index = _mm256_add_epi32(_mm256_set1_epi32(gt.prim.start_vertex), vid);
-	}
-
-	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
-		struct ve *ve = &gt.vf.ve[i];
-		struct vb *vb = &gt.vf.vb[ve->vb];
-		__m256i index;
-
-		if (!gt.vf.ve[i].valid)
-			continue;
-
-		if (gt.vf.ve[i].instancing) {
-			index = _mm256_set1_epi32(gt.prim.start_instance + iid / gt.vf.ve[i].step_rate);
-		} else {
-			index = vertex_index;
-		}
-
-		__m256i offset =
-			_mm256_add_epi32( _mm256_mullo_epi32(index, _mm256_set1_epi32(vb->pitch)),
-					  _mm256_set1_epi32(ve->offset));
-
-		load_format_simd8(vb->data, ve->format, offset, mask, &buffer->data[a]);
-
-		for (uint32_t c = 0; c < 4; c++) {
-			switch (ve->cc[c]) {
-			case VFCOMP_STORE_0:
-				buffer->data[a + c].ireg = _mm256_setzero_si256();
-				break;
-			case VFCOMP_STORE_1_FP:
-				buffer->data[a + c].reg = _mm256_set1_ps(1.0f);
-				break;
-			case VFCOMP_STORE_1_INT:
-				buffer->data[a + c].ireg = _mm256_set1_epi32(1);
-				break;
-			}
-		}
-
-		a += 4;
-
-		/* edgeflag */
-	}
-
-	/* 3DSTATE_VF_SGVS */
-	if (gt.vf.iid_enable) {
-		a = gt.vf.iid_element * 4 + gt.vf.iid_component;
-		buffer->data[a].ireg = _mm256_set1_epi32(iid);
-	}
-	if (gt.vf.vid_enable) {
-		a = gt.vf.vid_element * 4 + gt.vf.vid_component;
-		buffer->data[a].ireg = vid;
-	}
-
-	if (trace_mask & TRACE_VF) {
-		struct reg v = { .ireg = vid };
-		ksim_trace(TRACE_VF, "Loaded vue for idd=%d, vid=[", iid);
+	uint32_t count = gt.vf.ve_count;
+	if (gt.vf.iid_element + 1 > count)
+		count = gt.vf.iid_element + 1;
+	if (gt.vf.vid_element + 1 > count)
+		count = gt.vf.vid_element + 1;
+	for (uint32_t i = 0; i < count * 4; i++) {
+		ksim_trace(TRACE_VF, "  0x%04x:  ", (void *) &buffer->data[i] - (void *) buffer);
 		for (uint32_t c = 0; c < 8; c++)
-			ksim_trace(TRACE_VF, " %d", v.ud[c]);
-		ksim_trace(TRACE_VF, " ]\n");
-
-		uint32_t count = gt.vf.ve_count;
-		if (gt.vf.iid_element + 1 > count)
-			count = gt.vf.iid_element + 1;
-		if (gt.vf.vid_element + 1 > count)
-			count = gt.vf.vid_element + 1;
-		for (uint32_t i = 0; i < count * 4; i++) {
-			ksim_trace(TRACE_VF, "    ");
-			for (uint32_t c = 0; c < 8; c++)
-				ksim_trace(TRACE_VF, "  %8.2f", buffer->data[i].f[c]);
-			ksim_trace(TRACE_VF, "\n");
-		}
+			ksim_trace(TRACE_VF, "  %8.2f", buffer->data[i].f[c]);
+		ksim_trace(TRACE_VF, "\n");
 	}
 }
 
@@ -467,6 +385,227 @@ store_v8(struct builder *bld, uint32_t offset, int reg)
 	builder_emit_region_store(bld, &r, reg);
 }
 
+static int
+emit_gather(struct builder *bld, int offset, uint32_t scale, uint32_t base_offset)
+{
+	/* This little gather helper loads the mask, gathers and then
+	 * invalidates and releases the mask register. vpgatherdd
+	 * writes 0 to the mask register, so we need to reload it for
+	 * each gather and make sure we don't reuse the mask
+	 * register. */
+
+	int mask = load_v8(bld, offsetof(struct vf_buffer, t.mask_q1));
+	int reg = builder_get_reg(bld);
+
+	builder_emit_vpgatherdd(bld, reg, offset, mask, scale, base_offset);
+	bld->regs[mask].contents = 0;
+	builder_release_reg(bld, mask);
+
+	return reg;
+}
+
+static void
+emit_load_format_simd8(struct builder *bld, enum GEN9_SURFACE_FORMAT format,
+		       void *base, int offset, int *dst)
+{
+	void **p = builder_get_const_data(bld, sizeof(*p), sizeof(*p));
+	*p = base;
+	builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
+
+	switch (format) {
+	case SF_R32_FLOAT:
+	case SF_R32_SINT:
+	case SF_R32_UINT:
+		dst[0] = emit_gather(bld, offset, 1, 0);
+		dst[1] = builder_get_reg_with_uniform(bld, 0);
+		dst[2] = builder_get_reg_with_uniform(bld, 0);
+		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		break;
+
+	case SF_R32G32_FLOAT:
+	case SF_R32G32_SINT:
+	case SF_R32G32_UINT:
+		dst[0] = emit_gather(bld, offset, 1, 0);
+		dst[1] = emit_gather(bld, offset, 1, 4);
+		dst[2] = builder_get_reg_with_uniform(bld, 0);
+		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		break;
+
+	case SF_R32G32B32_FLOAT:
+	case SF_R32G32B32_SINT:
+	case SF_R32G32B32_UINT:
+		dst[0] = emit_gather(bld, offset, 1, 0);
+		dst[1] = emit_gather(bld, offset, 1, 4);
+		dst[2] = emit_gather(bld, offset, 1, 8);
+		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		break;
+
+	case SF_R32G32B32A32_FLOAT:
+	case SF_R32G32B32A32_SINT:
+	case SF_R32G32B32A32_UINT:
+		dst[0] = emit_gather(bld, offset, 1, 0);
+		dst[1] = emit_gather(bld, offset, 1, 4);
+		dst[2] = emit_gather(bld, offset, 1, 8);
+		dst[3] = emit_gather(bld, offset, 1, 12);
+		break;
+
+	default:
+		stub("fetch format");
+		ksim_unreachable("fetch_format");
+		break;
+	}
+}
+
+static void
+builder_emit_vertex_fetch(struct builder *bld)
+{
+	ksim_trace(TRACE_EU, "[ff vertex fetch]\n");
+
+	int vid = load_v8(bld, offsetof(struct vf_buffer, vid));
+	if (gt.prim.start_vertex > 0) {
+		int start_vertex = load_uniform(bld, offsetof(struct vf_buffer, start_vertex));
+		builder_emit_vpaddd(bld, vid, vid, start_vertex);
+	}
+
+	if (gt.prim.access_type == RANDOM) {
+		ksim_trace(TRACE_EU, "[ff vertex fetch: index buffer fetch]\n");
+
+		/* FIXME: INDEX_BYTE and INDEX_WORD can read outside
+		 * the index buffer. */
+		int dst;
+		builder_emit_load_rax(bld, offsetof(struct vf_buffer, index_buffer));
+		switch (gt.vf.ib.format) {
+		case INDEX_BYTE:
+			dst = emit_gather(bld, vid, 0, 0);
+			builder_emit_vpslld(bld, dst, dst, 24);
+			builder_emit_vpsrld(bld, dst, dst, 24);
+			break;
+		case INDEX_WORD:
+			dst = emit_gather(bld, vid, 2, 0);
+			builder_emit_vpslld(bld, dst, dst, 16);
+			builder_emit_vpsrld(bld, dst, dst, 16);
+			break;
+		case INDEX_DWORD:
+			dst = emit_gather(bld, vid, 4, 0);
+			break;
+		}
+
+		if (gt.prim.base_vertex > 0) {
+			int base_vertex =
+				load_uniform(bld, offsetof(struct vf_buffer, base_vertex));
+			builder_emit_vpaddd(bld, dst, dst, base_vertex);
+		}
+		vid = dst;
+	}
+
+	builder_trace(bld, trace_file);
+	builder_release_regs(bld);
+
+	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
+		struct ve *ve = &gt.vf.ve[i];
+		struct vb *vb = &gt.vf.vb[ve->vb];
+		int index;
+
+		if (!gt.vf.ve[i].valid)
+			continue;
+
+		ksim_trace(TRACE_EU, "[ff vertex fetch: ve %d: offset %d, pitch %d, format %d]\n",
+			   i, ve->offset, vb->pitch, ve->format);
+
+		if (gt.vf.ve[i].instancing) {
+			if (gt.vf.ve[i].step_rate > 1) {
+				/* FIXME: index = _mm256_set1_epi32(gt.prim.start_instance + iid / gt.vf.ve[i].step_rate); */
+				stub("instancing step rate > 1");
+				index = load_uniform(bld, offsetof(struct vf_buffer, iid));
+			} else {
+				index = load_uniform(bld, offsetof(struct vf_buffer, iid));
+			}
+			if (gt.prim.start_instance > 0) {
+				int start_instance = load_uniform(bld, offsetof(struct vf_buffer, start_instance));
+				builder_emit_vpaddd(bld, index, index, start_instance);
+			}
+		} else {
+			index = builder_use_reg(bld, &bld->regs[vid]);
+		}
+
+		int offset = builder_get_reg(bld);
+		int element_offset;
+
+		if (vb->pitch == 0) {
+			offset = builder_get_reg_with_uniform(bld, ve->offset);
+		} else if (is_power_of_two(vb->pitch)) {
+			uint32_t pitch_log2 = __builtin_ffs(vb->pitch) - 1;
+			builder_emit_vpslld(bld, offset, index, pitch_log2);
+		} else if (vb->pitch % 3 == 0 && is_power_of_two(vb->pitch / 3)) {
+			builder_emit_vpslld(bld, offset, index, 1);
+			builder_emit_vpaddd(bld, offset, offset, index);
+			uint32_t pitch_log2 = __builtin_ffs(vb->pitch / 3) - 1;
+			builder_emit_vpslld(bld, offset, offset, pitch_log2);
+		} else {
+			int pitch = builder_get_reg_with_uniform(bld, vb->pitch);
+			builder_emit_vpmulld(bld, offset, pitch, index);
+		}
+
+		if (vb->pitch > 0 && ve->offset > 0) {
+			element_offset = builder_get_reg_with_uniform(bld, ve->offset);
+			builder_emit_vpaddd(bld, offset, offset, element_offset);
+		}
+
+		int dst[4];
+		emit_load_format_simd8(bld, ve->format, vb->data, offset, dst);
+
+		for (uint32_t c = 0; c < 4; c++) {
+			int src;
+			switch (ve->cc[c]) {
+			case VFCOMP_NOSTORE:
+				continue;
+			case VFCOMP_STORE_SRC:
+				src = dst[c];
+				break;
+			case VFCOMP_STORE_0:
+				src = builder_get_reg_with_uniform(bld, 0);
+				break;
+			case VFCOMP_STORE_1_FP:
+				src = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+				break;
+			case VFCOMP_STORE_1_INT:
+				src = builder_get_reg_with_uniform(bld, 1);
+				break;
+			case VFCOMP_STORE_PID:
+				ksim_unreachable("VFCOMP_STORE_PID");
+				break;
+			}
+			store_v8(bld, offsetof(struct vf_buffer, data[i * 4 + c]), src);
+		}
+
+		builder_trace(bld, trace_file);
+		builder_release_regs(bld);
+	}
+
+	if (gt.vf.iid_enable || gt.vf.vid_enable) {
+		ksim_trace(TRACE_EU, "[ff vertex fetch: system generated values]\n");
+		if (gt.vf.iid_enable) {
+			int iid = load_uniform(bld, offsetof(struct vf_buffer, iid));
+			uint32_t reg = gt.vf.iid_element * 4 + gt.vf.iid_component;
+			store_v8(bld, offsetof(struct vf_buffer, data[reg]), iid);
+		}
+		if (gt.vf.vid_enable) {
+			int vid = load_v8(bld, offsetof(struct vf_buffer, vid));
+			uint32_t reg = gt.vf.vid_element * 4 + gt.vf.vid_component;
+			store_v8(bld, offsetof(struct vf_buffer, data[reg]), vid);
+		}
+
+		builder_trace(bld, trace_file);
+		builder_release_regs(bld);
+	}
+
+	if (trace_mask & TRACE_VF) {
+		builder_emit_call(bld, dump_fetched_vue);
+		builder_invalidate_all(bld);
+	}
+
+}
+
 static uint32_t
 builder_emit_load_constants(struct builder *bld, struct vf_buffer *buffer,
 			    struct curbe *c, uint32_t start)
@@ -530,11 +669,17 @@ compile_vs(struct vf_buffer *buffer)
 		     gt.vs.binding_table_address,
 		     gt.vs.sampler_state_address);
 
+	uint32_t grf;
 	if (gt.vs.enable) {
-		uint32_t grf =
-			builder_emit_load_constants(&bld, buffer,
-						    &gt.vs.curbe,
-						    gt.vs.urb_start_grf);
+		grf = builder_emit_load_constants(&bld, buffer,
+						  &gt.vs.curbe,
+						  gt.vs.urb_start_grf);
+	}
+
+	/* Always need to fetch, even if we don't have a VS. */
+	builder_emit_vertex_fetch(&bld);
+
+	if (gt.vs.enable) {
 		builder_emit_load_vue(&bld, grf);
 		builder_emit_shader(&bld, gt.vs.ksp);
 	}
@@ -644,6 +789,10 @@ init_vf_buffer(struct vf_buffer *buffer)
 	uint64_t range;
 	buffer->index_buffer = map_gtt_offset(gt.vf.ib.address, &range);
 
+	buffer->start_vertex = gt.prim.start_vertex;
+	buffer->base_vertex = gt.prim.base_vertex;
+	buffer->start_instance = gt.prim.start_instance;
+
 	if (gt.clip.guardband_clip_test_enable) {
 		buffer->clip = gt.sf.guardband;
 	} else {
@@ -708,7 +857,10 @@ dispatch_primitive(void)
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			__m256i vid = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(i));
 			__m256i mask = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(gt.prim.vertex_count - i));
-			fetch_vertices(&buffer, iid, vid, mask);
+
+			buffer.iid = iid;
+			buffer.vid.ireg = vid;
+
 			dispatch_vs(&buffer, mask);
 			flush_to_vues(&buffer, mask, &state);
 			assemble_primitives(&state);

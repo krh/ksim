@@ -652,6 +652,9 @@ int
 builder_get_reg_with_uniform(struct builder *bld, uint32_t d);
 
 void
+builder_release_reg(struct builder *bld, int reg_num);
+
+void
 builder_release_regs(struct builder *bld);
 
 bool
