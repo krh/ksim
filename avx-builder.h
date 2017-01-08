@@ -727,7 +727,8 @@ builder_trace(struct builder *bld, FILE *fp)
 	if (trace_mask & TRACE_AVX) {
 		while (builder_disasm(bld))
 			fprintf(fp, "      %s\n", bld->disasm_output);
-
-		builder_dump_register_cache(bld, fp);
 	}
+
+	if (trace_mask & TRACE_RA)
+		builder_dump_register_cache(bld, fp);
 }

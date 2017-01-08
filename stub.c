@@ -1020,6 +1020,7 @@ static const struct { const char *name; uint32_t flag; } debug_tags[] = {
 	{ "urb",	TRACE_URB },
 	{ "queue",	TRACE_QUEUE },
 	{ "avx",	TRACE_AVX },
+	{ "ra",		TRACE_RA },
 	{ "all",	~0 },
 };
 

@@ -207,12 +207,10 @@ builder_emit_region_load(struct builder *bld, const struct eu_region *region)
 		      (areg->contents & BUILDER_REG_CONTENTS_EU_REG) &&
 		      memcmp(region, &areg->region, sizeof(*region)) == 0)) {
 		int reg = builder_use_reg(bld, areg);
-		if (trace_mask & TRACE_AVX) {
-			ksim_trace(TRACE_AVX, "*** found match for reg g%d.%d<%d,%d,%d>%d: %%ymm%d\n",
-				   region->offset / 32, region->offset & 31,
-				   region->vstride, region->width, region->hstride,
-				   region->type_size, reg);
-		}
+		ksim_trace(TRACE_RA, "*** found match for reg g%d.%d<%d,%d,%d>%d: %%ymm%d\n",
+			   region->offset / 32, region->offset & 31,
+			   region->vstride, region->width, region->hstride,
+			   region->type_size, reg);
 
 		return reg;
 	}
@@ -477,7 +475,7 @@ builder_invalidate_region(struct builder *bld, const struct eu_region *r)
 		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
 		    regions_overlap(r, &bld->regs[i].region)) {
 			bld->regs[i].contents &= ~BUILDER_REG_CONTENTS_EU_REG;
-			ksim_trace(TRACE_AVX,
+			ksim_trace(TRACE_RA,
 				   "*** invalidate g%d.%d (ymm%d)\n",
 				   bld->regs[i].region.offset / 32,
 				   bld->regs[i].region.offset & 31, i);

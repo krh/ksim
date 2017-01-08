@@ -101,6 +101,7 @@ enum {
 	TRACE_URB = 1 << 10,		/* urb traffic */
 	TRACE_QUEUE = 1 << 11,		/* thread queue */
 	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
+	TRACE_RA = 1 << 13,		/* register allocator */
 };
 
 extern uint32_t trace_mask;
