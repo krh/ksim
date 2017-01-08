@@ -342,6 +342,12 @@ emit_vpgatherdd_scale1_offset24(struct builder *bld, int dst, int index, int mas
 	builder_emit_vpgatherdd(bld, dst, index, mask, 1, 24);
 }
 
+static inline void
+emit_vpmaskmovd(struct builder *bld, int mask, int src)
+{
+	builder_emit_vpmaskmovd(bld, mask, src, 0x300);
+}
+
 int main(int argc, char *argv[])
 {
 	check_reg_imm_emit_function("vpbroadcastd 0x%2$x(%%rip),%%ymm%1$d",
@@ -372,6 +378,7 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vdivps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vdivps);
 	check_triop_emit_function("vsubps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vsubps);
 	check_triop_emit_function("vpand %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpand);
+	check_triop_emit_function("vpandn %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpandn);
 	check_triop_emit_function("vpxor %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpxor);
 	check_triop_emit_function("vpor %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpor);
 	check_triop_emit_function("vpsrlvd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpsrlvd);
@@ -392,6 +399,7 @@ int main(int argc, char *argv[])
 	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
 	check_binop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
 	check_binop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,0x300(%%rdi)", emit_vpmaskmovd);
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 

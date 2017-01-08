@@ -128,6 +128,13 @@ builder_emit_m256i_load_rip_relative(struct builder *bld, int dst, int32_t offse
 }
 
 static inline void
+builder_emit_vpmaskmovd(struct builder *bld, int mask, int src, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (mask & 8) * 16, 0x7d - src * 8, 0x8e, 0x87 + (mask & 7) * 8,
+	     emit_uint32(offset));
+}
+
+static inline void
 builder_emit_m256i_store(struct builder *bld, int src, int32_t offset)
 {
 	emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, 0x87 + (src & 7) * 0x08, emit_uint32(offset));
@@ -373,6 +380,12 @@ static inline void
 builder_emit_vpand(struct builder *bld, int dst, int src0, int src1)
 {
 	builder_emit_long_alu(bld, 0x0d, 0xdb, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpandn(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0xdf, dst, src0, src1);
 }
 
 static inline void
