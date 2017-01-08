@@ -341,51 +341,6 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 }
 
 static int
-load_uniform(struct builder *bld, uint32_t offset)
-{
-	struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 1,
-		.vstride = 0,
-		.width = 1,
-		.hstride = 0
-	};
-
-	return builder_emit_region_load(bld, &r);
-}
-
-static int
-load_v8(struct builder *bld, uint32_t offset)
-{
-	struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 8,
-		.vstride = 8,
-		.width = 8,
-		.hstride = 1
-	};
-
-	return builder_emit_region_load(bld, &r);
-}
-
-static void
-store_v8(struct builder *bld, uint32_t offset, int reg)
-{
-	const struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 8,
-		.vstride = 8,
-		.width = 8,
-		.hstride = 1
-	};
-
-	builder_emit_region_store(bld, &r, reg);
-}
-
-static int
 emit_gather(struct builder *bld, int offset, uint32_t scale, uint32_t base_offset)
 {
 	/* This little gather helper loads the mask, gathers and then
