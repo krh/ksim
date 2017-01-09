@@ -521,6 +521,16 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 
 	/* FIXME: write masks */
 
+	if (dst->file == BRW_ARCHITECTURE_REGISTER_FILE) {
+		switch (dst->num) {
+		case BRW_ARF_NULL:
+			return;
+		default:
+			stub("arf store: %d\n", dst->num);
+			return;
+		}
+	}
+
 	if (dst->hstride > 1)
 		stub("eu: dst hstride %d is > 1", dst->hstride);
 
