@@ -1135,14 +1135,18 @@ builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
 	void *insn;
 	bool eot;
 	uint64_t ksp, range;
-	void *p;
+	void *p, *start;
 
 	brw_init_compaction_tables(&ksim_devinfo);
 
 	ksp = kernel_offset + gt.instruction_base_address;
-	p = map_gtt_offset(ksp, &range);
+	start = map_gtt_offset(ksp, &range);
+	p = start;
 
 	do {
+		if (trace_mask & TRACE_EU)
+			fprintf(trace_file, "%04lx  ", p - start);
+
 		if (unpack_inst_common(p).cmpt_control) {
 			brw_uncompact_instruction(&ksim_devinfo, &uncompacted, p);
 			insn = &uncompacted;
