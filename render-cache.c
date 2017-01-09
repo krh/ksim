@@ -451,8 +451,8 @@ sfid_render_cache_rt_write_simd8_r_uint8_ymajor(struct thread *t,
 }
 
 static void
-sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
-					       const struct sfid_render_cache_args *args)
+sfid_render_cache_rt_write_simd8_rgba8_ymajor(struct thread *t,
+					      const struct sfid_render_cache_args *args)
 {
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
@@ -476,6 +476,12 @@ sfid_render_cache_rt_write_simd8_unorm8_ymajor(struct thread *t,
 		g = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[1].reg, scale), half));
 		r = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[2].reg, scale), half));
 		a = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(src[3].reg, scale), half));
+		break;
+	case SF_R8G8B8A8_UINT:
+		r = src[0].ireg;
+		g = src[1].ireg;
+		b = src[2].ireg;
+		a = src[3].ireg;
 		break;
 	default:
 		stub("unorm8 ymajor format");
@@ -546,6 +552,7 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			else
 				stub("rep16 rt write format/tile_mode: %d %d",
 				     args->rt.format, args->rt.tile_mode);
+			break;
 
 		case 4: /* simd8 */
 			if (args->rt.format == SF_R16G16B16A16_UNORM &&
@@ -577,14 +584,17 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 				return sfid_render_cache_rt_write_simd8_r_uint8_ymajor;
 			else if (args->rt.format == SF_R8G8B8A8_UNORM &&
 				 args->rt.tile_mode == YMAJOR)
-				return sfid_render_cache_rt_write_simd8_unorm8_ymajor;
+				return sfid_render_cache_rt_write_simd8_rgba8_ymajor;
 			else if (args->rt.format == SF_B8G8R8A8_UNORM &&
 				 args->rt.tile_mode == YMAJOR)
-				return sfid_render_cache_rt_write_simd8_unorm8_ymajor;
-			else
-				stub("simd8 rt write format/tile_mode: %d %d",
-				     args->rt.format, args->rt.tile_mode);
-			break;
+				return sfid_render_cache_rt_write_simd8_rgba8_ymajor;
+			else if (args->rt.format == SF_R8G8B8A8_UINT &&
+				 args->rt.tile_mode == YMAJOR)
+				return sfid_render_cache_rt_write_simd8_rgba8_ymajor;
+
+			stub("simd8 rt write format/tile_mode: %d %d",
+			     args->rt.format, args->rt.tile_mode);
+			return NULL;
 		default:
 			stub("rt write type %d", type);
 			return NULL;
