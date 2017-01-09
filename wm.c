@@ -374,6 +374,7 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 		}
 	};
 
+	uint32_t mask = _mm256_movemask_ps((__m256) t.mask_q1);
 	t.grf[1] = (struct reg) {
 		.ud = {
 			/* R1.0-1: MBZ */
@@ -390,7 +391,7 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 			/* R1.6: MBZ */
 			0 | 0,
 			/* R1.7: Pixel sample mask and copy */
-			t.mask | (t.mask << 16)
+			mask | (mask << 16)
 
 		}
 	};

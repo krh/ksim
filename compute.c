@@ -33,7 +33,7 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	const uint32_t stack_size = 0;
 	struct thread t;
 
-	t.mask = 0xff;
+	t.mask_q1 = _mm256_set1_epi32(-1);
 
 	t.grf[0] = (struct reg) {
 		.ud = {

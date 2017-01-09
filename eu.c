@@ -571,7 +571,9 @@ static void
 sfid_dataport1_untyped_write(struct thread *t, struct sfid_dataport1_args *args)
 {
 	uint32_t c;
-	const uint32_t mask = t->mask & t->grf[args->src].ud[7];
+	const uint32_t mask =
+		_mm256_movemask_ps((__m256) t->mask_q1) &
+		t->grf[args->src].ud[7];
 
 	for_each_bit (c, mask) {
 		uint32_t *dst = args->buffer + t->grf[args->src + 1].ud[c];

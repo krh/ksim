@@ -32,7 +32,6 @@ dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	buffer->t.mask = _mm256_movemask_ps((__m256) mask);
 	buffer->t.mask_q1 = mask;
 
 	/* Fixed function header */
