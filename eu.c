@@ -1093,6 +1093,16 @@ compile_inst(struct builder *bld, struct inst *inst)
 		break;
 	}
 
+	uint32_t cond_modifier = unpack_inst_common(inst).cond_modifier;
+	uint32_t flag = unpack_inst_common(inst).flag_nr;
+	if (opcode != BRW_OPCODE_SEND && opcode != BRW_OPCODE_SENDC &&
+	    cond_modifier != BRW_CONDITIONAL_NONE) {
+		int zero = builder_get_reg_with_uniform(bld, 0);
+		int flag_reg = builder_get_reg(bld);
+		builder_emit_cmp(bld, cond_modifier, flag_reg, dst_reg, zero);
+		store_v8(bld, offsetof(struct thread, f[flag]), flag_reg);
+	}
+
 	if (opcode_info[opcode].store_dst)
 		builder_emit_dst_store(bld, dst_reg, inst, &dst);
 
