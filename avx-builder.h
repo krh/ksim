@@ -35,6 +35,7 @@ struct builder {
 	struct avx2_reg regs[16];
 	struct list regs_lru_list;
 	struct list used_regs_list;
+	int scope;
 
 	/* Disassembly fields */
 	struct disassemble_info info;

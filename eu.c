@@ -487,9 +487,23 @@ void
 builder_emit_region_store(struct builder *bld,
 			  const struct eu_region *region, int dst)
 {
+	int mask;
+
+	if (bld->scope > 0) {
+		mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
+
+		/* Don't have a good way to do mask stores for
+		 * type_size < 4 and need builder_emit functions for
+		 * exec_size < 8. */
+		ksim_assert(region->exec_size == 8 && region->type_size == 4);
+	}
+
 	switch (region->exec_size * region->type_size) {
 	case 32:
-		builder_emit_m256i_store(bld, dst, region->offset);
+		if (bld->scope == 0)
+			builder_emit_m256i_store(bld, dst, region->offset);
+		else
+			builder_emit_vpmaskmovd(bld, dst, mask, region->offset);
 		break;
 	case 16:
 		builder_emit_m128i_store(bld, dst, region->offset);
@@ -762,17 +776,35 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_JMPI:
 		stub("BRW_OPCODE_JMPI");
 		break;
-	case BRW_OPCODE_IF:
-		stub("BRW_OPCODE_IF");
+	case BRW_OPCODE_IF: {
+		int f = load_v8(bld, offsetof(struct thread, f[unpack_inst_common(inst).flag_nr]));
+		int mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
+		int new_mask = builder_get_reg(bld);
+		if (unpack_inst_common(inst).pred_inv)
+			builder_emit_vpandn(bld, new_mask, mask, f);
+		else
+			builder_emit_vpand(bld, new_mask, mask, f);
+		store_v8(bld, offsetof(struct thread, mask_stack[bld->scope + 1]), new_mask);
+		bld->scope++;
 		break;
+	}
 	case BRW_OPCODE_IFF:
 		stub("BRW_OPCODE_IFF");
 		break;
-	case BRW_OPCODE_ELSE:
-		stub("BRW_OPCODE_ELSE");
+	case BRW_OPCODE_ELSE: {
+		ksim_assert(bld->scope > 0);
+		int prev_mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope - 1]));
+		int mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
+		builder_emit_vpxor(bld, mask, prev_mask, mask);
+		bld->scope--; /* Use prev scope for storing mask */
+		store_v8(bld, offsetof(struct thread, mask_stack[bld->scope + 1]), mask);
+		bld->scope++;
+		builder_invalidate_all(bld);
 		break;
+	}
 	case BRW_OPCODE_ENDIF:
-		stub("BRW_OPCODE_ENDIF");
+		bld->scope--;
+		builder_invalidate_all(bld);
 		break;
 	case BRW_OPCODE_DO:
 		stub("BRW_OPCODE_DO");

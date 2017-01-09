@@ -73,6 +73,7 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	bld->p = (uint8_t *) bld->shader;
 	bld->binding_table_address = surfaces;
 	bld->sampler_state_address = samplers;
+	bld->scope = 0;
 
 	bld->disasm_tail = bld->p - (uint8_t *) shader_pool;
 	init_disassemble_info(&bld->info, bld, builder_disasm_printf);
