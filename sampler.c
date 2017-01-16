@@ -23,6 +23,7 @@
 
 #include "eu.h"
 #include "avx-builder.h"
+#include "kir.h"
 
 enum simd_mode {
 	SIMD_MODE_SIMD8D_SIMD4x2,
@@ -613,7 +614,7 @@ sfid_sampler_noop_stub(struct thread *t, const struct sfid_sampler_args *args)
 }
 
 void
-builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
+builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	const int exec_size = 1 << unpack_inst_common(inst).exec_size;
@@ -624,7 +625,7 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 	const struct message_descriptor d =
 		unpack_message_descriptor(send.function_control);
 
-	args = builder_get_const_data(bld, sizeof *args, 8);
+	args = get_const_data(sizeof *args, 8);
 
 	args->dst = unpack_inst_2src_dst(inst).num;
 	num = unpack_inst_2src_src0(inst).num;
@@ -634,11 +635,9 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 		args->header = -1;
 	args->src = num;
 
-	bool tex_valid = get_surface(bld->binding_table_address,
+	bool tex_valid = get_surface(prog->binding_table_address,
 				     d.binding_table_index, &args->tex);
 	ksim_assert(tex_valid);
-
-	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
 
 	switch (d.message_type) {
 	case SAMPLE_MESSAGE_LD:
@@ -676,23 +675,25 @@ builder_emit_sfid_sampler(struct builder *bld, struct inst *inst)
 		break;
 	}
 
-	builder_emit_call(bld, func);
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_const_send);
+	insn->send.src = unpack_inst_2src_src0(inst).num;
+	insn->send.mlen = send.mlen;
+	insn->send.dst = unpack_inst_2src_dst(inst).num;
+	insn->send.rlen = send.rlen;
+	insn->send.func = func;
+	insn->send.args = args;
 
 	args->rlen = send.rlen;
 	if (args->rlen == 0) {
 		const uint32_t bti = 0; /* Should be M0.2 from header */
 		const uint32_t opcode = 12;
 		const uint32_t type = 4;
-		void *func;
 		/* dst is the null reg for rlen 0 messages, and so
 		 * we'll end up overwriting grf0 - grf3.  We need the
 		 * fragment x and y from grf1. so move it up. */
 		args->dst = 2;
 
-		func = builder_emit_sfid_render_cache_helper(bld, opcode,
-							     type, args->dst, bti);
-		builder_emit_jmp_relative(bld, (uint8_t *) func - bld->p);
+		builder_emit_sfid_render_cache_helper(prog, opcode,
+						      type, args->dst, 4, bti);
 	}
-
-	builder_invalidate_all(bld);
 }

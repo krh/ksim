@@ -36,6 +36,7 @@
 
 #include "eu.h"
 #include "avx-builder.h"
+#include "kir.h"
 
 static const struct {
    int num_srcs;
@@ -101,7 +102,7 @@ static const struct {
    [BRW_OPCODE_DP2]             = { .num_srcs = 2,. store_dst = true },
    [BRW_OPCODE_LINE]            = { .num_srcs = 0, .store_dst = true },
    [BRW_OPCODE_PLN]             = { .num_srcs = 0, .store_dst = true },
-   [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = false },
+   [BRW_OPCODE_MAD]             = { .num_srcs = 3, .store_dst = true },
    [BRW_OPCODE_LRP]             = { .num_srcs = 3, .store_dst = true },
    [BRW_OPCODE_NENOP]           = { .num_srcs = 0, .store_dst = false },
    [BRW_OPCODE_NOP]             = { .num_srcs = 0, .store_dst = false },
@@ -109,19 +110,19 @@ static const struct {
 
 static void
 fill_region_for_src(struct eu_region *region, struct inst_src *src,
-		    uint32_t subnum_bytes, struct builder *bld)
+		    uint32_t subnum_bytes, struct kir_program *prog)
 {
-	int row_offset = bld->exec_offset / src->width;
+	int row_offset = prog->exec_offset / src->width;
 
 	region->offset = src->num * 32 + subnum_bytes +
 		row_offset * src->vstride * type_size(src->type);
 	region->type_size = type_size(src->type);
-	region->exec_size = bld->exec_size;
+	region->exec_size = prog->exec_size;
 	region->hstride = src->hstride;
 
 	if (src->width == src->vstride && src->hstride == 1) {
-		region->vstride = bld->exec_size;
-		region->width = bld->exec_size;
+		region->vstride = prog->exec_size;
+		region->width = prog->exec_size;
 	} else {
 		region->vstride = src->vstride;
 		region->width = src->width;
@@ -130,161 +131,50 @@ fill_region_for_src(struct eu_region *region, struct inst_src *src,
 
 static void
 fill_region_for_dst(struct eu_region *region, struct inst_dst *dst,
-		    uint32_t subnum, struct builder *bld)
+		    uint32_t subnum, struct kir_program *prog)
 {
 	region->offset =
 		offsetof(struct thread, grf[dst->num]) + subnum +
-		bld->exec_offset * dst->hstride * type_size(dst->type);
+		prog->exec_offset * dst->hstride * type_size(dst->type);
 
 	region->type_size = type_size(dst->type);
-	region->exec_size = bld->exec_size;
-	region->vstride = bld->exec_size;
-	region->width = bld->exec_size;
+	region->exec_size = prog->exec_size;
+	region->vstride = prog->exec_size;
+	region->width = prog->exec_size;
 	region->hstride = 1;
 }
 
-static bool
-regions_overlap(const struct eu_region *a, const struct eu_region *b)
+static struct kir_reg
+kir_program_emit_src_modifiers(struct kir_program *prog,
+			       struct inst *inst, struct inst_src *src,
+			       struct kir_reg reg)
 {
-	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
-	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
-
-	/* This is a coarse approximation, but probably sufficient: if
-	 * the "bounding boxs" of the regions overlap, we consider the
-	 * regions overlapping. This misses cases where a region could
-	 * be contained in a gap (ie, where width < vstride) of
-	 * another region or two regions could be interleaved. */
-
-	return a->offset + a_size > b->offset &&
-		 b->offset + b_size > a->offset;
-}
-
-static int
-builder_emit_src_modifiers(struct builder *bld,
-			   struct inst *inst, struct inst_src *src, int reg)
-{
-	/* FIXME: Build the load above into the source modifier when possible, eg:
-	 *
-	 *     vpabsd 0x456(%rdi), %ymm1
-	 */
-
 	if (src->abs) {
 		if (src->type == BRW_HW_REG_TYPE_F) {
-			int tmp_reg = builder_get_reg_with_uniform(bld, 0x7fffffff);
-			builder_emit_vpand(bld, tmp_reg, reg, tmp_reg);
-			bld->regs[tmp_reg].contents = 0;
-			reg = tmp_reg;
+			kir_program_immd(prog, 0x7fffffff);
+			reg = kir_program_alu(prog, kir_and, reg, prog->dst);
 		} else {
-			int tmp_reg = builder_get_reg(bld);
-			builder_emit_vpabsd(bld, tmp_reg, reg);
-			reg = tmp_reg;
+			reg = kir_program_alu(prog, kir_absd, reg, prog->dst);
 		}
 	}
 
 	if (src->negate) {
-		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
-
+		kir_program_immd(prog, 0);
 		if (is_logic_instruction(inst)) {
-			builder_emit_vpxor(bld, tmp_reg, reg, tmp_reg);
+			reg = kir_program_alu(prog, kir_xor, prog->dst, reg);
 		} else if (src->type == BRW_HW_REG_TYPE_F) {
-			builder_emit_vsubps(bld, tmp_reg, reg, tmp_reg);
+			reg = kir_program_alu(prog, kir_subf, prog->dst, reg);
 		} else {
-			builder_emit_vpsubd(bld, tmp_reg, reg, tmp_reg);
+			reg = kir_program_alu(prog, kir_subd, prog->dst, reg);
 		}
-		bld->regs[tmp_reg].contents = 0;
-		reg = tmp_reg;
 	}
 
 	return reg;
 }
 
-int
-builder_emit_region_load(struct builder *bld, const struct eu_region *region)
-{
-	struct avx2_reg *areg;
-
-	if (list_find(areg, &bld->regs_lru_list, link,
-		      (areg->contents & BUILDER_REG_CONTENTS_EU_REG) &&
-		      memcmp(region, &areg->region, sizeof(*region)) == 0)) {
-		int reg = builder_use_reg(bld, areg);
-		ksim_trace(TRACE_RA, "*** found match for reg g%d.%d<%d,%d,%d>%d: %%ymm%d\n",
-			   region->offset / 32, region->offset & 31,
-			   region->vstride, region->width, region->hstride,
-			   region->type_size, reg);
-
-		return reg;
-	}
-
-	int reg = builder_get_reg(bld);
-	bld->regs[reg].contents |= BUILDER_REG_CONTENTS_EU_REG;
-	memcpy(&bld->regs[reg].region, region, sizeof(*region));
-
-	if (region->hstride == 1 && region->width == region->vstride) {
-		switch (region->type_size * region->exec_size) {
-		case 32:
-			builder_emit_m256i_load(bld, reg, region->offset);
-			break;
-		case 16:
-		default:
-			/* Could do broadcastq/d/w for sizes 8, 4 and
-			 * 2 to avoid loading too much */
-			builder_emit_m128i_load(bld, reg, region->offset);
-			break;
-		}
-	} else if (region->hstride == 0 && region->vstride == 0 && region->width == 1) {
-		switch (region->type_size) {
-		case 4:
-			builder_emit_vpbroadcastd(bld, reg, region->offset);
-			break;
-		default:
-			stub("unhandled broadcast load size %d\n", region->type_size);
-			break;
-		}
-	} else if (region->hstride == 0 && region->width == 4 && region->vstride == 1 &&
-		   region->type_size == 2) {
-		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
-
-		/* Handle the frag coord region */
-		builder_emit_vpbroadcastw(bld, tmp0_reg, region->offset);
-		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 4);
-		builder_emit_vinserti128(bld, tmp0_reg, tmp1_reg, tmp0_reg, 1);
-
-		builder_emit_vpbroadcastw(bld, reg, region->offset + 2);
-		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 6);
-		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
-
-		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
-	} else if (region->hstride == 1 && region->width * region->type_size) {
-		for (int i = 0; i < region->exec_size / region->width; i++) {
-			int offset = region->offset + i * region->vstride * region->type_size;
-			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
-		}
-	} else if (region->type_size == 4) {
-		int offset, i = 0, tmp_reg = reg;
-
-		for (int y = 0; y < region->exec_size / region->width; y++) {
-			for (int x = 0; x < region->width; x++) {
-				if (i == 4)
-					tmp_reg = builder_get_reg(bld);
-				offset = region->offset + (y * region->vstride + x * region->hstride) * region->type_size;
-				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
-				i++;
-			}
-		}
-		if (tmp_reg != reg)
-			builder_emit_vinserti128(bld, reg, tmp_reg, reg, 1);
-	} else {
-		stub("src: g%d.%d<%d,%d,%d>",
-		     region->offset / 32, region->offset & 31,
-		     region->vstride, region->width, region->hstride);
-	}
-
-	return reg;
-}
-
-static int
-builder_emit_type_conversion(struct builder *bld, int reg, int dst_type, int src_type)
+static struct kir_reg
+kir_program_emit_type_conversion(struct kir_program *prog,
+				 struct kir_reg reg, int dst_type, int src_type)
 {
 	switch (dst_type) {
 	case BRW_HW_REG_TYPE_UD:
@@ -292,84 +182,74 @@ builder_emit_type_conversion(struct builder *bld, int reg, int dst_type, int src
 		if (src_type == BRW_HW_REG_TYPE_UD || src_type == BRW_HW_REG_TYPE_D)
 			return reg;
 
-		int new_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UW)
-			builder_emit_vpmovzxwd(bld, new_reg, reg);
+			return kir_program_alu(prog, kir_zxwd, reg);
 		else if (src_type == BRW_HW_REG_TYPE_W)
-			builder_emit_vpmovsxwd(bld, new_reg, reg);
+			return kir_program_alu(prog, kir_sxwd, reg);
 		else if (src_type == BRW_HW_REG_TYPE_F)
-			builder_emit_vcvtps2dq(bld, new_reg, reg);
-		else
-			stub("src type %d for ud/d dst type\n", src_type);
-		return new_reg;
+			return kir_program_alu(prog, kir_ps2d, reg);
+
+		ksim_unreachable("src type %d for ud/d dst type\n", src_type);
 	}
+
 	case BRW_HW_REG_TYPE_UW:
 	case BRW_HW_REG_TYPE_W: {
 		if (src_type == BRW_HW_REG_TYPE_UW || src_type == BRW_HW_REG_TYPE_W)
 			return reg;
 
-		int tmp_reg = builder_get_reg(bld);
-		if (src_type == BRW_HW_REG_TYPE_UD) {
-			stub("not sure this pack is right");
-			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
-			builder_emit_vpackusdw(bld, tmp_reg, tmp_reg, reg);
-		} else if (src_type == BRW_HW_REG_TYPE_D) {
-			stub("not sure this pack is right");
-			builder_emit_vextractf128(bld, tmp_reg, reg, 1);
-			builder_emit_vpackssdw(bld, tmp_reg, tmp_reg, reg);
-		} else
-			stub("src type %d for uw/w dst type\n", src_type);
-		return tmp_reg;
+		ksim_unreachable("src type %d for uw/w dst type\n", src_type);
 	}
+
 	case BRW_HW_REG_TYPE_F: {
 		if (src_type == BRW_HW_REG_TYPE_F)
 			return reg;
 
-		int new_reg = builder_get_reg(bld);
 		if (src_type == BRW_HW_REG_TYPE_UW) {
-			builder_emit_vpmovzxwd(bld, new_reg, reg);
-			builder_emit_vcvtdq2ps(bld, new_reg, new_reg);
+			kir_program_alu(prog, kir_zxwd, reg);
+			return kir_program_alu(prog, kir_d2ps, prog->dst);
 		} else if (src_type == BRW_HW_REG_TYPE_W) {
-			builder_emit_vpmovsxwd(bld, new_reg, reg);
-			builder_emit_vcvtdq2ps(bld, new_reg, new_reg);
+			kir_program_alu(prog, kir_sxwd, reg);
+			return kir_program_alu(prog, kir_d2ps, prog->dst);
 		} else if (src_type == BRW_HW_REG_TYPE_UD) {
 			/* FIXME: Need to convert to int64 and then
 			 * convert to floats as there is no uint32 to
 			 * float cvt. */
-			builder_emit_vcvtdq2ps(bld, new_reg, reg);
+			return kir_program_alu(prog, kir_d2ps, reg);
 		} else if (src_type == BRW_HW_REG_TYPE_D) {
-			builder_emit_vcvtdq2ps(bld, new_reg, reg);
-		} else {
-			stub("src type %d for float dst\n", src_type);
+			return kir_program_alu(prog, kir_d2ps, reg);
 		}
-		return new_reg;
+
+		ksim_unreachable("src type %d for float dst\n", src_type);
 	}
+
 	case GEN8_HW_REG_TYPE_UQ:
 	case GEN8_HW_REG_TYPE_Q:
 	default:
-		stub("dst type\n", dst_type);
-		return reg;
+		ksim_unreachable("dst type\n", dst_type);
 	}
+
+	return kir_reg(0);
 }
 
-static int
-builder_emit_src_load(struct builder *bld,
-		      struct inst *inst, struct inst_src *src)
+static struct kir_reg
+kir_program_emit_src_load(struct kir_program *prog,
+			  struct inst *inst, struct inst_src *src)
 {
 	struct inst_common common = unpack_inst_common(inst);
 	struct inst_dst dst;
-	uint32_t *p;
-	int reg, src_type;
+	int src_type;
+	struct kir_insn *insn;
+	struct kir_reg reg;
 
 	src_type = src->type;
 	if (src->file == BRW_ARCHITECTURE_REGISTER_FILE) {
 		switch (src->num & 0xf0) {
 		case BRW_ARF_NULL:
-			reg = 0;
+			reg = kir_reg(0);
 			break;
 		default:
 			stub("architecture register file load");
-			reg = 0;
+			reg = kir_reg(0);
 			break;
 		}
 	} else if (src->file == BRW_IMMEDIATE_VALUE) {
@@ -377,40 +257,34 @@ builder_emit_src_load(struct builder *bld,
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
 		case BRW_HW_REG_TYPE_F: {
-			uint32_t ud = unpack_inst_imm(inst).ud;
-			reg = builder_get_reg_with_uniform(bld, ud);
+			insn = kir_program_add_insn(prog, kir_immd);
+			insn->imm.d = unpack_inst_imm(inst).d;
 			break;
 		}
 		case BRW_HW_REG_TYPE_UW:
 		case BRW_HW_REG_TYPE_W:
-			reg = builder_get_reg(bld);
-			stub("unhandled imm type in src load");
+			insn = kir_program_add_insn(prog, kir_immw);
+			insn->imm.d = unpack_inst_imm(inst).d;
 			break;
 
 		case BRW_HW_REG_IMM_TYPE_UV:
 			/* Gen6+ packed unsigned immediate vector */
-			reg = builder_get_reg(bld);
-			p = builder_get_const_data(bld, 8 * 2, 16);
-			memcpy(p, unpack_inst_imm(inst).uv, 8 * 2);
-			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
+			insn = kir_program_add_insn(prog, kir_immv);
+			memcpy(insn->imm.v, unpack_inst_imm(inst).v, sizeof(insn->imm.v));
 			src_type = BRW_HW_REG_TYPE_UW;
 			break;
 
 		case BRW_HW_REG_IMM_TYPE_VF:
 			/* packed float immediate vector */
-			reg = builder_get_reg(bld);
-			p = builder_get_const_data(bld, 4 * 4, 4);
-			memcpy(p, unpack_inst_imm(inst).vf, 4 * 4);
-			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
+			insn = kir_program_add_insn(prog, kir_immvf);
+			memcpy(insn->imm.vf, unpack_inst_imm(inst).vf, sizeof(insn->imm.vf));
 			src_type = BRW_HW_REG_TYPE_F;
 			break;
 
 		case BRW_HW_REG_IMM_TYPE_V:
 			/* packed int imm. vector; uword dest only */
-			reg = builder_get_reg(bld);
-			p = builder_get_const_data(bld, 8 * 2, 16);
-			memcpy(p, unpack_inst_imm(inst).v, 8 * 2);
-			builder_emit_vbroadcasti128_rip_relative(bld, reg, builder_offset(bld, p));
+			insn = kir_program_add_insn(prog, kir_immv);
+			memcpy(insn->imm.v, unpack_inst_imm(inst).v, sizeof(insn->imm.v));
 			src_type = BRW_HW_REG_TYPE_W;
 			break;
 
@@ -428,15 +302,15 @@ builder_emit_src_load(struct builder *bld,
 		struct eu_region region;
 
 		if (common.access_mode == BRW_ALIGN_1)
-			fill_region_for_src(&region, src, src->da1_subnum, bld);
+			fill_region_for_src(&region, src, src->da1_subnum, prog);
 		else
-			fill_region_for_src(&region, src, src->da16_subnum, bld);
+			fill_region_for_src(&region, src, src->da16_subnum, prog);
 
-		reg = builder_emit_region_load(bld, &region);
-		reg = builder_emit_src_modifiers(bld, inst, src, reg);
+		reg = kir_program_load_region(prog, &region);
+		reg = kir_program_emit_src_modifiers(prog, inst, src, reg);
 	} else {
 		stub("unhandled src");
-		reg = 0;
+		reg = kir_reg(0);
 	}
 
 	if (opcode_info[common.opcode].num_srcs == 3)
@@ -444,13 +318,14 @@ builder_emit_src_load(struct builder *bld,
 	else
 		dst = unpack_inst_2src_dst(inst);
 
-	reg = builder_emit_type_conversion(bld, reg, dst.type, src_type);
+	reg = kir_program_emit_type_conversion(prog, reg, dst.type, src_type);
 
 	return reg;
 }
 
-static void
-builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
+static struct kir_reg
+emit_cmp(struct kir_program *prog, int modifier,
+	 struct kir_reg src0, struct kir_reg src1)
 {
 	static uint32_t eu_to_avx_cmp[] = {
 		[BRW_CONDITIONAL_NONE]	= 0,
@@ -465,70 +340,12 @@ builder_emit_cmp(struct builder *bld, int modifier, int dst, int src0, int src1)
 		[BRW_CONDITIONAL_U]	= 0,
 	};
 
-	builder_emit_vcmpps(bld, eu_to_avx_cmp[modifier], dst, src0, src1);
+	return kir_program_alu(prog, kir_cmp, src0, src1, eu_to_avx_cmp[modifier]);
 }
 
 static void
-builder_invalidate_region(struct builder *bld, const struct eu_region *r)
-{
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
-		    regions_overlap(r, &bld->regs[i].region)) {
-			bld->regs[i].contents &= ~BUILDER_REG_CONTENTS_EU_REG;
-			ksim_trace(TRACE_RA,
-				   "*** invalidate g%d.%d (ymm%d)\n",
-				   bld->regs[i].region.offset / 32,
-				   bld->regs[i].region.offset & 31, i);
-		}
-	}
-}
-
-void
-builder_emit_region_store(struct builder *bld,
-			  const struct eu_region *region, int dst)
-{
-	int mask;
-
-	if (bld->scope > 0) {
-		mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
-
-		/* Don't have a good way to do mask stores for
-		 * type_size < 4 and need builder_emit functions for
-		 * exec_size < 8. */
-		ksim_assert(region->exec_size == 8 && region->type_size == 4);
-	}
-
-	switch (region->exec_size * region->type_size) {
-	case 32:
-		if (bld->scope == 0)
-			builder_emit_m256i_store(bld, dst, region->offset);
-		else
-			builder_emit_vpmaskmovd(bld, dst, mask, region->offset);
-		break;
-	case 16:
-		builder_emit_m128i_store(bld, dst, region->offset);
-		break;
-	case 4:
-		builder_emit_u32_store(bld, dst, region->offset);
-		break;
-	default:
-		stub("eu: type size %d in dest store", region->type_size);
-		break;
-	}
-
-	builder_invalidate_region(bld, region);
-
-	/* FIXME: For a straight move, this makes the AVX2 register
-	 * refer to the dst region.  That's fine, but the register may
-	 * still also shadow the src region, but since we only track
-	 * one region per AVX2 reg, that is lost. */
-	bld->regs[dst].region = *region;
-	bld->regs[dst].contents |= BUILDER_REG_CONTENTS_EU_REG;
-}
-
-static void
-builder_emit_dst_store(struct builder *bld, int avx_reg,
-		       struct inst *inst, struct inst_dst *dst)
+kir_program_emit_dst_store(struct kir_program *prog,
+			   struct kir_reg reg, struct inst *inst, struct inst_dst *dst)
 {
 	struct inst_common common = unpack_inst_common(inst);
 	int subnum;
@@ -549,11 +366,11 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		stub("eu: dst hstride %d is > 1", dst->hstride);
 
 	if (common.saturate) {
-		int zero = builder_get_reg_with_uniform(bld, 0);
-		int one = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		struct kir_reg zero = kir_program_immd(prog, 0);
+		struct kir_reg one =  kir_program_immd(prog, float_to_u32(1.0f));
 		ksim_assert(is_float(dst->file, dst->type));
-		builder_emit_vmaxps(bld, avx_reg, avx_reg, zero);
-		builder_emit_vminps(bld, avx_reg, avx_reg, one);
+		reg = kir_program_alu(prog, kir_maxf, reg, zero);
+		reg = kir_program_alu(prog, kir_minf, reg, one);
 	}
 
 	if (common.access_mode == BRW_ALIGN_1)
@@ -562,8 +379,15 @@ builder_emit_dst_store(struct builder *bld, int avx_reg,
 		subnum = dst->da16_subnum;
 
 	struct eu_region region;
-	fill_region_for_dst(&region, dst, subnum, bld);
-	builder_emit_region_store(bld, &region, avx_reg);
+	fill_region_for_dst(&region, dst, subnum, prog);
+
+	if (prog->scope > 0) {
+		struct kir_reg mask =
+			kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
+		kir_program_store_region_mask(prog, &region, reg, mask);
+	} else {
+		kir_program_store_region(prog, &region, reg);
+	}
 }
 
 static inline int
@@ -573,7 +397,7 @@ reg_offset(int num, int subnum)
 }
 
 static void
-builder_emit_sfid_thread_spawner(struct builder *bld, struct inst *inst)
+builder_emit_sfid_thread_spawner(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 
@@ -612,11 +436,12 @@ sfid_dataport1_untyped_write(struct thread *t, struct sfid_dataport1_args *args)
 }
 
 static void
-builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
+builder_emit_sfid_dataport1(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	struct surface buffer;
-
+	void *func;
+	
 	uint32_t bti = field(send.function_control, 0, 7);
 	uint32_t mask = field(send.function_control, 8, 11);
 	uint32_t simd_mode = field(send.function_control, 12, 13);
@@ -624,7 +449,7 @@ builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 	//uint32_t header_present = field(send.function_control, 19, 19);
 
 	struct sfid_dataport1_args *args;
-	args = builder_get_const_data(bld, sizeof *args, 8);
+	args = get_const_data(sizeof *args, 8);
 
 	switch (opcode) {
 	case 9:
@@ -632,21 +457,27 @@ builder_emit_sfid_dataport1(struct builder *bld, struct inst *inst)
 		ksim_assert(simd_mode == 2); /* SIMD8 */
 		args->src = unpack_inst_2src_src0(inst).num;
 		args->mask = mask;
-		bool valid = get_surface(bld->binding_table_address,
+		bool valid = get_surface(prog->binding_table_address,
 					 bti, &buffer);
 		ksim_assert(valid);
 		args->buffer = buffer.pixels;
 
-		builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
-		builder_emit_call(bld, sfid_dataport1_untyped_write);
+		func = sfid_dataport1_untyped_write;
 		break;
 
 	default:
 		stub("dataport1 opcode");
+		func = NULL;
 		break;
 	}
 
-
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_send);
+	insn->send.src = unpack_inst_2src_src0(inst).num;
+	insn->send.mlen = send.mlen;
+	insn->send.dst = unpack_inst_2src_dst(inst).num;
+	insn->send.rlen = send.rlen;
+	insn->send.func = func;
+	insn->send.args = args;
 }
 
 /* Vectorized AVX2 math functions from glibc's libmvec */
@@ -657,38 +488,30 @@ __m256 _ZGVdN8v_sinf(__m256 x);
 __m256 _ZGVdN8v_cosf(__m256 x);
 __m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
 
-bool
-compile_inst(struct builder *bld, struct inst *inst)
+static bool
+compile_inst(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_src src0, src1, src2;
 	struct inst_dst dst;
-	int dst_reg, src0_reg, src1_reg, src2_reg;
+	struct kir_reg dst_reg, src0_reg, src1_reg, src2_reg;
 	uint32_t opcode = unpack_inst_common(inst).opcode;
 	bool eot = false;
 
-	if (opcode == BRW_OPCODE_MATH) {
-		/* If we need to call one of the libmvec math helpers,
-		 * we need to load src0 into ymm0 to match the x86-64
-		 * calling convention. Move it to the front of the LRU
-		 * list so the src load will pick it. */
-		builder_invalidate_all(bld);
-	}
-
 	if (opcode_info[opcode].num_srcs == 3) {
 		src0 = unpack_inst_3src_src0(inst);
-		src0_reg = builder_emit_src_load(bld, inst, &src0);
+		src0_reg = kir_program_emit_src_load(prog, inst, &src0);
 		src1 = unpack_inst_3src_src1(inst);
-		src1_reg = builder_emit_src_load(bld, inst, &src1);
+		src1_reg = kir_program_emit_src_load(prog, inst, &src1);
 		src2 = unpack_inst_3src_src2(inst);
-		src2_reg = builder_emit_src_load(bld, inst, &src2);
+		src2_reg = kir_program_emit_src_load(prog, inst, &src2);
 	} else if (opcode_info[opcode].num_srcs >= 1) {
 		src0 = unpack_inst_2src_src0(inst);
-		src0_reg = builder_emit_src_load(bld, inst, &src0);
+		src0_reg = kir_program_emit_src_load(prog, inst, &src0);
 	}
 
 	if (opcode_info[opcode].num_srcs == 2) {
 		src1 = unpack_inst_2src_src1(inst);
-		src1_reg = builder_emit_src_load(bld, inst, &src1);
+		src1_reg = kir_program_emit_src_load(prog, inst, &src1);
 	}
 
 	if (opcode_info[opcode].num_srcs == 3)
@@ -696,57 +519,52 @@ compile_inst(struct builder *bld, struct inst *inst)
 	else
 		dst = unpack_inst_2src_dst(inst);
 
-	if (opcode_info[opcode].store_dst)
-		dst_reg = builder_get_reg(bld);
-
 	switch (opcode) {
 	case BRW_OPCODE_MOV:
-		builder_emit_dst_store(bld, src0_reg, inst, &dst);
+		kir_program_emit_dst_store(prog, src0_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_SEL: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
 		if (modifier == BRW_CONDITIONAL_GE) {
-			builder_emit_vmaxps(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_maxf, src0_reg, src1_reg);
 			break;
 		}
 		if (modifier == BRW_CONDITIONAL_L) {
-			builder_emit_vminps(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_minf, src0_reg, src1_reg);
 			break;
 		}
-		int tmp_reg = builder_get_reg(bld);
-		builder_emit_cmp(bld, modifier, tmp_reg, src0_reg, src1_reg);
+		emit_cmp(prog, modifier, src0_reg, src1_reg);
 		/* AVX2 blendv is opposite of the EU sel order, so we
 		 * swap src0 and src1 operands. */
-		builder_emit_vpblendvps(bld, dst_reg, tmp_reg, src1_reg, src0_reg);
+		kir_program_alu(prog, kir_blend, src0_reg, src1_reg, prog->dst);
 		break;
 	}
 	case BRW_OPCODE_NOT: {
-		int tmp_reg = builder_get_reg_with_uniform(bld, 0);
-		builder_emit_vpxor(bld, dst_reg, src0_reg, tmp_reg);
+		kir_program_immd(prog, 0);
+		kir_program_alu(prog, kir_xor, src0_reg, prog->dst);
 		break;
 	}
 	case BRW_OPCODE_AND:
-		builder_emit_vpand(bld, dst_reg, src0_reg, src1_reg);
+		kir_program_alu(prog, kir_and, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_OR:
-		builder_emit_vpor(bld, dst_reg, src0_reg, src1_reg);
+		kir_program_alu(prog, kir_or, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_XOR:
-		builder_emit_vpxor(bld, dst_reg, src0_reg, src1_reg);
+		kir_program_alu(prog, kir_xor, src0_reg, src1_reg);
 		break;
 	case BRW_OPCODE_SHR:
-		builder_emit_vpsrlvd(bld, dst_reg, src1_reg, src0_reg);
+		kir_program_alu(prog, kir_shr, src1_reg, src0_reg);
 		break;
 	case BRW_OPCODE_SHL:
-		builder_emit_vpsllvd(bld, dst_reg, src1_reg, src0_reg);
+		kir_program_alu(prog, kir_shl, src1_reg, src0_reg);
 		break;
 	case BRW_OPCODE_ASR:
-		builder_emit_vpsravd(bld, dst_reg, src1_reg, src0_reg);
+		kir_program_alu(prog, kir_asr, src1_reg, src0_reg);
 		break;
 	case BRW_OPCODE_CMP: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
-		int tmp_reg = builder_get_reg(bld);
-		builder_emit_cmp(bld, modifier, tmp_reg, src0_reg, src1_reg);
+		emit_cmp(prog, modifier, src0_reg, src1_reg);
 		break;
 	}
 	case BRW_OPCODE_CMPN:
@@ -777,34 +595,30 @@ compile_inst(struct builder *bld, struct inst *inst)
 		stub("BRW_OPCODE_JMPI");
 		break;
 	case BRW_OPCODE_IF: {
-		int f = load_v8(bld, offsetof(struct thread, f[unpack_inst_common(inst).flag_nr]));
-		int mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
-		int new_mask = builder_get_reg(bld);
+		int flag_nr = unpack_inst_common(inst).flag_nr;
+		struct kir_reg f = kir_program_load_v8(prog, offsetof(struct thread, f[flag_nr]));
+		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
 		if (unpack_inst_common(inst).pred_inv)
-			builder_emit_vpandn(bld, new_mask, mask, f);
+			mask = kir_program_alu(prog, kir_andn, mask, f);
 		else
-			builder_emit_vpand(bld, new_mask, mask, f);
-		store_v8(bld, offsetof(struct thread, mask_stack[bld->scope + 1]), new_mask);
-		bld->scope++;
+			mask = kir_program_alu(prog, kir_and, mask, f);
+		kir_program_store_v8(prog, offsetof(struct thread, mask_stack[prog->scope + 1]), mask);
+		prog->scope++;
 		break;
 	}
 	case BRW_OPCODE_IFF:
 		stub("BRW_OPCODE_IFF");
 		break;
 	case BRW_OPCODE_ELSE: {
-		ksim_assert(bld->scope > 0);
-		int prev_mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope - 1]));
-		int mask = load_v8(bld, offsetof(struct thread, mask_stack[bld->scope]));
-		builder_emit_vpxor(bld, mask, prev_mask, mask);
-		bld->scope--; /* Use prev scope for storing mask */
-		store_v8(bld, offsetof(struct thread, mask_stack[bld->scope + 1]), mask);
-		bld->scope++;
-		builder_invalidate_all(bld);
+		ksim_assert(prog->scope > 0);
+		struct kir_reg prev_mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope - 1]));
+		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
+		mask = kir_program_alu(prog, kir_xor, prev_mask, mask);
+		kir_program_store_v8(prog, offsetof(struct thread, mask_stack[prog->scope]), mask);
 		break;
 	}
 	case BRW_OPCODE_ENDIF:
-		bld->scope--;
-		builder_invalidate_all(bld);
+		prog->scope--;
 		break;
 	case BRW_OPCODE_DO:
 		stub("BRW_OPCODE_DO");
@@ -843,19 +657,19 @@ compile_inst(struct builder *bld, struct inst *inst)
 
 		switch (send.sfid) {
 		case BRW_SFID_SAMPLER:
-			builder_emit_sfid_sampler(bld, inst);
+			builder_emit_sfid_sampler(prog, inst);
 			break;
 		case GEN6_SFID_DATAPORT_RENDER_CACHE:
-			builder_emit_sfid_render_cache(bld, inst);
+			builder_emit_sfid_render_cache(prog, inst);
 			break;
 		case BRW_SFID_URB:
-			builder_emit_sfid_urb(bld, inst);
+			builder_emit_sfid_urb(prog, inst);
 			break;
 		case BRW_SFID_THREAD_SPAWNER:
-			builder_emit_sfid_thread_spawner(bld, inst);
+			builder_emit_sfid_thread_spawner(prog, inst);
 			break;
 		case HSW_SFID_DATAPORT_DATA_CACHE_1:
-			builder_emit_sfid_dataport1(bld, inst);
+			builder_emit_sfid_dataport1(prog, inst);
 			break;
 		default:
 			stub("sfid: %d", send.sfid);
@@ -866,41 +680,35 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_MATH:
 		switch (unpack_inst_common(inst).math_function) {
 		case BRW_MATH_FUNCTION_INV:
-			builder_emit_vrcpps(bld, dst_reg, src0_reg);
+			kir_program_alu(prog, kir_rcp, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_LOG:
-			dst_reg = builder_emit_call(bld, _ZGVdN8v___logf_finite);
-			builder_invalidate_all(bld);
+			kir_program_call(prog, _ZGVdN8v___logf_finite, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_EXP:
-			dst_reg = builder_emit_call(bld, _ZGVdN8v___expf_finite);
-			builder_invalidate_all(bld);
+			kir_program_call(prog, _ZGVdN8v___expf_finite, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
-			builder_emit_vsqrtps(bld, dst_reg, src0_reg);
+			kir_program_alu(prog, kir_sqrt, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_RSQ:
-			builder_emit_vrsqrtps(bld, dst_reg, src0_reg);
+			kir_program_alu(prog, kir_rsqrt, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SIN:
-			dst_reg = builder_emit_call(bld, _ZGVdN8v_sinf);
-			builder_invalidate_all(bld);
+			kir_program_call(prog, _ZGVdN8v_sinf, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_COS:
-			dst_reg = builder_emit_call(bld, _ZGVdN8v_cosf);
-			builder_invalidate_all(bld);
+			kir_program_call(prog, _ZGVdN8v_cosf, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SINCOS:
 			ksim_unreachable("sincos only gen4/5");
 			break;
 		case BRW_MATH_FUNCTION_FDIV:
-			builder_emit_vdivps(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_divf, src0_reg, src1_reg);
 			break;
-		case BRW_MATH_FUNCTION_POW: {
-			dst_reg = builder_emit_call(bld, _ZGVdN8vv___powf_finite);
-			builder_invalidate_all(bld);
+		case BRW_MATH_FUNCTION_POW:
+			kir_program_call(prog, _ZGVdN8vv___powf_finite, 2, src0_reg, src1_reg);
 			break;
-		}
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
 			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER");
 			break;
@@ -925,14 +733,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 		switch (dst.type) {
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
-			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_addd, src0_reg, src1_reg);
 			break;
 		case BRW_HW_REG_TYPE_UW:
 		case BRW_HW_REG_TYPE_W:
-			builder_emit_vpaddw(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_addw, src0_reg, src1_reg);
 			break;
 		case BRW_HW_REG_TYPE_F:
-			builder_emit_vaddps(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_addf, src0_reg, src1_reg);
 			break;
 		default:
 			stub("unhandled type for add");
@@ -943,14 +751,14 @@ compile_inst(struct builder *bld, struct inst *inst)
 		switch (dst.type) {
 		case BRW_HW_REG_TYPE_UD:
 		case BRW_HW_REG_TYPE_D:
-			builder_emit_vpmulld(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_muld, src0_reg, src1_reg);
 			break;
 		case BRW_HW_REG_TYPE_UW:
 		case BRW_HW_REG_TYPE_W:
-			builder_emit_vpmullw(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_mulw, src0_reg, src1_reg);
 			break;
 		case BRW_HW_REG_TYPE_F:
-			builder_emit_vmulps(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_mulf, src0_reg, src1_reg);
 			break;
 		default:
 			stub("unhandled type for mul");
@@ -961,27 +769,26 @@ compile_inst(struct builder *bld, struct inst *inst)
 		stub("BRW_OPCODE_AVG");
 		break;
 	case BRW_OPCODE_FRC: {
-		int tmp_reg = builder_get_reg(bld);
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vroundps(bld, tmp_reg, _MM_FROUND_TO_NEG_INF, src0_reg);
-		builder_emit_vsubps(bld, dst_reg, src0_reg, tmp_reg);
+		kir_program_alu(prog, kir_rndd, src0_reg);
+		kir_program_alu(prog, kir_subf, src0_reg, kir_program_immd(prog, 0));
 		break;
 	}
 	case BRW_OPCODE_RNDU:
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vroundps(bld, dst_reg, _MM_FROUND_TO_POS_INF, src0_reg);
+		kir_program_alu(prog, kir_rndu, src0_reg);
 		break;
 	case BRW_OPCODE_RNDD:
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vroundps(bld, dst_reg, _MM_FROUND_TO_NEG_INF, src0_reg);
+		kir_program_alu(prog, kir_rndd, src0_reg);
 		break;
 	case BRW_OPCODE_RNDE:
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vroundps(bld, dst_reg, _MM_FROUND_TO_NEAREST_INT, src0_reg);
+		kir_program_alu(prog, kir_rnde, src0_reg);
 		break;
 	case BRW_OPCODE_RNDZ:
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vroundps(bld, dst_reg, _MM_FROUND_TO_ZERO, src0_reg);
+		kir_program_alu(prog, kir_rndz, src0_reg);
 		break;
 	case BRW_OPCODE_MAC:
 		stub("BRW_OPCODE_MAC");
@@ -1013,67 +820,29 @@ compile_inst(struct builder *bld, struct inst *inst)
 	case BRW_OPCODE_SADA2:
 		stub("BRW_OPCODE_SADA2");
 		break;
-	case BRW_OPCODE_DP4: {
-		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
-		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
-		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0xff, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+	case BRW_OPCODE_DP4:
+		stub("BRW_OPCODE_DP4");
 		break;
-	}
-	case BRW_OPCODE_DPH: {
-		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
-		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
-		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0xff, src1_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+	case BRW_OPCODE_DPH:
+		stub("BRW_OPCODE_DPH");
 		break;
-	}
-	case BRW_OPCODE_DP3: {
-		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
-		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vmulps(bld, tmp0_reg, src0_reg, src1_reg);
-		builder_emit_vpermilps(bld, dst_reg, 0, tmp0_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0x55, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
-		builder_emit_vpermilps(bld, tmp1_reg, 0xaa, tmp0_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp1_reg);
+	case BRW_OPCODE_DP3:
+		stub("BRW_OPCODE_DP3");
 		break;
-	}
-	case BRW_OPCODE_DP2: {
-		int tmp_reg = builder_get_reg(bld);
-		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
-		builder_emit_vmulps(bld, tmp_reg, src0_reg, src1_reg);
-		builder_emit_vpermilps(bld, dst_reg, 0, tmp_reg);
-		builder_emit_vpermilps(bld, tmp_reg, 0x55, tmp_reg);
-		builder_emit_vaddps(bld, dst_reg, dst_reg, tmp_reg);
+	case BRW_OPCODE_DP2:
+		stub("BRW_OPCODE_DP2");
 		break;
-	}
 	case BRW_OPCODE_LINE: {
 		src0 = unpack_inst_2src_src0(inst);
 		src1 = unpack_inst_2src_src1(inst);
 		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
 		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
 		int subnum = src0.da16_subnum / 4;
-		int tmp1_reg = builder_get_reg(bld);
 
-		src0_reg = builder_emit_src_load(bld, inst, &src1);
-		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum));
-		builder_emit_vpbroadcastd(bld, tmp1_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, dst_reg, src0_reg, tmp1_reg);
+		src1_reg = kir_program_emit_src_load(prog, inst, &src1);
+		struct kir_reg a_reg = kir_program_load_uniform(prog, reg_offset(src0.num, subnum));
+		struct kir_reg c_reg = kir_program_load_uniform(prog, reg_offset(src0.num, subnum + 3));
+		kir_program_alu(prog, kir_maddf, a_reg, src1_reg, c_reg);
 		break;
 	}
 	case BRW_OPCODE_PLN: {
@@ -1081,31 +850,27 @@ compile_inst(struct builder *bld, struct inst *inst)
 		src1 = unpack_inst_2src_src1(inst);
 		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
 		ksim_assert(src1.type == BRW_HW_REG_TYPE_F);
-		int tmp0_reg = builder_get_reg(bld);
 
 		src2 = unpack_inst_2src_src1(inst);
 		src2.num++;
 
 		int subnum = src0.da1_subnum / 4;
-		src1_reg = builder_emit_src_load(bld, inst, &src1);
-		builder_emit_vpbroadcastd(bld, tmp0_reg, reg_offset(src0.num, subnum));
-		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum + 3));
-		builder_emit_vfmadd132ps(bld, tmp0_reg, src1_reg, dst_reg);
-		builder_emit_vpbroadcastd(bld, dst_reg, reg_offset(src0.num, subnum + 1));
-		src0_reg = builder_emit_src_load(bld, inst, &src2);
-		builder_emit_vfmadd132ps(bld, dst_reg, src0_reg, tmp0_reg);
+		src1_reg = kir_program_emit_src_load(prog, inst, &src1);
+		struct kir_reg a_reg = kir_program_load_uniform(prog, reg_offset(src0.num, subnum));
+		struct kir_reg c_reg = kir_program_load_uniform(prog, reg_offset(src0.num, subnum + 3));
+		struct kir_reg t = kir_program_alu(prog, kir_maddf, a_reg, src1_reg, c_reg);
+		struct kir_reg b_reg = kir_program_load_uniform(prog, reg_offset(src0.num, subnum + 1));
+		src2_reg = kir_program_emit_src_load(prog, inst, &src2);
+		kir_program_alu(prog, kir_maddf, b_reg, src2_reg, t);
 		break;
 	}
 	case BRW_OPCODE_MAD:
 		if (is_integer(dst.file, dst.type)) {
-			dst_reg = builder_get_reg(bld);
-			builder_emit_vpmulld(bld, src1_reg, src1_reg, src2_reg);
-			builder_emit_vpaddd(bld, dst_reg, src0_reg, src1_reg);
+			kir_program_alu(prog, kir_muld, src1_reg, src2_reg);
+			kir_program_alu(prog, kir_addd, src0_reg, prog->dst);
 		} else {
-			builder_emit_vfmadd231ps(bld, src0_reg, src2_reg, src1_reg);
-			dst_reg = builder_use_reg(bld, &bld->regs[src0_reg]);
+			kir_program_alu(prog, kir_maddf, src1_reg, src2_reg, src0_reg);
 		}
-		builder_emit_dst_store(bld, dst_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_LRP:
 		ksim_assert(src0.type == BRW_HW_REG_TYPE_F);
@@ -1115,36 +880,37 @@ compile_inst(struct builder *bld, struct inst *inst)
 
 		/* dst = src0 * src1 + (1 - src0) * src2
 		 *     = src0 * src1 + src2 - src0 * src2
+		 *     = src0 * (src1 - src2) + src2
 		 */
-		builder_emit_vmulps(bld, dst_reg, src0_reg, src2_reg);
-		builder_emit_vsubps(bld, dst_reg, dst_reg, src2_reg);
-		builder_emit_vfmadd231ps(bld, dst_reg, src0_reg, src1_reg);
+		kir_program_alu(prog, kir_subf, src1_reg, src2_reg);
+		kir_program_alu(prog, kir_maddf, src0_reg, prog->dst, src2_reg);
 		break;
 	case BRW_OPCODE_NENOP:
 	case BRW_OPCODE_NOP:
 		break;
 	}
 
+	dst_reg = prog->dst;
+
 	uint32_t cond_modifier = unpack_inst_common(inst).cond_modifier;
 	uint32_t flag = unpack_inst_common(inst).flag_nr;
 	if (opcode != BRW_OPCODE_SEND && opcode != BRW_OPCODE_SENDC &&
+	    opcode != BRW_OPCODE_MATH &&
 	    cond_modifier != BRW_CONDITIONAL_NONE) {
-		int zero = builder_get_reg_with_uniform(bld, 0);
-		int flag_reg = builder_get_reg(bld);
-		builder_emit_cmp(bld, cond_modifier, flag_reg, dst_reg, zero);
-		store_v8(bld, offsetof(struct thread, f[flag]), flag_reg);
+		struct kir_reg zero = kir_program_immd(prog, 0);
+		struct kir_reg flag_reg = emit_cmp(prog, cond_modifier, dst_reg, zero);
+		/* FIXME: Mask store? */
+		kir_program_store_v8(prog, offsetof(struct thread, f[flag]), flag_reg);
 	}
 
 	if (opcode_info[opcode].store_dst)
-		builder_emit_dst_store(bld, dst_reg, inst, &dst);
-
-        builder_release_regs(bld);
+		kir_program_emit_dst_store(prog, dst_reg, inst, &dst);
 
 	return eot;
 }
 
 static bool
-do_compile_inst(struct builder *bld, struct inst *inst)
+do_compile_inst(struct kir_program *prog, struct inst *inst)
 {
 	uint32_t opcode = unpack_inst_common(inst).opcode;
 	int exec_size = 1 << unpack_inst_common(inst).exec_size;
@@ -1157,15 +923,15 @@ do_compile_inst(struct builder *bld, struct inst *inst)
 		dst = unpack_inst_2src_dst(inst);
 
 	if (exec_size * type_size(dst.type) < 64) {
-		bld->exec_size = exec_size;
-		bld->exec_offset = 0;
-		eot = compile_inst(bld, inst);
+		prog->exec_size = exec_size;
+		prog->exec_offset = 0;
+		eot = compile_inst(prog, inst);
 	} else {
-		bld->exec_size = exec_size / 2;
-		bld->exec_offset = 0;
-		eot = compile_inst(bld, inst);
-		bld->exec_offset = exec_size / 2;
-		compile_inst(bld, inst);
+		prog->exec_size = exec_size / 2;
+		prog->exec_offset = 0;
+		eot = compile_inst(prog, inst);
+		prog->exec_offset = exec_size / 2;
+		compile_inst(prog, inst);
 	}
 
 	return eot;
@@ -1183,7 +949,7 @@ void brw_uncompact_instruction(const struct gen_device_info *devinfo,
 static const struct gen_device_info ksim_devinfo = { .gen = 9 };
 
 void
-builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
+kir_program_emit_shader(struct kir_program *prog, uint64_t kernel_offset)
 {
 	struct inst uncompacted;
 	void *insn;
@@ -1213,26 +979,9 @@ builder_emit_shader(struct builder *bld, uint64_t kernel_offset)
 		if (trace_mask & TRACE_EU)
 			brw_disassemble_inst(trace_file, &ksim_devinfo, insn, false);
 
-		eot = do_compile_inst(bld, insn);
-
-		builder_trace(bld, trace_file);
+		eot = do_compile_inst(prog, insn);
 	} while (!eot);
 
 	if (trace_mask & (TRACE_EU | TRACE_AVX))
 		fprintf(trace_file, "\n");
-}
-
-shader_t
-compile_shader(uint64_t kernel_offset,
-	       uint64_t surfaces, uint64_t samplers)
-{
-	struct builder bld;
-
-	builder_init(&bld, surfaces, samplers);
-
-	builder_emit_shader(&bld, kernel_offset);
-
-	builder_emit_ret(&bld);
-
-	return builder_finish(&bld);
 }

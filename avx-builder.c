@@ -50,6 +50,17 @@ reset_shader_pool(void)
 	shader_end = shader_pool + constant_pool_size;
 }
 
+void *
+get_const_data(size_t size, size_t align)
+{
+	int offset = align_u64(constant_pool_index, align);
+
+	constant_pool_index = offset + size;
+	ksim_assert(offset + size <= constant_pool_size);
+
+	return constant_pool + offset;
+}
+
 static int
 builder_disasm_printf(void *_bld, const char *fmt, ...)
 {
@@ -99,17 +110,6 @@ builder_finish(struct builder *bld)
 	return bld->shader;
 }
 
-void *
-builder_get_const_data(struct builder *bld, size_t size, size_t align)
-{
-	int offset = align_u64(constant_pool_index, align);
-
-	constant_pool_index = offset + size;
-	ksim_assert(offset + size <= constant_pool_size);
-
-	return constant_pool + offset;
-}
-
 void
 builder_invalidate_all(struct builder *bld)
 {
@@ -119,6 +119,37 @@ builder_invalidate_all(struct builder *bld)
 	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
 		list_insert(&bld->regs_lru_list, &bld->regs[i].link);
 		bld->regs[i].contents = 0;
+	}
+}
+
+static bool
+regions_overlap(const struct eu_region *a, const struct eu_region *b)
+{
+	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
+	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
+
+	/* This is a coarse approximation, but probably sufficient: if
+	 * the "bounding boxs" of the regions overlap, we consider the
+	 * regions overlapping. This misses cases where a region could
+	 * be contained in a gap (ie, where width < vstride) of
+	 * another region or two regions could be interleaved. */
+
+	return a->offset + a_size > b->offset &&
+		 b->offset + b_size > a->offset;
+}
+
+void
+builder_invalidate_region(struct builder *bld, const struct eu_region *r)
+{
+	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
+		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
+		    regions_overlap(r, &bld->regs[i].region)) {
+			bld->regs[i].contents &= ~BUILDER_REG_CONTENTS_EU_REG;
+			ksim_trace(TRACE_RA,
+				   "*** invalidate g%d.%d (ymm%d)\n",
+				   bld->regs[i].region.offset / 32,
+				   bld->regs[i].region.offset & 31, i);
+		}
 	}
 }
 
@@ -138,6 +169,111 @@ builder_release_reg(struct builder *bld, int reg_num)
 
 	list_remove(&reg->link);
 	list_insert(bld->regs_lru_list.prev, &reg->link);
+}
+
+void
+builder_emit_region_load(struct builder *bld, const struct eu_region *region, int reg)
+{
+	if (region->hstride == 1 && region->width == region->vstride) {
+		switch (region->type_size * region->exec_size) {
+		case 32:
+			builder_emit_m256i_load(bld, reg, region->offset);
+			break;
+		case 16:
+		default:
+			/* Could do broadcastq/d/w for sizes 8, 4 and
+			 * 2 to avoid loading too much */
+			builder_emit_m128i_load(bld, reg, region->offset);
+			break;
+		}
+	} else if (region->hstride == 0 && region->vstride == 0 && region->width == 1) {
+		switch (region->type_size) {
+		case 4:
+			builder_emit_vpbroadcastd(bld, reg, region->offset);
+			break;
+		default:
+			stub("unhandled broadcast load size %d\n", region->type_size);
+			break;
+		}
+	} else if (region->hstride == 0 && region->width == 4 && region->vstride == 1 &&
+		   region->type_size == 2) {
+		int tmp0_reg = builder_get_reg(bld);
+		int tmp1_reg = builder_get_reg(bld);
+
+		/* Handle the frag coord region */
+		builder_emit_vpbroadcastw(bld, tmp0_reg, region->offset);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 4);
+		builder_emit_vinserti128(bld, tmp0_reg, tmp1_reg, tmp0_reg, 1);
+
+		builder_emit_vpbroadcastw(bld, reg, region->offset + 2);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 6);
+		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
+
+		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
+	} else if (region->hstride == 1 && region->width * region->type_size) {
+		for (int i = 0; i < region->exec_size / region->width; i++) {
+			int offset = region->offset + i * region->vstride * region->type_size;
+			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
+		}
+	} else if (region->type_size == 4) {
+		int offset, i = 0, tmp_reg = reg;
+
+		for (int y = 0; y < region->exec_size / region->width; y++) {
+			for (int x = 0; x < region->width; x++) {
+				if (i == 4)
+					tmp_reg = builder_get_reg(bld);
+				offset = region->offset + (y * region->vstride + x * region->hstride) * region->type_size;
+				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
+				i++;
+			}
+		}
+		if (tmp_reg != reg)
+			builder_emit_vinserti128(bld, reg, tmp_reg, reg, 1);
+	} else {
+		stub("src: g%d.%d<%d,%d,%d>",
+		     region->offset / 32, region->offset & 31,
+		     region->vstride, region->width, region->hstride);
+	}
+}
+
+void
+builder_emit_region_store_mask(struct builder *bld,
+			       const struct eu_region *region,
+			       int dst, int mask)
+{
+	/* Don't have a good way to do mask stores for
+	 * type_size < 4 and need builder_emit functions for
+	 * exec_size < 8. */
+	ksim_assert(region->exec_size == 8 && region->type_size == 4);
+
+	switch (region->exec_size * region->type_size) {
+	case 32:
+		builder_emit_vpmaskmovd(bld, dst, mask, region->offset);
+		break;
+	default:
+		stub("eu: type size %d in dest store", region->type_size);
+		break;
+	}
+}
+
+void
+builder_emit_region_store(struct builder *bld,
+			  const struct eu_region *region, int dst)
+{
+	switch (region->exec_size * region->type_size) {
+	case 32:
+		builder_emit_m256i_store(bld, dst, region->offset);
+		break;
+	case 16:
+		builder_emit_m128i_store(bld, dst, region->offset);
+		break;
+	case 4:
+		builder_emit_u32_store(bld, dst, region->offset);
+		break;
+	default:
+		stub("eu: type size %d in dest store", region->type_size);
+		break;
+	}
 }
 
 int
@@ -160,7 +296,7 @@ builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
 	if (ud == 0) {
 		builder_emit_vpxor(bld, reg_num, reg_num, reg_num);
 	} else {
-		p = builder_get_const_ud(bld, ud);
+		p = get_const_ud(ud);
 		builder_emit_vpbroadcastd_rip_relative(bld, reg_num, builder_offset(bld, p));
 	}
 
@@ -217,6 +353,10 @@ builder_disasm(struct builder *bld)
 }
 
 #ifdef TEST_AVX_BUILDER
+
+uint32_t trace_mask = 0;
+uint32_t breakpoint_mask = 0;
+FILE *trace_file;
 
 void
 check_reg_imm_emit_function(const char *fmt,

@@ -40,6 +40,8 @@ ksim_files = files(
 	'compute.c',
 	'eu.h',
 	'eu.c',
+	'kir.h',
+	'kir.c',
 	'formats.c',
 	'gen9_pack.h',
 	'ksim.h',

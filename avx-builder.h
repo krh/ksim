@@ -602,9 +602,6 @@ builder_offset(struct builder *bld, void *p)
 	return p - (void *) bld->p;
 }
 
-void *
-builder_get_const_data(struct builder *bld, size_t size, size_t align);
-
 static inline int
 builder_emit_call(struct builder *bld, void *func)
 {
@@ -615,57 +612,18 @@ builder_emit_call(struct builder *bld, void *func)
 	return 0;
 }
 
-int
-builder_emit_region_load(struct builder *bld, const struct eu_region *region);
+void
+builder_emit_region_load(struct builder *bld,
+			 const struct eu_region *region, int reg);
+
+void
+builder_emit_region_store_mask(struct builder *bld,
+			       const struct eu_region *region,
+			       int dst, int mask);
 
 void
 builder_emit_region_store(struct builder *bld,
 			  const struct eu_region *region, int dst);
-
-static inline int
-load_uniform(struct builder *bld, uint32_t offset)
-{
-	struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 1,
-		.vstride = 0,
-		.width = 1,
-		.hstride = 0
-	};
-
-	return builder_emit_region_load(bld, &r);
-}
-
-static inline int
-load_v8(struct builder *bld, uint32_t offset)
-{
-	struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 8,
-		.vstride = 8,
-		.width = 8,
-		.hstride = 1
-	};
-
-	return builder_emit_region_load(bld, &r);
-}
-
-static inline void
-store_v8(struct builder *bld, uint32_t offset, int reg)
-{
-	const struct eu_region r = {
-		.offset = offset,
-		.type_size = 4,
-		.exec_size = 8,
-		.vstride = 8,
-		.width = 8,
-		.hstride = 1
-	};
-
-	builder_emit_region_store(bld, &r, reg);
-}
 
 static inline void
 builder_emit_trap(struct builder *bld)
@@ -680,18 +638,6 @@ builder_emit_trap(struct builder *bld)
 	builder_emit_pop_rdi(bld);
 }
 
-static inline uint32_t *
-builder_get_const_ud(struct builder *bld, uint32_t ud)
-{
-	uint32_t *p;
-
-	p = builder_get_const_data(bld, sizeof *p, 4);
-
-	*p = ud;
-
-	return p;
-}
-
 void
 builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers);
 
@@ -700,6 +646,9 @@ builder_finish(struct builder *bld);
 
 void
 builder_invalidate_all(struct builder *bld);
+
+void
+builder_invalidate_region(struct builder *bld, const struct eu_region *r);
 
 int
 builder_use_reg(struct builder *bld, struct avx2_reg *reg);

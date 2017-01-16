@@ -22,6 +22,8 @@
  */
 
 #include "ksim.h"
+#include "avx-builder.h"
+#include "kir.h"
 
 uint32_t
 load_constants(struct thread *t, struct curbe *c, uint32_t start)
@@ -46,6 +48,21 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 	}
 
 	return grf;
+}
+
+shader_t
+compile_shader(uint64_t kernel_offset,
+	       uint64_t surfaces, uint64_t samplers)
+{
+	struct kir_program prog;
+
+	kir_program_init(&prog, surfaces, samplers);
+
+	kir_program_emit_shader(&prog, kernel_offset);
+
+	kir_program_add_insn(&prog, kir_eot);
+
+	return kir_program_finish(&prog);
 }
 
 #define NO_KERNEL 1

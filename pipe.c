@@ -23,6 +23,7 @@
 
 #include "ksim.h"
 #include "avx-builder.h"
+#include "kir.h"
 
 static void
 dispatch_vs(struct vf_buffer *buffer, __m256i mask)
@@ -298,20 +299,19 @@ reset_ia_state(struct ia_state *s)
 }
 
 static void
-dump_fetched_vue(struct vf_buffer *buffer)
+dump_vue(struct vf_buffer *buffer)
 {
 	struct reg v = buffer->vid;
 	ksim_trace(TRACE_VF, "Loaded vue for idd=%d, vid=[", buffer->iid);
 	for (uint32_t c = 0; c < 8; c++)
 		ksim_trace(TRACE_VF, " %d", v.ud[c]);
+	ksim_trace(TRACE_VF, " ], mask=[");
+	v.ireg = buffer->t.mask_q1;
+	for (uint32_t c = 0; c < 8; c++)
+		ksim_trace(TRACE_VF, " %d", v.ud[c]);
 	ksim_trace(TRACE_VF, " ]\n");
 
-	uint32_t count = gt.vf.ve_count;
-	if (gt.vf.iid_element + 1 > count)
-		count = gt.vf.iid_element + 1;
-	if (gt.vf.vid_element + 1 > count)
-		count = gt.vf.vid_element + 1;
-	for (uint32_t i = 0; i < count * 4; i++) {
+	for (uint32_t i = 0; i < gt.vs.urb.size / 4; i++) {
 		ksim_trace(TRACE_VF, "  0x%04x:  ", (void *) &buffer->data[i] - (void *) buffer);
 		for (uint32_t c = 0; c < 8; c++)
 			ksim_trace(TRACE_VF, "  %8.2f", buffer->data[i].f[c]);
@@ -339,8 +339,9 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 	ksim_assert(s->head - s->tail < 16);
 }
 
-static int
-emit_gather(struct builder *bld, int offset, uint32_t scale, uint32_t base_offset)
+static struct kir_reg
+emit_gather(struct kir_program *prog, void *base, struct kir_reg offset,
+	    uint32_t scale, uint32_t base_offset)
 {
 	/* This little gather helper loads the mask, gathers and then
 	 * invalidates and releases the mask register. vpgatherdd
@@ -348,59 +349,50 @@ emit_gather(struct builder *bld, int offset, uint32_t scale, uint32_t base_offse
 	 * each gather and make sure we don't reuse the mask
 	 * register. */
 
-	int mask = load_v8(bld, offsetof(struct vf_buffer, t.mask_q1));
-	int reg = builder_get_reg(bld);
+	struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct vf_buffer, t.mask_q1));
 
-	builder_emit_vpgatherdd(bld, reg, offset, mask, scale, base_offset);
-	bld->regs[mask].contents = 0;
-	builder_release_reg(bld, mask);
-
-	return reg;
+	return kir_program_gather(prog, base, offset, mask, scale, base_offset);
 }
 
 static void
-emit_load_format_simd8(struct builder *bld, enum GEN9_SURFACE_FORMAT format,
-		       void *base, int offset, int *dst)
+emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format,
+		       void *base, struct kir_reg offset, struct kir_reg *dst)
 {
-	void **p = builder_get_const_data(bld, sizeof(*p), sizeof(*p));
-	*p = base;
-	builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
-
 	switch (format) {
 	case SF_R32_FLOAT:
 	case SF_R32_SINT:
 	case SF_R32_UINT:
-		dst[0] = emit_gather(bld, offset, 1, 0);
-		dst[1] = builder_get_reg_with_uniform(bld, 0);
-		dst[2] = builder_get_reg_with_uniform(bld, 0);
-		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = kir_program_immd(prog, 0);
+		dst[2] = kir_program_immd(prog, 0);
+		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
 		break;
 
 	case SF_R32G32_FLOAT:
 	case SF_R32G32_SINT:
 	case SF_R32G32_UINT:
-		dst[0] = emit_gather(bld, offset, 1, 0);
-		dst[1] = emit_gather(bld, offset, 1, 4);
-		dst[2] = builder_get_reg_with_uniform(bld, 0);
-		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = emit_gather(prog, base, offset, 1, 4);
+		dst[2] = kir_program_immd(prog, 0);
+		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
 		break;
 
 	case SF_R32G32B32_FLOAT:
 	case SF_R32G32B32_SINT:
 	case SF_R32G32B32_UINT:
-		dst[0] = emit_gather(bld, offset, 1, 0);
-		dst[1] = emit_gather(bld, offset, 1, 4);
-		dst[2] = emit_gather(bld, offset, 1, 8);
-		dst[3] = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = emit_gather(prog, base, offset, 1, 4);
+		dst[2] = emit_gather(prog, base, offset, 1, 8);
+		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
 		break;
 
 	case SF_R32G32B32A32_FLOAT:
 	case SF_R32G32B32A32_SINT:
 	case SF_R32G32B32A32_UINT:
-		dst[0] = emit_gather(bld, offset, 1, 0);
-		dst[1] = emit_gather(bld, offset, 1, 4);
-		dst[2] = emit_gather(bld, offset, 1, 8);
-		dst[3] = emit_gather(bld, offset, 1, 12);
+		dst[0] = emit_gather(prog, base,offset, 1, 0);
+		dst[1] = emit_gather(prog, base,offset, 1, 4);
+		dst[2] = emit_gather(prog, base,offset, 1, 8);
+		dst[3] = emit_gather(prog, base,offset, 1, 12);
 		break;
 
 	default:
@@ -411,105 +403,101 @@ emit_load_format_simd8(struct builder *bld, enum GEN9_SURFACE_FORMAT format,
 }
 
 static void
-builder_emit_vertex_fetch(struct builder *bld)
+emit_vertex_fetch(struct kir_program *prog)
 {
-	ksim_trace(TRACE_EU, "[ff vertex fetch]\n");
+	kir_program_comment(prog, "vertex fetch");
 
-	int vid = load_v8(bld, offsetof(struct vf_buffer, vid));
+	struct kir_reg vid = kir_program_load_v8(prog, offsetof(struct vf_buffer, vid));
 	if (gt.prim.start_vertex > 0) {
-		int start_vertex = load_uniform(bld, offsetof(struct vf_buffer, start_vertex));
-		builder_emit_vpaddd(bld, vid, vid, start_vertex);
+		kir_program_load_uniform(prog, offsetof(struct vf_buffer, start_vertex));
+		vid = kir_program_alu(prog, kir_addd, vid, prog->dst);
 	}
 
 	if (gt.prim.access_type == RANDOM) {
-		ksim_trace(TRACE_EU, "[ff vertex fetch: index buffer fetch]\n");
+		kir_program_comment(prog, "vertex fetch: index buffer fetch");
 
 		/* FIXME: INDEX_BYTE and INDEX_WORD can read outside
 		 * the index buffer. */
-		int dst;
-		builder_emit_load_rax(bld, offsetof(struct vf_buffer, index_buffer));
+		uint64_t range;
+		void *index_buffer = map_gtt_offset(gt.vf.ib.address, &range);
+		struct kir_reg dst;
+
 		switch (gt.vf.ib.format) {
 		case INDEX_BYTE:
-			dst = emit_gather(bld, vid, 0, 0);
-			builder_emit_vpslld(bld, dst, dst, 24);
-			builder_emit_vpsrld(bld, dst, dst, 24);
+			dst = emit_gather(prog, index_buffer, vid, 1, 0);
+			dst = kir_program_alu(prog, kir_shli, dst, 24);
+			dst = kir_program_alu(prog, kir_shri, dst, 24);
 			break;
 		case INDEX_WORD:
-			dst = emit_gather(bld, vid, 2, 0);
-			builder_emit_vpslld(bld, dst, dst, 16);
-			builder_emit_vpsrld(bld, dst, dst, 16);
+			dst = emit_gather(prog, index_buffer, vid, 2, 0);
+			dst = kir_program_alu(prog, kir_shli, dst, 16);
+			dst = kir_program_alu(prog, kir_shri, dst, 16);
 			break;
 		case INDEX_DWORD:
-			dst = emit_gather(bld, vid, 4, 0);
+			dst = emit_gather(prog, index_buffer, vid, 4, 0);
 			break;
 		}
 
 		if (gt.prim.base_vertex > 0) {
-			int base_vertex =
-				load_uniform(bld, offsetof(struct vf_buffer, base_vertex));
-			builder_emit_vpaddd(bld, dst, dst, base_vertex);
+			kir_program_load_uniform(prog, offsetof(struct vf_buffer, base_vertex));
+			dst = kir_program_alu(prog, kir_addd, dst, prog->dst);
 		}
 		vid = dst;
 	}
 
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
-
 	for (uint32_t i = 0; i < gt.vf.ve_count; i++) {
 		struct ve *ve = &gt.vf.ve[i];
 		struct vb *vb = &gt.vf.vb[ve->vb];
-		int index;
+		struct kir_reg index;
 
 		if (!gt.vf.ve[i].valid)
 			continue;
 
-		ksim_trace(TRACE_EU, "[ff vertex fetch: ve %d: offset %d, pitch %d, format %d]\n",
-			   i, ve->offset, vb->pitch, ve->format);
+		kir_program_comment(prog, "vertex fetch: ve %d: offset %d, pitch %d, format %d",
+				 i, ve->offset, vb->pitch, ve->format);
 
 		if (gt.vf.ve[i].instancing) {
 			if (gt.vf.ve[i].step_rate > 1) {
 				/* FIXME: index = _mm256_set1_epi32(gt.prim.start_instance + iid / gt.vf.ve[i].step_rate); */
 				stub("instancing step rate > 1");
-				index = load_uniform(bld, offsetof(struct vf_buffer, iid));
+				index = kir_program_load_uniform(prog, offsetof(struct vf_buffer, iid));
 			} else {
-				index = load_uniform(bld, offsetof(struct vf_buffer, iid));
+				index = kir_program_load_uniform(prog, offsetof(struct vf_buffer, iid));
 			}
 			if (gt.prim.start_instance > 0) {
-				int start_instance = load_uniform(bld, offsetof(struct vf_buffer, start_instance));
-				builder_emit_vpaddd(bld, index, index, start_instance);
+				kir_program_load_uniform(prog, offsetof(struct vf_buffer, start_instance));
+				index = kir_program_alu(prog, kir_addd, index, prog->dst);
 			}
 		} else {
-			index = builder_use_reg(bld, &bld->regs[vid]);
+			index = vid;
 		}
 
-		int offset = builder_get_reg(bld);
-		int element_offset;
-
+		struct kir_reg offset;
 		if (vb->pitch == 0) {
-			offset = builder_get_reg_with_uniform(bld, ve->offset);
+			offset = kir_program_immd(prog, ve->offset);
 		} else if (is_power_of_two(vb->pitch)) {
 			uint32_t pitch_log2 = __builtin_ffs(vb->pitch) - 1;
-			builder_emit_vpslld(bld, offset, index, pitch_log2);
+			offset = kir_program_alu(prog, kir_shli, index, pitch_log2);
 		} else if (vb->pitch % 3 == 0 && is_power_of_two(vb->pitch / 3)) {
-			builder_emit_vpslld(bld, offset, index, 1);
-			builder_emit_vpaddd(bld, offset, offset, index);
+			offset = kir_program_alu(prog, kir_shli, index, 1);
+			offset = kir_program_alu(prog, kir_addd, offset, index);
 			uint32_t pitch_log2 = __builtin_ffs(vb->pitch / 3) - 1;
-			builder_emit_vpslld(bld, offset, offset, pitch_log2);
+			offset = kir_program_alu(prog, kir_shli, offset, pitch_log2);
 		} else {
-			int pitch = builder_get_reg_with_uniform(bld, vb->pitch);
-			builder_emit_vpmulld(bld, offset, pitch, index);
+			kir_program_immd(prog, vb->pitch);
+			offset = kir_program_alu(prog, kir_muld, index, prog->dst);
 		}
 
 		if (vb->pitch > 0 && ve->offset > 0) {
-			element_offset = builder_get_reg_with_uniform(bld, ve->offset);
-			builder_emit_vpaddd(bld, offset, offset, element_offset);
+			kir_program_immd(prog, ve->offset);
+			offset = kir_program_alu(prog, kir_addd, offset, prog->dst);
 		}
 
-		int dst[4];
-		emit_load_format_simd8(bld, ve->format, vb->data, offset, dst);
+		struct kir_reg dst[4];
+		emit_load_format_simd8(prog, ve->format, vb->data, offset, dst);
 
 		for (uint32_t c = 0; c < 4; c++) {
-			int src;
+			struct kir_reg src;
 			switch (ve->cc[c]) {
 			case VFCOMP_NOSTORE:
 				continue;
@@ -517,59 +505,50 @@ builder_emit_vertex_fetch(struct builder *bld)
 				src = dst[c];
 				break;
 			case VFCOMP_STORE_0:
-				src = builder_get_reg_with_uniform(bld, 0);
+				src = kir_program_immd(prog, 0);
 				break;
 			case VFCOMP_STORE_1_FP:
-				src = builder_get_reg_with_uniform(bld, float_to_u32(1.0f));
+				src = kir_program_immd(prog, float_to_u32(1.0f));
 				break;
 			case VFCOMP_STORE_1_INT:
-				src = builder_get_reg_with_uniform(bld, 1);
+				src = kir_program_immd(prog, 1);
 				break;
 			case VFCOMP_STORE_PID:
 				ksim_unreachable("VFCOMP_STORE_PID");
 				break;
 			}
-			store_v8(bld, offsetof(struct vf_buffer, data[i * 4 + c]), src);
+			kir_program_store_v8(prog, offsetof(struct vf_buffer, data[i * 4 + c]), src);
 		}
-
-		builder_trace(bld, trace_file);
-		builder_release_regs(bld);
 	}
 
 	if (gt.vf.iid_enable || gt.vf.vid_enable) {
-		ksim_trace(TRACE_EU, "[ff vertex fetch: system generated values]\n");
+		kir_program_comment(prog, "vertex fetch: system generated values");
 		if (gt.vf.iid_enable) {
-			int iid = load_uniform(bld, offsetof(struct vf_buffer, iid));
+			kir_program_load_uniform(prog, offsetof(struct vf_buffer, iid));
 			uint32_t reg = gt.vf.iid_element * 4 + gt.vf.iid_component;
-			store_v8(bld, offsetof(struct vf_buffer, data[reg]), iid);
+			kir_program_store_v8(prog, offsetof(struct vf_buffer, data[reg]), prog->dst);
 		}
 		if (gt.vf.vid_enable) {
-			int vid = load_v8(bld, offsetof(struct vf_buffer, vid));
+			kir_program_load_v8(prog, offsetof(struct vf_buffer, vid));
 			uint32_t reg = gt.vf.vid_element * 4 + gt.vf.vid_component;
-			store_v8(bld, offsetof(struct vf_buffer, data[reg]), vid);
+			kir_program_store_v8(prog, offsetof(struct vf_buffer, data[reg]), prog->dst);
 		}
-
-		builder_trace(bld, trace_file);
-		builder_release_regs(bld);
 	}
 
-	if (trace_mask & TRACE_VF) {
-		builder_emit_call(bld, dump_fetched_vue);
-		builder_invalidate_all(bld);
-	}
-
+	if (trace_mask & TRACE_VF)
+		kir_program_call(prog, dump_vue, 0);
 }
 
 static uint32_t
-builder_emit_load_constants(struct builder *bld, struct vf_buffer *buffer,
-			    struct curbe *c, uint32_t start)
+emit_load_constants(struct kir_program *prog, struct vf_buffer *buffer,
+		    struct curbe *c, uint32_t start)
 {
 	uint32_t grf = start;
 	struct reg *regs;
 	uint64_t base, range;
 	uint32_t bc = 0;
 
-	ksim_trace(TRACE_EU, "[ff load constants]\n");
+	kir_program_comment(prog, "load constants");
 	for (uint32_t b = 0; b < 4; b++) {
 		if (b == 0 && gt.curbe_dynamic_state_base)
 			base = gt.dynamic_state_base_address;
@@ -583,37 +562,31 @@ builder_emit_load_constants(struct builder *bld, struct vf_buffer *buffer,
 
 		for (uint32_t i = 0; i < c->buffer[b].length; i++) {
 			buffer->constants[bc] = regs[i];
-			int reg = load_v8(bld, offsetof(struct vf_buffer, constants[bc++]));
-			store_v8(bld, offsetof(struct vf_buffer, t.grf[grf++]), reg);
+			kir_program_load_v8(prog, offsetof(struct vf_buffer, constants[bc++]));
+			kir_program_store_v8(prog, offsetof(struct vf_buffer, t.grf[grf++]), prog->dst);
 		}
 	}
 
 	ksim_assert(bc < ARRAY_LENGTH(buffer->constants));
 
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
-
 	return grf;
 }
 
 static void
-builder_emit_load_vue(struct builder *bld, uint32_t grf)
+emit_load_vue(struct kir_program *prog, uint32_t grf)
 {
 	uint32_t src = offsetof(struct vf_buffer, data[gt.vs.vue_read_offset * 2 * 4]);
 	uint32_t dst = offsetof(struct vf_buffer, t.grf[grf]);
 
-	ksim_trace(TRACE_EU, "[ff copy vue]\n");
+	kir_program_comment(prog, "copy vue");
 	for (uint32_t i = 0; i < gt.vs.vue_read_length * 2 * 4; i++) {
-		int reg = load_v8(bld, src + i * 32);
-		store_v8(bld, dst + i * 32, reg);
+		kir_program_load_v8(prog, src + i * 32);
+		kir_program_store_v8(prog, dst + i * 32, prog->dst);
 	}
-
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
 }
 
 static void
-builder_emit_perspective_divide(struct builder *bld)
+emit_perspective_divide(struct kir_program *prog)
 {
 	/* vrcpps doesn't have sufficient precision for perspective
 	 * divide. We can use vdivps (latency 21/throughput 13) or do
@@ -622,141 +595,133 @@ builder_emit_perspective_divide(struct builder *bld)
 	 * is slightly better.
 	 */
 
-	ksim_trace(TRACE_EU, "[ff perspective divide]\n");
+	kir_program_comment(prog, "perspective divide");
 
-	int w = load_v8(bld, offsetof(struct vf_buffer, w));
-	int inv_w = builder_get_reg(bld);
-	builder_emit_vrcpps(bld, inv_w, w);
+	struct kir_reg w = kir_program_load_v8(prog, offsetof(struct vf_buffer, w));
+	struct kir_reg inv_w0 = kir_program_alu(prog, kir_rcp, w);
 
 	/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
-	int two = builder_get_reg_with_uniform(bld,
-					       float_to_u32(2.0f));
+	struct kir_reg two = kir_program_immd(prog, float_to_u32(2.0f));
 
-	builder_emit_vfnmadd132ps(bld, w, inv_w, two);
-	builder_emit_vmulps(bld, inv_w, inv_w, w);
+	kir_program_alu(prog, kir_nmaddf, w, inv_w0, two);
+	struct kir_reg inv_w = kir_program_alu(prog, kir_mulf, inv_w0, prog->dst);
 
-	const int x = load_v8(bld, offsetof(struct vf_buffer, x));
-	builder_emit_vmulps(bld, x, x, inv_w);
-	store_v8(bld, offsetof(struct vf_buffer, x), x);
+	const struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vf_buffer, x));
+	kir_program_alu(prog, kir_mulf, x, inv_w);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, x), prog->dst);
 
-	const int y = load_v8(bld, offsetof(struct vf_buffer, y));
-	builder_emit_vmulps(bld, y, y, inv_w);
-	store_v8(bld, offsetof(struct vf_buffer, y), y);
+	const struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vf_buffer, y));
+	kir_program_alu(prog, kir_mulf, y, inv_w);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, y), prog->dst);
 
-	const int z = load_v8(bld, offsetof(struct vf_buffer, z));
-	builder_emit_vmulps(bld, z, z, inv_w);
-	store_v8(bld, offsetof(struct vf_buffer, z), z);
+	const struct kir_reg z = kir_program_load_v8(prog, offsetof(struct vf_buffer, z));
+	kir_program_alu(prog, kir_mulf, z, inv_w);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, z), prog->dst);
 
-	store_v8(bld, offsetof(struct vf_buffer, w), inv_w);
-
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, w), inv_w);
 }
 
 static void
-builder_emit_clip_test(struct builder *bld)
+emit_clip_test(struct kir_program *prog)
 {
-	ksim_trace(TRACE_EU, "[ff clip tests]\n");
+	kir_program_comment(prog, "clip tests");
 
-	int x0 = load_uniform(bld, offsetof(struct vf_buffer, clip.x0));
-	int x1 = load_uniform(bld, offsetof(struct vf_buffer, clip.x1));
-	int y0 = load_uniform(bld, offsetof(struct vf_buffer, clip.y0));
-	int y1 = load_uniform(bld, offsetof(struct vf_buffer, clip.y1));
-	int x = load_v8(bld, offsetof(struct vf_buffer, x));
-	int y = load_v8(bld, offsetof(struct vf_buffer, y));
+	struct kir_reg x0 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, clip.x0));
+	struct kir_reg x1 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, clip.x1));
+	struct kir_reg y0 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, clip.y0));
+	struct kir_reg y1 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, clip.y1));
+	struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vf_buffer, x));
+	struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vf_buffer, y));
 
-	builder_emit_vcmpps(bld, _CMP_LT_OS, x0, x0, x);
-	builder_emit_vcmpps(bld, _CMP_GT_OS, x1, x1, x);
-	builder_emit_vcmpps(bld, _CMP_LT_OS, y0, y0, y);
-	builder_emit_vcmpps(bld, _CMP_GT_OS, y1, y1, y);
+	struct kir_reg x0f = kir_program_alu(prog, kir_cmp, x0, x, _CMP_LT_OS);
+	struct kir_reg x1f = kir_program_alu(prog, kir_cmp, x1, x, _CMP_GT_OS);
+	struct kir_reg y0f = kir_program_alu(prog, kir_cmp, y0, y, _CMP_LT_OS);
+	struct kir_reg y1f = kir_program_alu(prog, kir_cmp, y1, y, _CMP_GT_OS);
 
-	builder_emit_vpor(bld, x0, x0, x1);
-	builder_emit_vpor(bld, y0, y0, y1);
-	builder_emit_vpor(bld, x0, x0, y0);
+	struct kir_reg xf = kir_program_alu(prog, kir_or, x0f, x1f);
+	struct kir_reg yf = kir_program_alu(prog, kir_or, y0f, y1f);
+	struct kir_reg f = kir_program_alu(prog, kir_or, xf, yf);
 
-	store_v8(bld, offsetof(struct vf_buffer, clip_flags), x0);
-
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, clip_flags), f);
 }
 
 static void
-builder_emit_viewport_transform(struct builder *bld)
+emit_viewport_transform(struct kir_program *prog)
 {
-	ksim_trace(TRACE_EU, "[ff viewport transform]\n");
+	kir_program_comment(prog, "viewport transform");
 
-	int m00 = load_uniform(bld, offsetof(struct vf_buffer, vp.m00));
-	int m11 = load_uniform(bld, offsetof(struct vf_buffer, vp.m11));
-	int m22 = load_uniform(bld, offsetof(struct vf_buffer, vp.m22));
-	int m30 = load_uniform(bld, offsetof(struct vf_buffer, vp.m30));
-	int m31 = load_uniform(bld, offsetof(struct vf_buffer, vp.m31));
-	int m32 = load_uniform(bld, offsetof(struct vf_buffer, vp.m32));
+	struct kir_reg m00 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m00));
+	struct kir_reg m11 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m11));
+	struct kir_reg m22 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m22));
+	struct kir_reg m30 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m30));
+	struct kir_reg m31 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m31));
+	struct kir_reg m32 = kir_program_load_uniform(prog, offsetof(struct vf_buffer, vp.m32));
 
-	int x = load_v8(bld, offsetof(struct vf_buffer, x));
-	int y = load_v8(bld, offsetof(struct vf_buffer, y));
-	int z = load_v8(bld, offsetof(struct vf_buffer, z));
+	struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vf_buffer, x));
+	struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vf_buffer, y));
+	struct kir_reg z = kir_program_load_v8(prog, offsetof(struct vf_buffer, z));
 
-	builder_emit_vfmadd132ps(bld, x, m00, m30);
-	builder_emit_vfmadd132ps(bld, y, m11, m31);
-	builder_emit_vfmadd132ps(bld, z, m22, m32);
+	struct kir_reg xs = kir_program_alu(prog, kir_maddf, x, m00, m30);
+	struct kir_reg ys = kir_program_alu(prog, kir_maddf, y, m11, m31);
+	struct kir_reg zs = kir_program_alu(prog, kir_maddf, z, m22, m32);
 
-	store_v8(bld, offsetof(struct vf_buffer, x), x);
-	store_v8(bld, offsetof(struct vf_buffer, y), y);
-	store_v8(bld, offsetof(struct vf_buffer, z), z);
-
-	builder_trace(bld, trace_file);
-	builder_release_regs(bld);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, x), xs);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, y), ys);
+	kir_program_store_v8(prog, offsetof(struct vf_buffer, z), zs);
 }
 
 static void
 compile_vs(struct vf_buffer *buffer)
 {
-	struct builder bld;
+	struct kir_program prog;
 
 	ksim_trace(TRACE_EU | TRACE_AVX, "jit vs\n");
 
-	builder_init(&bld,
-		     gt.vs.binding_table_address,
-		     gt.vs.sampler_state_address);
+	kir_program_init(&prog,
+			 gt.vs.binding_table_address,
+			 gt.vs.sampler_state_address);
 
 	uint32_t grf;
 	if (gt.vs.enable) {
-		grf = builder_emit_load_constants(&bld, buffer,
-						  &gt.vs.curbe,
-						  gt.vs.urb_start_grf);
+		grf = emit_load_constants(&prog, buffer,
+					  &gt.vs.curbe,
+					  gt.vs.urb_start_grf);
 	}
 
 	/* Always need to fetch, even if we don't have a VS. */
-	builder_emit_vertex_fetch(&bld);
+	emit_vertex_fetch(&prog);
 
 	if (gt.vs.enable) {
-		builder_emit_load_vue(&bld, grf);
-		builder_emit_shader(&bld, gt.vs.ksp);
+		emit_load_vue(&prog, grf);
+
+		kir_program_comment(&prog, "eu vs");
+		kir_program_emit_shader(&prog, gt.vs.ksp);
 	}
 
+	if (trace_mask & TRACE_VF)
+		kir_program_call(&prog, dump_vue, 0);
+
 	if (!gt.clip.perspective_divide_disable)
-		builder_emit_perspective_divide(&bld);
+		emit_perspective_divide(&prog);
 
 	if (gt.clip.guardband_clip_test_enable ||
 	    gt.clip.viewport_clip_test_enable)
-		builder_emit_clip_test(&bld);
+		emit_clip_test(&prog);
 
 	if (gt.sf.viewport_transform_enable)
-		builder_emit_viewport_transform(&bld);
+		emit_viewport_transform(&prog);
 
-	builder_emit_ret(&bld);
-	builder_trace(&bld, trace_file);
-	builder_release_regs(&bld);
+	if (trace_mask & TRACE_VF)
+		kir_program_call(&prog, dump_vue, 0);
 
-	gt.vs.avx_shader = builder_finish(&bld);
+	kir_program_add_insn(&prog, kir_eot);
+
+	gt.vs.avx_shader = kir_program_finish(&prog);
 }
 
 static void
 init_vf_buffer(struct vf_buffer *buffer)
 {
-	uint64_t range;
-	buffer->index_buffer = map_gtt_offset(gt.vf.ib.address, &range);
-
 	buffer->start_vertex = gt.prim.start_vertex;
 	buffer->base_vertex = gt.prim.base_vertex;
 	buffer->start_instance = gt.prim.start_instance;

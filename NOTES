@@ -91,3 +91,13 @@ blend to implement write masking.
 
 Run on hw for a while, then switch to simulator when something
 triggers. Switch back.
+
+** KIR
+
+* Optimize redundant rax loads for gather
+
+* Fix tail call optimization for eot sends/calls
+
+* Make sure to allocate ymm0 and ymm1 for call args
+
+* Region liveness

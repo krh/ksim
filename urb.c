@@ -24,6 +24,7 @@
 
 #include "eu.h"
 #include "avx-builder.h"
+#include "kir.h"
 
 struct free_urb {
 	uint32_t next;
@@ -106,40 +107,21 @@ validate_urb_state(void)
 }
 
 static void
-builder_emit_sfid_urb_simd8_write(struct builder *bld, struct inst *inst)
+builder_emit_sfid_urb_simd8_write(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	uint32_t src = unpack_inst_2src_src0(inst).num + 1;
 	uint32_t vue_offset = field(send.function_control, 4, 14);
 
-	for (uint32_t i = 0; i < send.mlen; i++) {
-		const struct eu_region src_region = {
-			.offset = (src + i) * 32,
-			.type_size = 4,
-			.exec_size = 8,
-			.vstride = 8,
-			.width = 8,
-			.hstride = 1
-		};
-
-		int reg = builder_emit_region_load(bld, &src_region);
-
-		const struct eu_region dst_region = {
-			.offset = offsetof(struct vf_buffer,
-					   data[vue_offset * 4 + i]),
-			.type_size = 4,
-			.exec_size = 8,
-			.vstride = 8,
-			.width = 8,
-			.hstride = 1
-		};
-
-		builder_emit_region_store(bld, &dst_region, reg);
+	for (uint32_t i = 0; i < send.mlen - 1; i++) {
+		kir_program_load_v8(prog, (src + i) * 32);
+		kir_program_store_v8(prog, offsetof(struct vf_buffer,
+						    data[vue_offset * 4 + i]), prog->dst);
 	}
 }
 
 void
-builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
+builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 
@@ -160,7 +142,7 @@ builder_emit_sfid_urb(struct builder *bld, struct inst *inst)
 		ksim_assert(send.header_present);
 		ksim_assert(send.rlen == 0);
 		ksim_assert(!per_slot_offset);
-		builder_emit_sfid_urb_simd8_write(bld, inst);
+		builder_emit_sfid_urb_simd8_write(prog, inst);
 		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", opcode);

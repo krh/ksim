@@ -25,6 +25,7 @@
 
 #include "eu.h"
 #include "avx-builder.h"
+#include "kir.h"
 
 struct sfid_render_cache_args {
 	int src;
@@ -510,30 +511,47 @@ sfid_render_cache_rt_write_simd8_rgba8_ymajor(struct thread *t,
 			    _mm256_extractf128_si256(rgba, 1));
 }
 
-void *
-builder_emit_sfid_render_cache_helper(struct builder *bld,
-				      uint32_t opcode, uint32_t type, uint32_t src, uint32_t surface)
+enum message_type {
+	MSD_RTW = 0x0c,
+	MSD_RTR = 0x0d,
+};
+
+enum message_subtype {
+	MESSAGE_SUBTYPE_SIMD16,
+	MESSAGE_SUBTYPE_SIMD16_REPDATA,
+	MESSAGE_SUBTYPE_SIMD8_DUALSRC_LO,
+	MESSAGE_SUBTYPE_SIMD8_DUALSRC_HI,
+	MESSAGE_SUBTYPE_SIMD8_LO,
+	MESSAGE_SUBTYPE_SIMD16_REPDATA_TILED = 7
+};
+
+struct message_descriptor {
+	/* Vol 2a, "MSD_RTW*" (p473+) */
+	uint32_t		binding_table_index;
+	enum message_subtype	message_subtype;
+	uint32_t		slot_group;
+	bool			last_rt;
+	bool			per_sample;
+	enum message_type	message_type;
+	bool			header_present;
+	uint32_t		response_length;
+	uint32_t		message_length;
+	uint32_t		data_format;
+	bool			eot;
+};
+
+static void *
+pick_render_cache_function(enum message_type type, enum message_subtype subtype,
+			   struct sfid_render_cache_args *args)
 {
-	struct sfid_render_cache_args *args;
-	bool rt_valid;
-
-	args = builder_get_const_data(bld, sizeof *args, 32);
-	args->src = src;
-
-	rt_valid = get_surface(bld->binding_table_address, surface, &args->rt);
-	ksim_assert(rt_valid);
-	if (!rt_valid)
-		return NULL;
-
-	builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, args));
-
 	/* vol 2d, p445 */
-	switch (opcode) {
-	case 12: /* rt write */
-		switch (type) {
-		case 0:
+	switch (type) {
+	case MSD_RTW:
+		switch (subtype) {
+		case MESSAGE_SUBTYPE_SIMD16:
 			return sfid_render_cache_rt_write_simd16;
-		case 1: /* rep16 */
+		case MESSAGE_SUBTYPE_SIMD16_REPDATA:
+		case MESSAGE_SUBTYPE_SIMD16_REPDATA_TILED:
 			if (args->rt.format == SF_B8G8R8A8_UNORM &&
 			    args->rt.tile_mode == XMAJOR)
 				return sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor;
@@ -554,7 +572,7 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 				     args->rt.format, args->rt.tile_mode);
 			break;
 
-		case 4: /* simd8 */
+		case MESSAGE_SUBTYPE_SIMD8_LO:
 			if (args->rt.format == SF_R16G16B16A16_UNORM &&
 			    args->rt.tile_mode == LINEAR)
 				return sfid_render_cache_rt_write_simd8_rgba_unorm16_linear;
@@ -596,28 +614,68 @@ builder_emit_sfid_render_cache_helper(struct builder *bld,
 			     args->rt.format, args->rt.tile_mode);
 			return NULL;
 		default:
-			stub("rt write type %d", type);
+			stub("rt write subtype %d", subtype);
 			return NULL;
 		}
 	default:
-		stub("render cache message opcode %d", opcode);
+		stub("render cache message type %d", type);
 		return NULL;
 	}
 }
 
 void
-builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst)
+builder_emit_sfid_render_cache_helper(struct kir_program *prog,
+				      uint32_t type, uint32_t subtype,
+				      uint32_t src, uint32_t mlen,
+				      uint32_t surface)
 {
-	struct inst_send send = unpack_inst_send(inst);
-	uint32_t opcode = field(send.function_control, 14, 17);
-	uint32_t type = field(send.function_control, 8, 10);
-	uint32_t surface = field(send.function_control, 0, 7);
-	uint32_t src = unpack_inst_2src_src0(inst).num;
-	void *p;
+	struct sfid_render_cache_args *args;
+	bool rt_valid;
 
-	p = builder_emit_sfid_render_cache_helper(bld, opcode, type, src, surface);
-	if (p == NULL)
+	args = get_const_data(sizeof *args, 32);
+	args->src = src;
+
+	rt_valid = get_surface(prog->binding_table_address, surface, &args->rt);
+	ksim_assert(rt_valid);
+	if (!rt_valid)
 		return;
 
-	builder_emit_call(bld, p);
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_send);
+	insn->send.src = src;
+	insn->send.mlen = mlen;
+	insn->send.dst = 0;
+	insn->send.rlen = 0;
+	insn->send.func = pick_render_cache_function(type, subtype, args);
+	insn->send.args = args;
+}
+
+static inline struct message_descriptor
+unpack_message_descriptor(uint32_t function_control)
+{
+	return (struct message_descriptor) {
+		.binding_table_index	= field(function_control,  0,  7),
+		.message_subtype	= field(function_control,  8, 10),
+		.slot_group		= field(function_control, 11, 11),
+		.last_rt		= field(function_control, 12, 12),
+		.per_sample		= field(function_control, 13, 13),
+		.message_type		= field(function_control, 14, 17),
+		.header_present		= field(function_control, 19, 19),
+		.response_length	= field(function_control, 20, 24),
+		.message_length		= field(function_control, 25, 28),
+		.data_format		= field(function_control, 30, 30),
+	};
+}
+
+void
+builder_emit_sfid_render_cache(struct kir_program *prog, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	struct message_descriptor d =
+		unpack_message_descriptor(send.function_control);
+	uint32_t src = unpack_inst_2src_src0(inst).num;
+
+	builder_emit_sfid_render_cache_helper(prog, d.message_type,
+					      d.message_subtype,
+					      src, send.mlen,
+					      d.binding_table_index);
 }

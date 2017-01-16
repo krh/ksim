@@ -705,15 +705,17 @@ void *alloc_urb_entry(struct urb *urb);
 void free_urb_entry(struct urb* urb, void *entry);
 void validate_urb_state(void);
 
+struct kir_program;
 struct builder;
 struct inst;
-void builder_emit_sfid_urb(struct builder *bld, struct inst *inst);
-void *builder_emit_sfid_render_cache_helper(struct builder *bld,
-					   uint32_t opcode, uint32_t type,
-					   uint32_t src, uint32_t surface);
-void builder_emit_sfid_render_cache(struct builder *bld, struct inst *inst);
+void builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst);
+void builder_emit_sfid_render_cache_helper(struct kir_program *prog,
+					   uint32_t type, uint32_t subtype,
+					   uint32_t src, uint32_t mlen,
+					   uint32_t surface);
+void builder_emit_sfid_render_cache(struct kir_program *prog, struct inst *inst);
 
-void builder_emit_sfid_sampler(struct builder *bld, struct inst *inst);
+void builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst);
 void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
 void prepare_shaders(void);
@@ -721,6 +723,20 @@ uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void reset_shader_pool(void);
 shader_t compile_shader(uint64_t kernel_offset,
 			uint64_t surfaces, uint64_t samplers);
+
+void *get_const_data(size_t size, size_t align);
+
+static inline uint32_t *
+get_const_ud(uint32_t ud)
+{
+	uint32_t *p;
+
+	p = get_const_data(sizeof(*p), 4);
+
+	*p = ud;
+
+	return p;
+}
 
 struct list {
 	struct list *prev;
@@ -782,6 +798,11 @@ list_insert_list(struct list *list, struct list *other)
 	     &e->field != (list);					\
 	     e = container_of(e->field.next, e, field))
 
+#define list_for_each_entry_reverse(e, list, field)			\
+	for (e = container_of((list)->prev, e, field);			\
+	     &e->field != (list);					\
+	     e = container_of(e->field.prev, e, field))
+
 #define list_find(e, list, field, cond)					\
 	({								\
 		for (e = container_of((list)->next, e, field);		\
@@ -791,4 +812,3 @@ list_insert_list(struct list *list, struct list *other)
 				break;					\
 		&e->link != list;					\
 	})
-
