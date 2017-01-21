@@ -602,11 +602,94 @@ struct ra_state {
 	uint32_t *range;
 	uint32_t regs;
 	uint8_t *reg_to_avx;
+	struct kir_reg avx_to_reg[16];
+	uint32_t spill_slots;
 };
+
+/* Insert spill instruction of register reg before instruction insn */
+static void
+spill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
+{
+	ksim_assert(state->spill_slots);
+	int slot = __builtin_ffs(state->spill_slots) - 1;
+	state->spill_slots &= ~(1 << slot);
+
+	ksim_trace(TRACE_RA, "spill ymm%d to slot %d\n", reg.n, slot);
+
+	/* FIXME: Need constructor for this */
+	struct kir_insn *spill;
+
+	spill = malloc(sizeof(*spill));
+	spill->opcode = kir_store_region;
+	spill->dst = kir_reg(0);
+
+	list_insert(insn->link.prev, &spill->link);
+
+	spill->xfer.src = reg;
+	spill->xfer.region = (struct eu_region) {
+		.offset = offsetof(struct thread, spill[slot]),
+		.type_size = 4,
+		.exec_size = 8,
+		.vstride = 8,
+		.width = 8,
+		.hstride = 1
+	};
+
+	struct kir_reg def = state->avx_to_reg[reg.n];
+
+	state->regs |= (1 << reg.n);
+	state->reg_to_avx[def.n] = 16 + slot;
+}
+
+static void
+assign_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
+{
+	ksim_assert(avx_reg < 16);
+
+	state->avx_to_reg[avx_reg] = insn->dst;
+	state->reg_to_avx[insn->dst.n] = avx_reg;
+	insn->dst.n = avx_reg;
+	state->regs &= ~(1 << avx_reg);
+}
+
+static void
+unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
+{
+	/* FIXME: Need to spill something else if no regs. But not the
+	 * other src reg in a binop... */
+	ksim_assert(state->regs);
+
+	int avx_reg = __builtin_ffs(state->regs) - 1;
+	uint32_t slot = state->reg_to_avx[reg.n] - 16;
+	state->spill_slots |= (1 << slot);
+
+	ksim_trace(TRACE_RA, "unspill slot %d to ymm%d\n", slot, avx_reg);
+
+	struct kir_insn *unspill;
+	unspill = malloc(sizeof(*unspill));
+	unspill->opcode = kir_load_region;
+	unspill->dst = reg;
+
+	list_insert(insn->link.prev, &unspill->link);
+
+	unspill->xfer.region = (struct eu_region) {
+		.offset = offsetof(struct thread, spill[slot]),
+		.type_size = 4,
+		.exec_size = 8,
+		.vstride = 8,
+		.width = 8,
+		.hstride = 1
+	};
+
+	assign_reg(state, unspill, avx_reg);
+}
 
 static inline struct kir_reg
 use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
+	if (state->reg_to_avx[reg.n] >= 16)
+		unspill_reg(state, insn, reg);
+
 	struct kir_reg avx_reg = {
 		.n = state->reg_to_avx[reg.n]
 	};
@@ -625,12 +708,23 @@ use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 }
 
 static void
+spill_all(struct ra_state *state, struct kir_insn *insn)
+{
+	uint32_t live_regs = 0xffff & ~state->regs;
+	uint32_t avx_reg;
+
+	for_each_bit(avx_reg, live_regs)
+		spill_reg(state, insn, kir_reg(avx_reg));
+}
+
+static void
 kir_program_allocate_registers(struct kir_program *prog)
 {
 	struct kir_insn *insn;
 	struct ra_state state;
 	uint32_t exclude_regs;
 
+	state.spill_slots = 0xffffffff;
 	state.regs = 0xffff;
 	state.reg_to_avx = malloc(prog->next_reg.n * sizeof(state.reg_to_avx[0]));
 	memset(state.reg_to_avx, 0xff, prog->next_reg.n * sizeof(state.reg_to_avx[0]));
@@ -663,8 +757,11 @@ kir_program_allocate_registers(struct kir_program *prog)
 			
 		case kir_call:
 		case kir_const_call:
-			/* Must use ymm0 and ymm1 for src0 and src1,
-			   dst will be ymm0. */
+			spill_all(&state, insn);
+			if (insn->call.args > 0)
+				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
+			if (insn->call.args > 1)
+				insn->call.src1 = use_reg(&state, insn, insn->call.src1);
 			break;
 
 		case kir_zxwd:
@@ -727,9 +824,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 			ksim_trace(TRACE_RA, "reuse ymm%d for r%d\n",
 				   insn->alu.src0.n, insn->dst.n);
 
-			state.reg_to_avx[insn->dst.n] = insn->alu.src0.n;
-			insn->dst.n = insn->alu.src0.n;
-			state.regs &= ~(1 << insn->dst.n);
+			assign_reg(&state, insn, insn->alu.src0.n);
 			break;
 		case kir_blend:
 			/* Don't allocate dst, dst becomes one of the
@@ -766,9 +861,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 			int avx_reg = __builtin_ffs(regs) - 1;
 			ksim_trace(TRACE_RA, "allocate ymm%d for r%d\n",
 				   avx_reg, insn->dst.n);
-			state.reg_to_avx[insn->dst.n] = avx_reg;
-			insn->dst.n = avx_reg;
-			state.regs &= ~(1 << avx_reg);
+			assign_reg(&state, insn, avx_reg);
 			break;
 		}
 		}
