@@ -2,11 +2,6 @@
 #include <dis-asm.h>
 #include <limits.h>
 
-enum builder_reg_contents {
-	BUILDER_REG_CONTENTS_UNIFORM	= (1 << 0),
-	BUILDER_REG_CONTENTS_EU_REG	= (1 << 1)
-};
-
 struct eu_region {
 	uint32_t offset; /* num * 32 + subnum */
 	uint32_t type_size;
@@ -16,35 +11,15 @@ struct eu_region {
 	uint32_t hstride;
 };
 
-
-struct avx2_reg {
-	uint32_t contents;
-	uint32_t uniform;
-
-        struct list link;
-	struct eu_region region;
-
-};
-
 struct builder {
 	shader_t shader;
 	uint8_t *p;
-	uint64_t binding_table_address;
-	uint64_t sampler_state_address;
-
-	struct avx2_reg regs[16];
-	struct list regs_lru_list;
-	struct list used_regs_list;
-	int scope;
 
 	/* Disassembly fields */
 	struct disassemble_info info;
 	int disasm_tail;
 	char disasm_output[128];
 	int disasm_length;
-
-	int exec_offset;
-	int exec_size;
 };
 
 #define emit(bld, ...)							\
@@ -639,31 +614,10 @@ builder_emit_trap(struct builder *bld)
 }
 
 void
-builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers);
+builder_init(struct builder *bld);
 
 shader_t
 builder_finish(struct builder *bld);
-
-void
-builder_invalidate_all(struct builder *bld);
-
-void
-builder_invalidate_region(struct builder *bld, const struct eu_region *r);
-
-int
-builder_use_reg(struct builder *bld, struct avx2_reg *reg);
-
-int
-builder_get_reg(struct builder *bld);
-
-int
-builder_get_reg_with_uniform(struct builder *bld, uint32_t d);
-
-void
-builder_release_reg(struct builder *bld, int reg_num);
-
-void
-builder_release_regs(struct builder *bld);
 
 bool
 builder_disasm(struct builder *bld);

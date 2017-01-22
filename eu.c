@@ -297,7 +297,7 @@ kir_program_emit_src_load(struct kir_program *prog,
 		default:
 			ksim_unreachable("invalid imm type");
 		}
-
+		reg = prog->dst;
 	} else if (src->file == BRW_GENERAL_REGISTER_FILE) {
 		struct eu_region region;
 

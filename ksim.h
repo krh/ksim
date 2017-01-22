@@ -799,6 +799,11 @@ list_insert_list(struct list *list, struct list *other)
 	     &e->field != (list);					\
 	     e = container_of(e->field.next, e, field))
 
+#define list_for_each_entry_safe(e, n, list, field)			\
+	for (e = container_of((list)->next, e, field);			\
+	     &e->field != (list) && (n = container_of(e->field.next, e, field)); \
+	     e = n)
+
 #define list_for_each_entry_reverse(e, list, field)			\
 	for (e = container_of((list)->prev, e, field);			\
 	     &e->field != (list);					\

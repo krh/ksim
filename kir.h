@@ -163,8 +163,8 @@ struct kir_insn {
 
 		union {
 			int32_t d;
-			float vf[4];
 			int16_t v[8];
+			float vf[4];
 		} imm;
 
 		/* A send instruction is a C function that reads its

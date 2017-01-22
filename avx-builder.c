@@ -78,13 +78,10 @@ builder_disasm_printf(void *_bld, const char *fmt, ...)
 }
 
 void
-builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
+builder_init(struct builder *bld)
 {
 	bld->shader = align_ptr(shader_end, 64);
 	bld->p = (uint8_t *) bld->shader;
-	bld->binding_table_address = surfaces;
-	bld->sampler_state_address = samplers;
-	bld->scope = 0;
 
 	bld->disasm_tail = bld->p - (uint8_t *) shader_pool;
 	init_disassemble_info(&bld->info, bld, builder_disasm_printf);
@@ -96,8 +93,6 @@ builder_init(struct builder *bld, uint64_t surfaces, uint64_t samplers)
 	bld->info.buffer = shader_pool;
 	bld->info.section = NULL;
 	disassemble_init_for_target(&bld->info);
-
-	builder_invalidate_all(bld);
 }
 
 shader_t
@@ -108,67 +103,6 @@ builder_finish(struct builder *bld)
 	ksim_assert(shader_end - shader_pool < shader_pool_size);
 
 	return bld->shader;
-}
-
-void
-builder_invalidate_all(struct builder *bld)
-{
-	list_init(&bld->regs_lru_list);
-	list_init(&bld->used_regs_list);
-
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		list_insert(&bld->regs_lru_list, &bld->regs[i].link);
-		bld->regs[i].contents = 0;
-	}
-}
-
-static bool
-regions_overlap(const struct eu_region *a, const struct eu_region *b)
-{
-	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
-	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
-
-	/* This is a coarse approximation, but probably sufficient: if
-	 * the "bounding boxs" of the regions overlap, we consider the
-	 * regions overlapping. This misses cases where a region could
-	 * be contained in a gap (ie, where width < vstride) of
-	 * another region or two regions could be interleaved. */
-
-	return a->offset + a_size > b->offset &&
-		 b->offset + b_size > a->offset;
-}
-
-void
-builder_invalidate_region(struct builder *bld, const struct eu_region *r)
-{
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		if ((bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG) &&
-		    regions_overlap(r, &bld->regs[i].region)) {
-			bld->regs[i].contents &= ~BUILDER_REG_CONTENTS_EU_REG;
-			ksim_trace(TRACE_RA,
-				   "*** invalidate g%d.%d (ymm%d)\n",
-				   bld->regs[i].region.offset / 32,
-				   bld->regs[i].region.offset & 31, i);
-		}
-	}
-}
-
-int
-builder_use_reg(struct builder *bld, struct avx2_reg *reg)
-{
-	list_remove(&reg->link);
-	list_insert(&bld->used_regs_list, &reg->link);
-
-	return reg - bld->regs;
-}
-
-void
-builder_release_reg(struct builder *bld, int reg_num)
-{
-	struct avx2_reg *reg = &bld->regs[reg_num];
-
-	list_remove(&reg->link);
-	list_insert(bld->regs_lru_list.prev, &reg->link);
 }
 
 void
@@ -197,8 +131,8 @@ builder_emit_region_load(struct builder *bld, const struct eu_region *region, in
 		}
 	} else if (region->hstride == 0 && region->width == 4 && region->vstride == 1 &&
 		   region->type_size == 2) {
-		int tmp0_reg = builder_get_reg(bld);
-		int tmp1_reg = builder_get_reg(bld);
+		int tmp0_reg = 14;
+		int tmp1_reg = 15;
 
 		/* Handle the frag coord region */
 		builder_emit_vpbroadcastw(bld, tmp0_reg, region->offset);
@@ -221,7 +155,7 @@ builder_emit_region_load(struct builder *bld, const struct eu_region *region, in
 		for (int y = 0; y < region->exec_size / region->width; y++) {
 			for (int x = 0; x < region->width; x++) {
 				if (i == 4)
-					tmp_reg = builder_get_reg(bld);
+					tmp_reg = 14;
 				offset = region->offset + (y * region->vstride + x * region->hstride) * region->type_size;
 				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
 				i++;
@@ -276,67 +210,6 @@ builder_emit_region_store(struct builder *bld,
 	}
 }
 
-int
-builder_get_reg_with_uniform(struct builder *bld, uint32_t ud)
-{
-	struct avx2_reg *reg;
-	void *p;
-	int reg_num;
-
-	if (list_find(reg, &bld->regs_lru_list, link,
-		      (reg->contents & BUILDER_REG_CONTENTS_UNIFORM) &&
-		      reg->uniform == ud))
-		return builder_use_reg(bld, reg);
-
-	reg_num = builder_get_reg(bld);
-	reg = &bld->regs[reg_num];
-	reg->contents |= BUILDER_REG_CONTENTS_UNIFORM;
-	reg->uniform = ud;
-
-	if (ud == 0) {
-		builder_emit_vpxor(bld, reg_num, reg_num, reg_num);
-	} else {
-		p = get_const_ud(ud);
-		builder_emit_vpbroadcastd_rip_relative(bld, reg_num, builder_offset(bld, p));
-	}
-
-	return reg_num;
-}
-
-int
-builder_get_reg(struct builder *bld)
-{
-	struct avx2_reg *reg = container_of(bld->regs_lru_list.prev, reg, link);
-
-	ksim_assert(!list_empty(&bld->regs_lru_list));
-
-	reg->contents = 0;
-
-	return builder_use_reg(bld, reg);
-}
-
-void
-builder_release_regs(struct builder *bld)
-{
-	list_insert_list(&bld->regs_lru_list, &bld->used_regs_list);
-	list_init(&bld->used_regs_list);
-}
-
-void
-builder_dump_register_cache(struct builder *bld, FILE *fp)
-{
-	for (int i = 0; i < ARRAY_LENGTH(bld->regs); i++) {
-		if (bld->regs[i].contents & BUILDER_REG_CONTENTS_EU_REG)
-			fprintf(fp, "  ymm%d: g%d.%d<%d,%d,%d>\n",
-				i,
-				bld->regs[i].region.offset / 32,
-				bld->regs[i].region.offset & 31,
-				bld->regs[i].region.vstride,
-				bld->regs[i].region.width,
-				bld->regs[i].region.hstride);
-	}
-}
-
 bool
 builder_disasm(struct builder *bld)
 {
@@ -369,7 +242,7 @@ check_reg_imm_emit_function(const char *fmt,
 		int count, actual_reg, actual_imm;
 
 		reset_shader_pool();
-		builder_init(&bld, 0, 0);
+		builder_init(&bld);
 
 		func(&bld, reg, imm);
 		builder_disasm(&bld);
@@ -399,7 +272,7 @@ check_binop_emit_function(const char *fmt,
 			int count, actual_dst, actual_src;
 
 			reset_shader_pool();
-			builder_init(&bld, 0, 0);
+			builder_init(&bld);
 
 			func(&bld, dst, src);
 			builder_disasm(&bld);
@@ -433,7 +306,7 @@ check_triop_emit_function(const char *fmt,
 				int count, actual_dst, actual_src0, actual_src1;
 
 				reset_shader_pool();
-				builder_init(&bld, 0, 0);
+				builder_init(&bld);
 
 				func(&bld, dst, src0, src1);
 				builder_disasm(&bld);

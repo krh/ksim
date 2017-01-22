@@ -535,7 +535,7 @@ emit_vertex_fetch(struct kir_program *prog)
 		}
 	}
 
-	if (trace_mask & TRACE_VF)
+	if (trace_mask & TRACE_URB)
 		kir_program_call(prog, dump_vue, 0);
 }
 
@@ -698,7 +698,7 @@ compile_vs(struct vf_buffer *buffer)
 		kir_program_emit_shader(&prog, gt.vs.ksp);
 	}
 
-	if (trace_mask & TRACE_VF)
+	if (trace_mask & TRACE_URB)
 		kir_program_call(&prog, dump_vue, 0);
 
 	if (!gt.clip.perspective_divide_disable)
@@ -711,7 +711,7 @@ compile_vs(struct vf_buffer *buffer)
 	if (gt.sf.viewport_transform_enable)
 		emit_viewport_transform(&prog);
 
-	if (trace_mask & TRACE_VF)
+	if (trace_mask & TRACE_URB)
 		kir_program_call(&prog, dump_vue, 0);
 
 	kir_program_add_insn(&prog, kir_eot);

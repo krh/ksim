@@ -194,12 +194,6 @@ kir_insn_print(struct kir_insn *insn, FILE *fp)
 		fprintf(fp, "r%-3d = imm %dw\n", insn->dst.n, insn->imm.d);
 		break;
 	case kir_immv:
-		fprintf(fp, "r%-3d = imm [ %f, %f, %f, %f ]\n",
-			insn->dst.n, 
-			insn->imm.vf[0], insn->imm.vf[1],
-			insn->imm.vf[2], insn->imm.vf[3]);
-		break;
-	case kir_immvf:
 		fprintf(fp, "r%-3d = imm [ %d, %d, %d, %d, %d, %d, %d, %d ]\n",
 			insn->dst.n, 
 			insn->imm.v[0], insn->imm.v[1],
@@ -207,11 +201,17 @@ kir_insn_print(struct kir_insn *insn, FILE *fp)
 			insn->imm.v[4], insn->imm.v[5],
 			insn->imm.v[6], insn->imm.v[7]);
 		break;
+	case kir_immvf:
+		fprintf(fp, "r%-3d = imm [ %f, %f, %f, %f ]\n",
+			insn->dst.n, 
+			insn->imm.vf[0], insn->imm.vf[1],
+			insn->imm.vf[2], insn->imm.vf[3]);
+		break;
 	case kir_send:
 	case kir_const_send:
-		fprintf(fp, "r%-3d = %s send src g%d-g%d",
+		fprintf(fp, "r%-3d = %ssend src g%d-g%d",
 			insn->dst.n,
-			insn->opcode == kir_const_send ? "const " : "",
+			insn->opcode == kir_const_send ? "const_" : "",
 			insn->send.src, insn->send.src + insn->send.mlen - 1);
 		if (insn->send.rlen > 0)
 			fprintf(fp, ", dst g%d-g%d",
@@ -219,10 +219,16 @@ kir_insn_print(struct kir_insn *insn, FILE *fp)
 		fprintf(fp, "\n");
 		break;
 	case kir_call:
-		fprintf(fp, "r%-3d = call\n", insn->dst.n);
-		break;
 	case kir_const_call:
-		fprintf(fp, "r%-3d = const_call\n", insn->dst.n);
+		fprintf(fp, "r%-3d = %scall %p",
+			insn->dst.n,
+			insn->opcode == kir_const_call ? "const_" : "",
+			insn->call.func);
+		if (insn->call.args > 0)
+			fprintf(fp, ", r%d", insn->call.src0.n);
+		if (insn->call.args > 1)
+			fprintf(fp, ", r%d", insn->call.src1.n);
+		fprintf(fp, "\n");
 		break;
 	case kir_zxwd:
 		fprintf(fp, "r%-3d = zxwd r%d\n", insn->dst.n, insn->alu.src0.n);
@@ -577,6 +583,196 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 	return range;
 }
 
+struct resident_region {
+	struct eu_region region;
+	struct kir_reg reg;
+	struct list region_link;
+	struct list reg_link;
+};
+
+static bool
+regions_equal(const struct eu_region *a, const struct eu_region *b)
+{
+	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static bool
+regions_overlap(const struct eu_region *a, const struct eu_region *b)
+{
+	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
+	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
+
+	/* This is a coarse approximation, but probably sufficient: if
+	 * the "bounding boxs" of the regions overlap, we consider the
+	 * regions overlapping. This misses cases where a region could
+	 * be contained in a gap (ie, where width < vstride) of
+	 * another region or two regions could be interleaved. */
+
+	return a->offset + a_size > b->offset &&
+		 b->offset + b_size > a->offset;
+}
+
+void
+kir_program_copy_propagation(struct kir_program *prog)
+{
+	struct kir_insn *insn;
+	struct list *reg_rr;
+	struct resident_region *rr, *next;
+	int count = prog->next_reg.n;
+	struct kir_reg *remap;
+
+	reg_rr = malloc(count * sizeof(reg_rr[0]));
+	remap = malloc(count * sizeof(remap[0]));
+
+	for (uint32_t i = 0; i < count; i++)
+		remap[i] = kir_reg(i);
+
+	const uint32_t max_eu_regs = 400;
+	struct list region_to_reg[max_eu_regs];
+	for (uint32_t i = 0; i < max_eu_regs; i++)
+		list_init(&region_to_reg[i]);
+
+	list_for_each_entry(insn, &prog->insns, link) {
+		kir_insn_print(insn, trace_file);
+		list_init(&reg_rr[insn->dst.n]);
+		switch (insn->opcode) {
+		case kir_comment:
+			break;
+		case kir_load_region: {
+			list_for_each_entry(rr, &region_to_reg[insn->xfer.region.offset / 32], region_link) {
+				if (regions_equal(&insn->xfer.region, &rr->region)) {
+				    remap[insn->dst.n] = rr->reg;
+				    goto load_region_done;
+				}
+			}
+
+			struct list *head = &reg_rr[insn->dst.n];
+			list_for_each_entry_safe(rr, next, head, reg_link) {
+				list_remove(&rr->region_link);
+				list_remove(&rr->reg_link);
+				free(rr);
+			}
+
+			/* FIXME: Insert an rr for each region_to_reg it overlaps */
+			rr = malloc(sizeof(*rr));
+			rr->region = insn->xfer.region;
+			rr->reg = insn->dst;
+			list_insert(&reg_rr[insn->dst.n], &rr->reg_link);
+			list_insert(&region_to_reg[insn->xfer.region.offset / 32], &rr->region_link);
+		load_region_done:
+			break;
+		}
+		case kir_store_region_mask:
+		case kir_store_region: {
+
+			insn->xfer.src = remap[insn->xfer.src.n];
+
+			/* Invalidate registers overlapping region */
+			struct list *head = &region_to_reg[insn->xfer.region.offset / 32];
+			list_for_each_entry_safe(rr, next, head, region_link) {
+			if (regions_overlap(&rr->region, &insn->xfer.region)) {
+					list_remove(&rr->region_link);
+					list_remove(&rr->reg_link);
+					free(rr);
+				}
+			}
+
+			rr = malloc(sizeof(*rr));
+			rr->region = insn->xfer.region;
+			rr->reg = insn->xfer.src;
+			list_insert(&reg_rr[insn->dst.n], &rr->reg_link);
+			list_insert(&region_to_reg[insn->xfer.region.offset / 32], &rr->region_link);
+			break;
+		}
+		case kir_immd:
+		case kir_immw:
+		case kir_immv:
+		case kir_immvf:
+			break;
+		case kir_send:
+		case kir_const_send:
+			/* Don't need regs. */
+			break;
+		case kir_call:
+		case kir_const_call:
+			if (insn->call.args == 1) {
+				insn->call.src0 = remap[insn->call.src0.n];
+			} else if (insn->call.args == 2) {
+				insn->call.src0 = remap[insn->call.src0.n];
+				insn->call.src1 = remap[insn->call.src1.n];
+			}
+			break;
+
+		case kir_zxwd:
+		case kir_sxwd:
+		case kir_ps2d:
+		case kir_d2ps:
+		case kir_absd:
+		case kir_rcp:
+		case kir_sqrt:
+		case kir_rsqrt:
+		case kir_rndu:
+		case kir_rndd:
+		case kir_rnde:
+		case kir_rndz:
+		case kir_shri:
+		case kir_shli:
+			insn->alu.src0 = remap[insn->alu.src0.n];
+			break;
+		case kir_and:
+		case kir_andn:
+		case kir_or:
+		case kir_xor:
+		case kir_shr:
+		case kir_shl:
+		case kir_asr:
+		case kir_maxd:
+		case kir_maxw:
+		case kir_maxf:
+		case kir_mind:
+		case kir_minw:
+		case kir_minf:
+		case kir_divf:
+		case kir_addd:
+		case kir_addw:
+		case kir_addf:
+		case kir_subd:
+		case kir_subw:
+		case kir_subf:
+		case kir_muld:
+		case kir_mulw:
+		case kir_mulf:
+		case kir_cmp:
+			insn->alu.src0 = remap[insn->alu.src0.n];
+			insn->alu.src1 = remap[insn->alu.src1.n];
+			break;
+		case kir_int_div_q_and_r:
+		case kir_int_div_q:
+		case kir_int_div_r:
+		case kir_int_invm:
+		case kir_int_rsqrtm:
+		case kir_avg:
+			break;
+		case kir_maddf:
+		case kir_nmaddf:
+		case kir_blend:
+			insn->alu.src0 = remap[insn->alu.src0.n];
+			insn->alu.src1 = remap[insn->alu.src1.n];
+			insn->alu.src2 = remap[insn->alu.src2.n];
+			break;
+		case kir_gather:
+			/* Don't copy propagate mask: gather overwites
+			 * the mask and we need a fresh copy each time. */
+			insn->gather.offset = remap[insn->gather.offset.n];
+			break;
+		case kir_eot:
+			break;
+
+
+		}
+	}
+}
+
 void
 kir_program_dce(struct kir_program *prog)
 {
@@ -684,12 +880,37 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	assign_reg(state, unspill, avx_reg);
 }
 
+static void
+unspill1(struct ra_state *state, struct kir_insn *insn, struct kir_reg a)
+{
+	if (state->reg_to_avx[a.n] >= 16)
+		unspill_reg(state, insn, a);
+}
+
+static void
+unspill2(struct ra_state *state, struct kir_insn *insn, struct kir_reg a, struct kir_reg b)
+{
+	if (state->reg_to_avx[a.n] >= 16)
+		unspill_reg(state, insn, a);
+	if (state->reg_to_avx[b.n] >= 16)
+		unspill_reg(state, insn, b);
+}
+
+static void
+unspill3(struct ra_state *state, struct kir_insn *insn,
+	 struct kir_reg a, struct kir_reg b, struct kir_reg c)
+{
+	if (state->reg_to_avx[a.n] >= 16)
+		unspill_reg(state, insn, a);
+	if (state->reg_to_avx[b.n] >= 16)
+		unspill_reg(state, insn, b);
+	if (state->reg_to_avx[c.n] >= 16)
+		unspill_reg(state, insn, c);
+}
+
 static inline struct kir_reg
 use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
-	if (state->reg_to_avx[reg.n] >= 16)
-		unspill_reg(state, insn, reg);
-
 	struct kir_reg avx_reg = {
 		.n = state->reg_to_avx[reg.n]
 	};
@@ -742,6 +963,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		case kir_store_region_mask:
 		case kir_store_region:
+			unspill1(&state, insn, insn->xfer.src);
 			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
 			break;
 		case kir_immd:
@@ -758,10 +980,14 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_call:
 		case kir_const_call:
 			spill_all(&state, insn);
-			if (insn->call.args > 0)
+			if (insn->call.args == 1) {
+				unspill1(&state, insn, insn->call.src0);
 				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
-			if (insn->call.args > 1)
+			} else if (insn->call.args == 2) {
+				unspill2(&state, insn, insn->call.src0, insn->call.src1);
+				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
 				insn->call.src1 = use_reg(&state, insn, insn->call.src1);
+			}
 			break;
 
 		case kir_zxwd:
@@ -778,6 +1004,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_rndz:
 		case kir_shri:
 		case kir_shli:
+			unspill1(&state, insn, insn->alu.src0);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			break;
 		case kir_and:
@@ -804,6 +1031,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_mulw:
 		case kir_mulf:
 		case kir_cmp:
+			unspill2(&state, insn, insn->alu.src0, insn->alu.src1);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			break;
@@ -816,7 +1044,8 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		case kir_maddf:
 		case kir_nmaddf:
-			/* src0 becomes dst */
+		case kir_blend:
+			unspill3(&state, insn, insn->alu.src0, insn->alu.src1, insn->alu.src2);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
@@ -824,17 +1053,12 @@ kir_program_allocate_registers(struct kir_program *prog)
 			ksim_trace(TRACE_RA, "reuse ymm%d for r%d\n",
 				   insn->alu.src0.n, insn->dst.n);
 
+			/* src0 becomes dst */
 			assign_reg(&state, insn, insn->alu.src0.n);
-			break;
-		case kir_blend:
-			/* Don't allocate dst, dst becomes one of the
-			 * src registers */
-			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
-			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
-			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
 			break;
 		case kir_gather:
 			/* dst must be different that mask and offset for vpgatherdd. */
+			unspill2(&state, insn, insn->gather.mask, insn->gather.offset);
 			exclude_regs = ~state.regs;
 			insn->gather.mask = use_reg(&state, insn, insn->gather.mask);
 			insn->gather.offset = use_reg(&state, insn, insn->gather.offset);
@@ -904,9 +1128,21 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			break;
 		}
 
-		case kir_immv:
-		case kir_immvf:
+		case kir_immv: {
+			void *p = get_const_data(8 * 2, 16);
+			memcpy(p, insn->imm.v, 8 * 2);
+			builder_emit_vbroadcasti128_rip_relative(bld, insn->dst.n,
+								 builder_offset(bld, p));
 			break;
+		}
+
+		case kir_immvf: {
+			void *p = get_const_data(4 * 4, 4);
+			memcpy(p, insn->imm.vf, 4 * 4);
+			builder_emit_vbroadcasti128_rip_relative(bld, insn->dst.n,
+								 builder_offset(bld, p));
+			break;
+		}
 
 		/* send */
 		case kir_send:
@@ -929,7 +1165,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			if (insn->call.args > 0)
 				ksim_assert(insn->call.src0.n == 0);
 			if (insn->call.args > 1)
-				ksim_assert(insn->call.src0.n == 1);
+				ksim_assert(insn->call.src1.n == 1);
 
 			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) insn->call.func - bld->p);
@@ -1128,6 +1364,14 @@ kir_program_finish(struct kir_program *prog)
 		fprintf(trace_file, "\n");
 	}
 
+	kir_program_copy_propagation(prog);
+
+	if (trace_mask & TRACE_EU) {
+		fprintf(trace_file, "# --- after copy propatation\n");
+		kir_program_print(prog, trace_file);
+		fprintf(trace_file, "\n");
+	}
+
 	kir_program_dce(prog);
 
 	if (trace_mask & TRACE_EU) {
@@ -1144,8 +1388,7 @@ kir_program_finish(struct kir_program *prog)
 		fprintf(trace_file, "\n");
 	}
 
-	builder_init(&bld, prog->binding_table_address,
-		     prog->sampler_state_address);
+	builder_init(&bld);
 
 	/* builder_emit_program()? */
 	kir_program_emit(prog, &bld);
