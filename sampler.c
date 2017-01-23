@@ -22,7 +22,6 @@
  */
 
 #include "eu.h"
-#include "avx-builder.h"
 #include "kir.h"
 
 enum simd_mode {

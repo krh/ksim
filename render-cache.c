@@ -24,7 +24,6 @@
 #include <string.h>
 
 #include "eu.h"
-#include "avx-builder.h"
 #include "kir.h"
 
 struct sfid_render_cache_args {

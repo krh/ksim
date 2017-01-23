@@ -2,21 +2,13 @@
 #include <dis-asm.h>
 #include <limits.h>
 
-struct eu_region {
-	uint32_t offset; /* num * 32 + subnum */
-	uint32_t type_size;
-	uint32_t exec_size;
-	uint32_t vstride;
-	uint32_t width;
-	uint32_t hstride;
-};
-
 struct builder {
 	shader_t shader;
 	uint8_t *p;
 
 	/* Disassembly fields */
 	struct disassemble_info info;
+	int disasm_last;
 	int disasm_tail;
 	char disasm_output[128];
 	int disasm_length;

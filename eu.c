@@ -35,7 +35,6 @@
 #include <immintrin.h>
 
 #include "eu.h"
-#include "avx-builder.h"
 #include "kir.h"
 
 static const struct {

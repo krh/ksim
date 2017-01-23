@@ -423,15 +423,57 @@ kir_program_print(struct kir_program *prog, FILE *fp)
 		kir_insn_print(insn, fp);
 }
 
-static bool
-region_is_live(struct eu_region *region)
+static void
+region_to_mask(struct eu_region *region, uint32_t mask[2])
 {
-	return true;
+	uint32_t type_mask = (1 << region->type_size) - 1;
+	uint32_t x = 0, y = 0;
+
+	mask[0] = 0;
+	mask[1] = 0;
+	for (uint32_t i = 0; i < region->exec_size; i++) {
+		uint32_t offset = (region->offset & 31) +
+			(x * region->hstride + y * region->vstride) * region->type_size;
+		ksim_assert((offset & 31) + region->type_size <= 32);
+		ksim_assert(offset < 64);
+		mask[offset / 32] |= type_mask << (offset & 31);
+		x++;
+		if (x == region->width) {
+			x = 0;
+			y++;
+		}
+	}
+}
+
+static bool
+region_is_live(struct eu_region *region, uint32_t *region_map)
+{
+	uint32_t mask[2];
+	int reg = region->offset / 32;
+
+	ksim_assert(reg < 512);
+
+	region_to_mask(region, mask);
+
+	return (region_map[reg] & mask[0]) || (region_map[reg + 1] & mask[1]);
 }
 
 static void
-set_region_live(struct eu_region *region, bool live)
+set_region_live(struct eu_region *region, bool live, uint32_t *region_map)
 {
+	uint32_t mask[2];
+	uint32_t reg = region->offset / 32;
+
+	ksim_assert(reg < 512);
+
+	region_to_mask(region, mask);
+	if (live) {
+		region_map[reg] |= mask[0];
+		region_map[reg + 1] |= mask[1];
+	} else {
+		region_map[reg] &= ~mask[0];
+		region_map[reg + 1] &= ~mask[1];
+	}
 }
 
 
@@ -445,17 +487,34 @@ set_live(struct kir_reg r, bool live, struct kir_insn *insn, uint32_t *range, bo
 	}
 }
 
+static struct eu_region
+region_for_reg(int reg)
+{
+	return (struct eu_region) {
+		.offset = reg * 32,
+		.type_size = 4,
+		.exec_size = 8,
+		.vstride = 8,
+		.width = 8,
+		.hstride = 1
+	};
+}
+
 uint32_t *
 kir_program_compute_live_ranges(struct kir_program *prog)
 {
 	struct kir_insn *insn;
 	uint32_t *range;
 	bool *live_regs;
-	
+	uint32_t region_map[512];
+
 	live_regs = malloc(prog->next_reg.n * sizeof(live_regs[0]));
 	memset(live_regs, 0, prog->next_reg.n * sizeof(live_regs[0]));
 	range = malloc(prog->next_reg.n * sizeof(range[0]));
 	memset(range, 0, prog->next_reg.n * sizeof(range[0]));
+	memset(region_map, 0, 128 * sizeof(region_map[0]));
+	/* Initialize regions past the eu registers to live. */
+	memset(region_map + 128, ~0, 384 * sizeof(region_map[0]));
 	
 	insn = container_of(prog->insns.prev, insn, link);
 	while (&insn->link != &prog->insns) {
@@ -466,15 +525,15 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			break;
 		case kir_load_region:
 			live = live_regs[insn->dst.n];
-			set_region_live(&insn->xfer.region, live);
+			set_region_live(&insn->xfer.region, live, region_map);
 			break;
 		case kir_store_region_mask:
 		case kir_store_region:
-			live = region_is_live(&insn->xfer.region);
+			live = region_is_live(&insn->xfer.region, region_map);
 			set_live(insn->xfer.src, live, insn, range, live_regs);
 			if (live)
 				range[insn->dst.n] = insn->dst.n + 1;
-			set_region_live(&insn->xfer.region, false);
+			set_region_live(&insn->xfer.region, false, region_map);
 			break;
 		case kir_immd:
 		case kir_immw:
@@ -482,13 +541,20 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_immvf:
 			break;
 		case kir_send:
-			range[insn->dst.n] = insn->dst.n + 1;
-			/* set src region live, dst region dead */
-			break;
 		case kir_const_send:
-			/* Can eliminate this if dst region dead */
-			live = true;
-			/* set src region live, dst region dead */
+			live = insn->opcode == kir_send ? true : false;
+			for (uint32_t i = 0; i < insn->send.rlen; i++) {
+				struct eu_region region = region_for_reg(insn->send.dst + i);
+				live |= region_is_live(&region, region_map);
+				set_region_live(&insn->xfer.region, false, region_map);
+			}
+			if (live)
+				range[insn->dst.n] = insn->dst.n + 1;
+
+			for (uint32_t i = 0; i < insn->send.mlen; i++) {
+				struct eu_region region = region_for_reg(insn->send.src + i);
+				set_region_live(&region, live, region_map);
+			}
 			break;
 
 		case kir_call:
@@ -633,7 +699,6 @@ kir_program_copy_propagation(struct kir_program *prog)
 		list_init(&region_to_reg[i]);
 
 	list_for_each_entry(insn, &prog->insns, link) {
-		kir_insn_print(insn, trace_file);
 		list_init(&reg_rr[insn->dst.n]);
 		switch (insn->opcode) {
 		case kir_comment:
@@ -1336,7 +1401,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 
 		if (trace_mask & TRACE_AVX) {
 			while (builder_disasm(bld))
-				fprintf(trace_file, "      %s\n", bld->disasm_output);
+				fprintf(trace_file, "\t\t\t\t\t%s\n", bld->disasm_output);
 	}
 
 
@@ -1391,6 +1456,7 @@ kir_program_finish(struct kir_program *prog)
 	builder_init(&bld);
 
 	/* builder_emit_program()? */
+	ksim_trace(TRACE_AVX | TRACE_EU, "# --- code emit\n");
 	kir_program_emit(prog, &bld);
 
 	while (!list_empty(&prog->insns)) {

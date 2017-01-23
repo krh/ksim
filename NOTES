@@ -97,7 +97,3 @@ triggers. Switch back.
 * Optimize redundant rax loads for gather
 
 * Fix tail call optimization for eot sends/calls
-
-* Make sure to allocate ymm0 and ymm1 for call args
-
-* Region liveness

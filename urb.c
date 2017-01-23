@@ -23,7 +23,6 @@
  */
 
 #include "eu.h"
-#include "avx-builder.h"
 #include "kir.h"
 
 struct free_urb {
@@ -112,6 +111,9 @@ builder_emit_sfid_urb_simd8_write(struct kir_program *prog, struct inst *inst)
 	struct inst_send send = unpack_inst_send(inst);
 	uint32_t src = unpack_inst_2src_src0(inst).num + 1;
 	uint32_t vue_offset = field(send.function_control, 4, 14);
+
+	kir_program_comment(prog, "urb write: length %d, offset %d",
+			    send.mlen - 1, vue_offset);
 
 	for (uint32_t i = 0; i < send.mlen - 1; i++) {
 		kir_program_load_v8(prog, (src + i) * 32);

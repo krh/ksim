@@ -22,7 +22,6 @@
  */
 
 #include "ksim.h"
-#include "avx-builder.h"
 #include "kir.h"
 
 uint32_t

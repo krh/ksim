@@ -217,6 +217,7 @@ builder_disasm(struct builder *bld)
 
 	bld->disasm_length = 0;
 	if (bld->disasm_tail < end) {
+		bld->disasm_last = bld->disasm_tail;
 		bld->disasm_tail +=
 			print_insn_i386(bld->disasm_tail, &bld->info);
 		return true;
