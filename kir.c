@@ -546,7 +546,7 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			for (uint32_t i = 0; i < insn->send.rlen; i++) {
 				struct eu_region region = region_for_reg(insn->send.dst + i);
 				live |= region_is_live(&region, region_map);
-				set_region_live(&insn->xfer.region, false, region_map);
+				set_region_live(&region, false, region_map);
 			}
 			if (live)
 				range[insn->dst.n] = insn->dst.n + 1;
@@ -556,16 +556,15 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 				set_region_live(&region, live, region_map);
 			}
 			break;
-
 		case kir_call:
-			range[insn->dst.n] = insn->dst.n + 1;
-			if (insn->call.args > 0)
-				set_live(insn->call.src0, live, insn, range, live_regs);
-			if (insn->call.args > 1)
-				set_live(insn->call.src1, live, insn, range, live_regs);
-			break;
 		case kir_const_call:
-			live = live_regs[insn->dst.n];
+			if (insn->opcode == kir_call) {
+				live = true;
+				range[insn->dst.n] = insn->dst.n + 1;
+			} else {
+				live = live_regs[insn->dst.n];
+			}
+
 			if (insn->call.args > 0)
 				set_live(insn->call.src0, live, insn, range, live_regs);
 			if (insn->call.args > 1)
@@ -865,6 +864,7 @@ struct ra_state {
 	uint8_t *reg_to_avx;
 	struct kir_reg avx_to_reg[16];
 	uint32_t spill_slots;
+	uint32_t locked_regs;
 };
 
 /* Insert spill instruction of register reg before instruction insn */
@@ -990,6 +990,8 @@ use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 			   avx_reg.n, reg.n);
 	}
 
+	state->locked_regs |= (1 << avx_reg.n);
+
 	return avx_reg;
 }
 
@@ -1021,6 +1023,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 		if (trace_mask & TRACE_RA)
 			kir_insn_print(insn, trace_file);
 		exclude_regs = 0;
+		state.locked_regs = 0;
 		switch (insn->opcode) {
 		case kir_comment:
 			break;
@@ -1146,7 +1149,11 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		default: {
 			uint32_t regs = state.regs & ~exclude_regs;
-			ksim_assert(regs); /* Don't run out regs :D */
+			if (regs == 0) {
+				int n = __builtin_ffs(0xffff ^ state.locked_regs) - 1;
+				spill_reg(&state, insn, kir_reg(n));
+				regs = state.regs;
+			}
 			int avx_reg = __builtin_ffs(regs) - 1;
 			ksim_trace(TRACE_RA, "allocate ymm%d for r%d\n",
 				   avx_reg, insn->dst.n);
