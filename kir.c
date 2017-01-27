@@ -161,174 +161,174 @@ format_region(char *buf, int len, struct eu_region *region)
 	return buf;
 }
 
-static void
-kir_insn_print(struct kir_insn *insn, FILE *fp)
+static const char *
+kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 {
-	char buf[32];
+	char region[32];
+	int len;
 
 	switch (insn->opcode) {
 	case kir_comment:
-		fprintf(fp, "# %s\n", insn->comment);
+		snprintf(buf, size, "# %s", insn->comment);
 		break;
 	case kir_load_region:
-		fprintf(fp, "r%-3d = load_region %s\n",
-			insn->dst.n,
-			format_region(buf, sizeof(buf),
-				      &insn->xfer.region));
+		snprintf(buf, size, "r%-3d = load_region %s",
+			 insn->dst.n,
+			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_store_region_mask:
-		fprintf(fp, "r%-3d = store_region_mask r%d, r%d, %s\n",
-			insn->dst.n, insn->xfer.mask.n, insn->xfer.src.n,
-			format_region(buf, sizeof(buf), &insn->xfer.region));
+		snprintf(buf, size, "r%-3d = store_region_mask r%d, r%d, %s",
+			 insn->dst.n, insn->xfer.mask.n, insn->xfer.src.n,
+			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_store_region:
-		fprintf(fp, "       store_region, r%d, %s\n",
-			insn->xfer.src.n,
-			format_region(buf, sizeof(buf), &insn->xfer.region));
+		snprintf(buf, size, "       store_region, r%d, %s",
+			 insn->xfer.src.n,
+			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_immd:
-		fprintf(fp, "r%-3d = imm %dd %ff\n", insn->dst.n, insn->imm.d,
-			u32_to_float(insn->imm.d));
+		snprintf(buf, size, "r%-3d = imm %dd %ff", insn->dst.n, insn->imm.d,
+			 u32_to_float(insn->imm.d));
 		break;
 	case kir_immw:
-		fprintf(fp, "r%-3d = imm %dw\n", insn->dst.n, insn->imm.d);
+		snprintf(buf, size, "r%-3d = imm %dw", insn->dst.n, insn->imm.d);
 		break;
 	case kir_immv:
-		fprintf(fp, "r%-3d = imm [ %d, %d, %d, %d, %d, %d, %d, %d ]\n",
-			insn->dst.n, 
-			insn->imm.v[0], insn->imm.v[1],
-			insn->imm.v[2], insn->imm.v[3],
-			insn->imm.v[4], insn->imm.v[5],
-			insn->imm.v[6], insn->imm.v[7]);
+		snprintf(buf, size, "r%-3d = imm [ %d, %d, %d, %d, %d, %d, %d, %d ]",
+			 insn->dst.n,
+			 insn->imm.v[0], insn->imm.v[1],
+			 insn->imm.v[2], insn->imm.v[3],
+			 insn->imm.v[4], insn->imm.v[5],
+			 insn->imm.v[6], insn->imm.v[7]);
 		break;
 	case kir_immvf:
-		fprintf(fp, "r%-3d = imm [ %f, %f, %f, %f ]\n",
-			insn->dst.n, 
-			insn->imm.vf[0], insn->imm.vf[1],
-			insn->imm.vf[2], insn->imm.vf[3]);
+		snprintf(buf, size, "r%-3d = imm [ %f, %f, %f, %f ]",
+			 insn->dst.n,
+			 insn->imm.vf[0], insn->imm.vf[1],
+			 insn->imm.vf[2], insn->imm.vf[3]);
 		break;
 	case kir_send:
 	case kir_const_send:
-		fprintf(fp, "r%-3d = %ssend src g%d-g%d",
-			insn->dst.n,
-			insn->opcode == kir_const_send ? "const_" : "",
-			insn->send.src, insn->send.src + insn->send.mlen - 1);
+		len = snprintf(buf, size, "r%-3d = %ssend src g%d-g%d",
+			       insn->dst.n,
+			       insn->opcode == kir_const_send ? "const_" : "",
+			       insn->send.src, insn->send.src + insn->send.mlen - 1);
 		if (insn->send.rlen > 0)
-			fprintf(fp, ", dst g%d-g%d",
-				insn->send.dst, insn->send.dst + insn->send.rlen - 1);
-		fprintf(fp, "\n");
+			len += snprintf(buf + len, size - len, ", dst g%d-g%d",
+					insn->send.dst, insn->send.dst + insn->send.rlen - 1);
 		break;
 	case kir_call:
 	case kir_const_call:
-		fprintf(fp, "r%-3d = %scall %p",
-			insn->dst.n,
-			insn->opcode == kir_const_call ? "const_" : "",
-			insn->call.func);
+		len = snprintf(buf, size, "r%-3d = %scall %p",
+			       insn->dst.n,
+			       insn->opcode == kir_const_call ? "const_" : "",
+			       insn->call.func);
 		if (insn->call.args > 0)
-			fprintf(fp, ", r%d", insn->call.src0.n);
+			len += snprintf(buf + len, size - len,
+					", r%d", insn->call.src0.n);
 		if (insn->call.args > 1)
-			fprintf(fp, ", r%d", insn->call.src1.n);
-		fprintf(fp, "\n");
+			len += snprintf(buf + len, size - len,
+					", r%d", insn->call.src1.n);
 		break;
 	case kir_zxwd:
-		fprintf(fp, "r%-3d = zxwd r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = zxwd r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_sxwd:
-		fprintf(fp, "r%-3d = sxwd r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = sxwd r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_ps2d:
-		fprintf(fp, "r%-3d = ps2d r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = ps2d r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_d2ps:
-		fprintf(fp, "r%-3d = d2ps r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = d2ps r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_absd:
-		fprintf(fp, "r%-3d = absd r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = absd r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rcp:
-		fprintf(fp, "r%-3d = rcp r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rcp r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_sqrt:
-		fprintf(fp, "r%-3d = sqrt r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = sqrt r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rsqrt:
-		fprintf(fp, "r%-3d = rsqrt r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rsqrt r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rndu:
-		fprintf(fp, "r%-3d = rndu r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rndu r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rndd:
-		fprintf(fp, "r%-3d = rndd r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rndd r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rnde:
-		fprintf(fp, "r%-3d = rnde r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rnde r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_rndz:
-		fprintf(fp, "r%-3d = rndz r%d\n", insn->dst.n, insn->alu.src0.n);
+		snprintf(buf, size, "r%-3d = rndz r%d", insn->dst.n, insn->alu.src0.n);
 		break;
 	case kir_and:
-		fprintf(fp, "r%-3d = and r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = and r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_andn:
-		fprintf(fp, "r%-3d = andn r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = andn r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_or:
-		fprintf(fp, "r%-3d = or r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = or r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_xor:
-		fprintf(fp, "r%-3d = xor r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = xor r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_shri:
-		fprintf(fp, "r%-3d = shri r%d, %d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = shri r%d, %d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_shr:
-		fprintf(fp, "r%-3d = shr r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = shr r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_shli:
-		fprintf(fp, "r%-3d = shli r%d, %d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.imm1);
+		snprintf(buf, size, "r%-3d = shli r%d, %d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.imm1);
 		break;
 	case kir_shl:
-		fprintf(fp, "r%-3d = shl r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = shl r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_asr:
-		fprintf(fp, "r%-3d = asr r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = asr r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_maxd:
-		fprintf(fp, "r%-3d = maxd r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = maxd r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_maxw:
-		fprintf(fp, "r%-3d = maxw r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = maxw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_maxf:
-		fprintf(fp, "r%-3d = maxf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = maxf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_mind:
-		fprintf(fp, "r%-3d = mind r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = mind r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_minw:
-		fprintf(fp, "r%-3d = minw r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = minw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_minf:
-		fprintf(fp, "r%-3d = minf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = minf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_divf:
-		fprintf(fp, "r%-3d = divf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = divf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_int_div_q_and_r:
 		stub("int_div_q_and_r");
@@ -346,81 +346,84 @@ kir_insn_print(struct kir_insn *insn, FILE *fp)
 		stub("int_rsqrtm");
 		break;
 	case kir_addd:
-		fprintf(fp, "r%-3d = addd r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = addd r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_addw:
-		fprintf(fp, "r%-3d = addw r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = addw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_addf:
-		fprintf(fp, "r%-3d = addf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = addf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 
 	case kir_subd:
-		fprintf(fp, "r%-3d = subd r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = subd r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_subw:
-		fprintf(fp, "r%-3d = subw r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = subw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_subf:
-		fprintf(fp, "r%-3d = subf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = subf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_muld:
-		fprintf(fp, "r%-3d = muld r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = muld r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_mulw:
-		fprintf(fp, "r%-3d = mulw r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = mulw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_mulf:
-		fprintf(fp, "r%-3d = mulf r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n);
+		snprintf(buf, size, "r%-3d = mulf r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_avg:
-		fprintf(fp, "r%-3d = avg\n", insn->dst.n);
+		snprintf(buf, size, "r%-3d = avg", insn->dst.n);
 		break;
 	case kir_maddf:
-		fprintf(fp, "r%-3d = maddf r%d, r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
+		snprintf(buf, size, "r%-3d = maddf r%d, r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
 	case kir_nmaddf:
-		fprintf(fp, "r%-3d = nmaddf r%d, r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
+		snprintf(buf, size, "r%-3d = nmaddf r%d, r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
 	case kir_cmp:
-		fprintf(fp, "r%-3d = cmp r%d, r%d, op %d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n, insn->alu.imm2);
+		snprintf(buf, size, "r%-3d = cmp r%d, r%d, op %d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.imm2);
 		break;
 	case kir_blend:
-		fprintf(fp, "r%-3d = blend r%d, r%d, r%d\n", insn->dst.n,
-			insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
+		snprintf(buf, size, "r%-3d = blend r%d, r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
 	case kir_gather:
-		fprintf(fp, "r%-3d = gather r%d, %d(%p,r%d,%d)\n",
-			insn->dst.n,
-			insn->gather.mask.n,
-			insn->gather.base_offset, insn->gather.base,
-			insn->gather.offset.n, insn->gather.scale);
+		snprintf(buf, size, "r%-3d = gather r%d, %d(%p,r%d,%d)",
+			 insn->dst.n,
+			 insn->gather.mask.n,
+			 insn->gather.base_offset, insn->gather.base,
+			 insn->gather.offset.n, insn->gather.scale);
 		break;
 	case kir_eot:
-		fprintf(fp, "       eot\n");
+		snprintf(buf, size, "       eot");
 		break;
 	}
+
+	return buf;
 }
 
 void
 kir_program_print(struct kir_program *prog, FILE *fp)
 {
 	struct kir_insn *insn;
+	char buf[128];
 
 	list_for_each_entry(insn, &prog->insns, link)
-		kir_insn_print(insn, fp);
+		fprintf(fp, "%s\n", kir_insn_format(insn, buf, sizeof(buf)));
 }
 
 static void
@@ -1011,6 +1014,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 	struct kir_insn *insn;
 	struct ra_state state;
 	uint32_t exclude_regs;
+	char buf[128];
 
 	state.spill_slots = 0xffffffff;
 	state.regs = 0xffff;
@@ -1021,7 +1025,8 @@ kir_program_allocate_registers(struct kir_program *prog)
 	insn = container_of(prog->insns.next, insn, link);
 	while (&insn->link != &prog->insns) {
 		if (trace_mask & TRACE_RA)
-			kir_insn_print(insn, trace_file);
+			fprintf(trace_file, "%s\n",
+				kir_insn_format(insn, buf, sizeof(buf)));
 		exclude_regs = 0;
 		state.locked_regs = 0;
 		switch (insn->opcode) {
@@ -1173,10 +1178,9 @@ void
 kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
 	struct kir_insn *insn;
+	char buf[128];
 
 	list_for_each_entry(insn, &prog->insns, link) {
-		if (trace_mask & TRACE_AVX)
-			kir_insn_print(insn, trace_file);
 		switch (insn->opcode) {
 		case kir_comment:
 			break;
@@ -1407,11 +1411,17 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		}
 
 		if (trace_mask & TRACE_AVX) {
-			while (builder_disasm(bld))
-				fprintf(trace_file, "\t\t\t\t\t%s\n", bld->disasm_output);
-	}
-
-
+			int i = 0;
+			while (builder_disasm(bld)) {
+				if (i == 0)
+					fprintf(trace_file, "%-42s  %s\n",
+						kir_insn_format(insn, buf, sizeof(buf)),
+						bld->disasm_output);
+				else
+					fprintf(trace_file, "%-42s  %s\n", "", bld->disasm_output);
+				i++;
+			}
+		}
 	}
 }
 
