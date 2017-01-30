@@ -192,7 +192,7 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_store_region:
-		snprintf(buf, size, "       store_region, r%d, %s",
+		snprintf(buf, size, "       store_region r%d, %s",
 			 insn->xfer.src.n,
 			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
@@ -219,8 +219,7 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		break;
 	case kir_send:
 	case kir_const_send:
-		len = snprintf(buf, size, "r%-3d = %ssend src g%d-g%d",
-			       insn->dst.n,
+		len = snprintf(buf, size, "       %ssend src g%d-g%d",
 			       insn->opcode == kir_const_send ? "const_" : "",
 			       insn->send.src, insn->send.src + insn->send.mlen - 1);
 		if (insn->send.rlen > 0)
@@ -763,7 +762,13 @@ kir_program_copy_propagation(struct kir_program *prog)
 			break;
 		case kir_send:
 		case kir_const_send:
-			/* Don't need regs. */
+			/* Invalidate registers overlapping region */
+			for (uint32_t i = 0; i < insn->send.rlen; i++) {
+				uint32_t grf = (insn->send.dst + i);
+				struct list *head = &region_to_reg[grf];
+				list_for_each_entry_safe(rr, next, head, link)
+					list_remove(&rr->link);
+			}
 			break;
 		case kir_call:
 		case kir_const_call:
@@ -1070,8 +1075,12 @@ kir_program_allocate_registers(struct kir_program *prog)
 				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
 			if (insn->call.args > 1)
 				insn->call.src1 = use_reg(&state, insn, insn->call.src1);
+
 			/* FIXME: Only if has return value. */
-			assign_reg(&state, insn, insn->call.src0.n);
+			if (insn->call.args > 0)
+				assign_reg(&state, insn, insn->call.src0.n);
+			else
+				allocate_reg(&state, insn);
 			break;
 
 		case kir_mov:
