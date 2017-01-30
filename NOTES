@@ -14,7 +14,7 @@
 
 ** Depth buffers
 
-Add various depth tests, support all formats, do HiZ.
+HiZ.
 
 ** Stencil
 
@@ -28,24 +28,16 @@ RT tile (page) in cache the whole time.
 
 * JIT
 
-** Special case sel.ge and sel.lt as min and max
-
-** Basic register allocator
-
-We have 16 AVX2 regs, we should use them. Instead of loading and writing back for every
-instruction, use a simple LRU register allocator. Gets tricky with control flow and
-partial assignments.
+** Cache programs if JITer gets too slow
 
 ** JIT in ps thread setup code
 
 We can generate code to copy in the exact payload we'll need. Also
 compile in depth test. Maybe even entire tile level loop to avoid
-function pointer dispatch per SIMD8 group. This should use the register allocator
-so that ideally for small shader we might never need to write out the payload.
-
-** Optimize RT write
-
-Compile in RT write.
+function pointer dispatch per SIMD8 group. This should use the
+register allocator so that ideally for small shader we might never
+need to write out the payload.  Compile in RT write, blending, srgb
+conversion.
 
 ** Track constants per sub reg (use case: msg headers)
 

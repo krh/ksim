@@ -512,8 +512,8 @@ transform_sample_position(const struct sfid_sampler_args *args, struct reg *src,
 #endif
 	}
 
-	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width));
-	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height));
+	u.reg = _mm256_mul_ps(u.reg, _mm256_set1_ps(args->tex.width - 1));
+	v.reg = _mm256_mul_ps(v.reg, _mm256_set1_ps(args->tex.height - 1));
 
 	u.reg = _mm256_add_ps(u.reg, _mm256_set1_ps(0.25f));
 	v.reg = _mm256_add_ps(v.reg, _mm256_set1_ps(0.25f));

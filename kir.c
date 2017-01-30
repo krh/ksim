@@ -503,18 +503,19 @@ region_for_reg(int reg)
 	};
 }
 
-uint32_t *
+void
 kir_program_compute_live_ranges(struct kir_program *prog)
 {
 	struct kir_insn *insn;
 	uint32_t *range;
 	bool *live_regs;
 	uint32_t region_map[512];
+	int count = prog->next_reg.n;
 
-	live_regs = malloc(prog->next_reg.n * sizeof(live_regs[0]));
-	memset(live_regs, 0, prog->next_reg.n * sizeof(live_regs[0]));
-	range = malloc(prog->next_reg.n * sizeof(range[0]));
-	memset(range, 0, prog->next_reg.n * sizeof(range[0]));
+	live_regs = malloc(count * sizeof(live_regs[0]));
+	memset(live_regs, 0, count * sizeof(live_regs[0]));
+	range = malloc(count * sizeof(range[0]));
+	memset(range, 0, count * sizeof(range[0]));
 	memset(region_map, 0, 128 * sizeof(region_map[0]));
 	/* Initialize regions past the eu registers to live. */
 	memset(region_map + 128, ~0, 384 * sizeof(region_map[0]));
@@ -648,14 +649,13 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 
 	free(live_regs);
 
-	return range;
+	prog->live_ranges = range;
 }
 
 struct resident_region {
 	struct eu_region region;
 	struct kir_reg reg;
-	struct list region_link;
-	struct list reg_link;
+	struct list link;
 };
 
 static bool
@@ -684,16 +684,19 @@ void
 kir_program_copy_propagation(struct kir_program *prog)
 {
 	struct kir_insn *insn;
-	struct list *reg_rr;
-	struct resident_region *rr, *next;
-	int count = prog->next_reg.n;
+	struct resident_region *rr, *next, *rr_pool;
+	int count = prog->next_reg.n, rr_pool_next;
 	struct kir_reg *remap;
 
-	reg_rr = malloc(count * sizeof(reg_rr[0]));
 	remap = malloc(count * sizeof(remap[0]));
-
 	for (uint32_t i = 0; i < count; i++)
 		remap[i] = kir_reg(i);
+
+	/* We allocate these up front instead a malloc call per
+	 * insn. More efficient and they're easier to clean up. Each
+	 * insn allocates at most 1 so we won't need more than count. */
+	rr_pool = malloc(count * sizeof(rr_pool[0]));
+	rr_pool_next = 0;
 
 	const uint32_t max_eu_regs = 400;
 	struct list region_to_reg[max_eu_regs];
@@ -701,31 +704,23 @@ kir_program_copy_propagation(struct kir_program *prog)
 		list_init(&region_to_reg[i]);
 
 	list_for_each_entry(insn, &prog->insns, link) {
-		list_init(&reg_rr[insn->dst.n]);
 		switch (insn->opcode) {
 		case kir_comment:
 			break;
 		case kir_load_region: {
-			list_for_each_entry(rr, &region_to_reg[insn->xfer.region.offset / 32], region_link) {
+			ksim_assert(insn->xfer.region.offset / 32 < max_eu_regs);
+			list_for_each_entry(rr, &region_to_reg[insn->xfer.region.offset / 32], link) {
 				if (regions_equal(&insn->xfer.region, &rr->region)) {
-				    remap[insn->dst.n] = rr->reg;
-				    goto load_region_done;
+					remap[insn->dst.n] = rr->reg;
+					goto load_region_done;
 				}
 			}
 
-			struct list *head = &reg_rr[insn->dst.n];
-			list_for_each_entry_safe(rr, next, head, reg_link) {
-				list_remove(&rr->region_link);
-				list_remove(&rr->reg_link);
-				free(rr);
-			}
-
 			/* FIXME: Insert an rr for each region_to_reg it overlaps */
-			rr = malloc(sizeof(*rr));
+			rr = &rr_pool[rr_pool_next++];
 			rr->region = insn->xfer.region;
 			rr->reg = insn->dst;
-			list_insert(&reg_rr[insn->dst.n], &rr->reg_link);
-			list_insert(&region_to_reg[insn->xfer.region.offset / 32], &rr->region_link);
+			list_insert(&region_to_reg[rr->region.offset / 32], &rr->link);
 		load_region_done:
 			break;
 		}
@@ -734,21 +729,19 @@ kir_program_copy_propagation(struct kir_program *prog)
 
 			insn->xfer.src = remap[insn->xfer.src.n];
 
+			ksim_assert(insn->xfer.region.offset / 32 < max_eu_regs);
+
 			/* Invalidate registers overlapping region */
 			struct list *head = &region_to_reg[insn->xfer.region.offset / 32];
-			list_for_each_entry_safe(rr, next, head, region_link) {
-			if (regions_overlap(&rr->region, &insn->xfer.region)) {
-					list_remove(&rr->region_link);
-					list_remove(&rr->reg_link);
-					free(rr);
-				}
+			list_for_each_entry_safe(rr, next, head, link) {
+				if (regions_overlap(&rr->region, &insn->xfer.region))
+					list_remove(&rr->link);
 			}
 
-			rr = malloc(sizeof(*rr));
+			rr = &rr_pool[rr_pool_next++];
 			rr->region = insn->xfer.region;
 			rr->reg = insn->xfer.src;
-			list_insert(&reg_rr[insn->dst.n], &rr->reg_link);
-			list_insert(&region_to_reg[insn->xfer.region.offset / 32], &rr->region_link);
+			list_insert(&region_to_reg[rr->region.offset / 32], &rr->link);
 			break;
 		}
 		case kir_immd:
@@ -828,7 +821,7 @@ kir_program_copy_propagation(struct kir_program *prog)
 			insn->alu.src2 = remap[insn->alu.src2.n];
 			break;
 		case kir_gather:
-			/* Don't copy propagate mask: gather overwites
+			/* Don't copy propagate mask: gather overwrites
 			 * the mask and we need a fresh copy each time. */
 			insn->gather.offset = remap[insn->gather.offset.n];
 			break;
@@ -838,15 +831,16 @@ kir_program_copy_propagation(struct kir_program *prog)
 
 		}
 	}
+
+	free(remap);
+	free(rr_pool);
 }
 
 void
-kir_program_dce(struct kir_program *prog)
+kir_program_dead_code_elimination(struct kir_program *prog)
 {
 	struct kir_insn *insn;
-	uint32_t *range;
-
-	range = kir_program_compute_live_ranges(prog);
+	uint32_t *range = prog->live_ranges;
 
 	insn = container_of(prog->insns.next, insn, link);
 	while (&insn->link != &prog->insns) {
@@ -857,8 +851,6 @@ kir_program_dce(struct kir_program *prog)
 		}
 		insn = next;
 	}
-
-	free(range);
 }
 
 struct ra_state {
@@ -878,7 +870,7 @@ spill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	int slot = __builtin_ffs(state->spill_slots) - 1;
 	state->spill_slots &= ~(1 << slot);
 
-	ksim_trace(TRACE_RA, "spill ymm%d to slot %d\n", reg.n, slot);
+	ksim_trace(TRACE_RA, "\tspill ymm%d to slot %d\n", reg.n, slot);
 
 	/* FIXME: Need constructor for this */
 	struct kir_insn *spill;
@@ -919,15 +911,23 @@ assign_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
 static void
 unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
-	/* FIXME: Need to spill something else if no regs. But not the
-	 * other src reg in a binop... */
-	ksim_assert(state->regs);
+	uint32_t regs = state->regs & ~state->locked_regs;
 
-	int avx_reg = __builtin_ffs(state->regs) - 1;
+	if (regs == 0) {
+		/* Spill something else if we don't have a register
+		 * for unspilling into. */
+		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
+		spill_reg(state, insn, kir_reg(n));
+		regs = state->regs;
+	}
+
+	ksim_assert(regs);
+
+	int avx_reg = __builtin_ffs(regs) - 1;
 	uint32_t slot = state->reg_to_avx[reg.n] - 16;
 	state->spill_slots |= (1 << slot);
 
-	ksim_trace(TRACE_RA, "unspill slot %d to ymm%d\n", slot, avx_reg);
+	ksim_trace(TRACE_RA, "\tunspill slot %d to ymm%d\n", slot, avx_reg);
 
 	struct kir_insn *unspill;
 	unspill = malloc(sizeof(*unspill));
@@ -948,48 +948,23 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	assign_reg(state, unspill, avx_reg);
 }
 
-static void
-unspill1(struct ra_state *state, struct kir_insn *insn, struct kir_reg a)
-{
-	if (state->reg_to_avx[a.n] >= 16)
-		unspill_reg(state, insn, a);
-}
-
-static void
-unspill2(struct ra_state *state, struct kir_insn *insn, struct kir_reg a, struct kir_reg b)
-{
-	if (state->reg_to_avx[a.n] >= 16)
-		unspill_reg(state, insn, a);
-	if (state->reg_to_avx[b.n] >= 16)
-		unspill_reg(state, insn, b);
-}
-
-static void
-unspill3(struct ra_state *state, struct kir_insn *insn,
-	 struct kir_reg a, struct kir_reg b, struct kir_reg c)
-{
-	if (state->reg_to_avx[a.n] >= 16)
-		unspill_reg(state, insn, a);
-	if (state->reg_to_avx[b.n] >= 16)
-		unspill_reg(state, insn, b);
-	if (state->reg_to_avx[c.n] >= 16)
-		unspill_reg(state, insn, c);
-}
-
 static inline struct kir_reg
 use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
+	if (state->reg_to_avx[reg.n] >= 16)
+		unspill_reg(state, insn, reg);
+
 	struct kir_reg avx_reg = {
 		.n = state->reg_to_avx[reg.n]
 	};
 
 	ksim_assert(avx_reg.n != 0xff);
 	if (insn->dst.n >= state->range[reg.n]) {
-		ksim_trace(TRACE_RA, "use ymm%d for r%d, dead now\n",
+		ksim_trace(TRACE_RA, "\tuse ymm%d for r%d, dead now\n",
 			   avx_reg.n, reg.n);
 		state->regs |= (1 << avx_reg.n);
 	} else {
-		ksim_trace(TRACE_RA, "use ymm%d for r%d\n",
+		ksim_trace(TRACE_RA, "\tuse ymm%d for r%d\n",
 			   avx_reg.n, reg.n);
 	}
 
@@ -1020,13 +995,14 @@ kir_program_allocate_registers(struct kir_program *prog)
 	state.regs = 0xffff;
 	state.reg_to_avx = malloc(prog->next_reg.n * sizeof(state.reg_to_avx[0]));
 	memset(state.reg_to_avx, 0xff, prog->next_reg.n * sizeof(state.reg_to_avx[0]));
-	state.range = kir_program_compute_live_ranges(prog);
+	state.range = prog->live_ranges;
 
 	insn = container_of(prog->insns.next, insn, link);
 	while (&insn->link != &prog->insns) {
 		if (trace_mask & TRACE_RA)
 			fprintf(trace_file, "%s\n",
 				kir_insn_format(insn, buf, sizeof(buf)));
+
 		exclude_regs = 0;
 		state.locked_regs = 0;
 		switch (insn->opcode) {
@@ -1036,7 +1012,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		case kir_store_region_mask:
 		case kir_store_region:
-			unspill1(&state, insn, insn->xfer.src);
 			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
 			break;
 		case kir_immd:
@@ -1053,14 +1028,10 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_call:
 		case kir_const_call:
 			spill_all(&state, insn);
-			if (insn->call.args == 1) {
-				unspill1(&state, insn, insn->call.src0);
+			if (insn->call.args > 0)
 				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
-			} else if (insn->call.args == 2) {
-				unspill2(&state, insn, insn->call.src0, insn->call.src1);
-				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
+			if (insn->call.args > 1)
 				insn->call.src1 = use_reg(&state, insn, insn->call.src1);
-			}
 			break;
 
 		case kir_zxwd:
@@ -1077,7 +1048,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_rndz:
 		case kir_shri:
 		case kir_shli:
-			unspill1(&state, insn, insn->alu.src0);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			break;
 		case kir_and:
@@ -1104,7 +1074,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_mulw:
 		case kir_mulf:
 		case kir_cmp:
-			unspill2(&state, insn, insn->alu.src0, insn->alu.src1);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			break;
@@ -1118,12 +1087,13 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_maddf:
 		case kir_nmaddf:
 		case kir_blend:
-			unspill3(&state, insn, insn->alu.src0, insn->alu.src1, insn->alu.src2);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
 
-			ksim_trace(TRACE_RA, "reuse ymm%d for r%d\n",
+			spill_all(&state, insn);
+
+			ksim_trace(TRACE_RA, "\treuse ymm%d for r%d\n",
 				   insn->alu.src0.n, insn->dst.n);
 
 			/* src0 becomes dst */
@@ -1131,7 +1101,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		case kir_gather:
 			/* dst must be different that mask and offset for vpgatherdd. */
-			unspill2(&state, insn, insn->gather.mask, insn->gather.offset);
 			exclude_regs = ~state.regs;
 			insn->gather.mask = use_reg(&state, insn, insn->gather.mask);
 			insn->gather.offset = use_reg(&state, insn, insn->gather.offset);
@@ -1160,7 +1129,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 				regs = state.regs;
 			}
 			int avx_reg = __builtin_ffs(regs) - 1;
-			ksim_trace(TRACE_RA, "allocate ymm%d for r%d\n",
+			ksim_trace(TRACE_RA, "\tallocate ymm%d for r%d\n",
 				   avx_reg, insn->dst.n);
 			assign_reg(&state, insn, avx_reg);
 			break;
@@ -1171,7 +1140,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 	}
 
 	free(state.reg_to_avx);
-	free(state.range);
 }
 
 void
@@ -1421,6 +1389,10 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 					fprintf(trace_file, "%-42s  %s\n", "", bld->disasm_output);
 				i++;
 			}
+			if (i == 0)
+				fprintf(trace_file, "%s\n",
+					kir_insn_format(insn, buf, sizeof(buf)));
+
 		}
 	}
 }
@@ -1449,12 +1421,14 @@ kir_program_finish(struct kir_program *prog)
 	kir_program_copy_propagation(prog);
 
 	if (trace_mask & TRACE_EU) {
-		fprintf(trace_file, "# --- after copy propatation\n");
+		fprintf(trace_file, "# --- after copy propagation\n");
 		kir_program_print(prog, trace_file);
 		fprintf(trace_file, "\n");
 	}
 
-	kir_program_dce(prog);
+	kir_program_compute_live_ranges(prog);
+
+	kir_program_dead_code_elimination(prog);
 
 	if (trace_mask & TRACE_EU) {
 		fprintf(trace_file, "# --- after dce\n");
@@ -1479,9 +1453,13 @@ kir_program_finish(struct kir_program *prog)
 	while (!list_empty(&prog->insns)) {
 		struct kir_insn *insn = 
 			container_of(prog->insns.next, insn, link);
+		if (insn->opcode == kir_comment)
+			free(insn->comment);
 		list_remove(&insn->link);
 		free(insn);
 	}
+
+	free(prog->live_ranges);
 
 	return builder_finish(&bld);
 }

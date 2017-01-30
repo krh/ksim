@@ -39,6 +39,7 @@ struct kir_program {
 	uint32_t exec_offset;
 	struct kir_reg dst;
 	int scope;
+	uint32_t *live_ranges;
 
 	uint64_t binding_table_address;
 	uint64_t sampler_state_address;
