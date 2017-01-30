@@ -51,6 +51,7 @@ enum kir_opcode {
 	kir_load_region,
 	kir_store_region_mask,
 	kir_store_region,
+	kir_gather,
 
 	kir_immd,
 	kir_immw,
@@ -77,6 +78,8 @@ enum kir_opcode {
 	kir_rndd,
 	kir_rnde,
 	kir_rndz,
+	kir_shri, /* src1 immediate */
+	kir_shli, /* src1 immediate */
 
 	/* alu binop */
 	kir_and,
@@ -85,8 +88,6 @@ enum kir_opcode {
 	kir_xor,
 	kir_shr,
 	kir_shl,
-	kir_shri, /* src1 immediate */
-	kir_shli, /* src1 immediate */
 	kir_asr,
 
 	kir_maxd,
@@ -115,15 +116,12 @@ enum kir_opcode {
 	kir_mulw,
 	kir_mulf,
 
-	kir_avg,
+	kir_cmp,	/* src2 is an cmp op immediate, not register */
 
 	/* alu triops */
 	kir_nmaddf,
 	kir_maddf,
 	kir_blend,
-	kir_cmp,	/* src2 is an cmp op immediate, not register */
-
-	kir_gather,
 
 	kir_eot
 };
@@ -244,6 +242,16 @@ kir_program_immd(struct kir_program *prog, int32_t d)
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_immd);
 
 	insn->imm.d = d;
+
+	return insn->dst;
+}
+
+static inline struct kir_reg
+kir_program_immf(struct kir_program *prog, float f)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_immd);
+
+	insn->imm.d = float_to_u32(f);
 
 	return insn->dst;
 }

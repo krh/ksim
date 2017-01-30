@@ -395,9 +395,6 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "r%-3d = mulf r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
-	case kir_avg:
-		snprintf(buf, size, "r%-3d = avg", insn->dst.n);
-		break;
 	case kir_maddf:
 		snprintf(buf, size, "r%-3d = maddf r%d, r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
@@ -640,7 +637,6 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_int_div_r:
 		case kir_int_invm:
 		case kir_int_rsqrtm:
-		case kir_avg:
 			break;
 		case kir_maddf:
 		case kir_nmaddf:
@@ -830,7 +826,6 @@ kir_program_copy_propagation(struct kir_program *prog)
 		case kir_int_div_r:
 		case kir_int_invm:
 		case kir_int_rsqrtm:
-		case kir_avg:
 			break;
 		case kir_maddf:
 		case kir_nmaddf:
@@ -1132,7 +1127,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_int_div_r:
 		case kir_int_invm:
 		case kir_int_rsqrtm:
-		case kir_avg:
 			stub("ra insns");
 			allocate_reg(&state, insn);
 			break;
@@ -1214,7 +1208,6 @@ void
 kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
 	struct kir_insn *insn;
-	char buf[128];
 
 	list_for_each_entry(insn, &prog->insns, link) {
 		switch (insn->opcode) {
@@ -1256,7 +1249,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			break;
 		}
 
-		/* send */
 		case kir_send:
 		case kir_const_send:
 			builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, insn->send.args));
@@ -1413,9 +1405,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_vmulps(bld, insn->dst.n,
 					    insn->alu.src0.n, insn->alu.src1.n);
 			break;
-		case kir_avg:
-			stub("kir_avg");
-			break;
 		case kir_maddf:
 			if (insn->dst.n == insn->alu.src0.n)
 				builder_emit_vfmadd132ps(bld, insn->dst.n,
@@ -1443,7 +1432,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 					    insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_blend:
-			/* FIXME: should be vpblendvb */
+			/* FIXME: should use vpblendvb */
 			builder_emit_vpblendvps(bld, insn->dst.n, insn->alu.src2.n,
 						insn->alu.src0.n, insn->alu.src1.n);
 			break;
@@ -1464,6 +1453,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		}
 
 		if (trace_mask & TRACE_AVX) {
+			char buf[128];
 			int i = 0;
 			while (builder_disasm(bld)) {
 				if (i == 0)

@@ -365,8 +365,8 @@ kir_program_emit_dst_store(struct kir_program *prog,
 		stub("eu: dst hstride %d is > 1", dst->hstride);
 
 	if (common.saturate) {
-		struct kir_reg zero = kir_program_immd(prog, 0);
-		struct kir_reg one =  kir_program_immd(prog, float_to_u32(1.0f));
+		struct kir_reg zero = kir_program_immf(prog, 0.0f);
+		struct kir_reg one =  kir_program_immf(prog, 1.0f);
 		ksim_assert(is_float(dst->file, dst->type));
 		reg = kir_program_alu(prog, kir_maxf, reg, zero);
 		reg = kir_program_alu(prog, kir_minf, reg, one);
@@ -770,7 +770,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 	case BRW_OPCODE_FRC: {
 		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
 		kir_program_alu(prog, kir_rndd, src0_reg);
-		kir_program_alu(prog, kir_subf, src0_reg, kir_program_immd(prog, 0));
+		kir_program_alu(prog, kir_subf, src0_reg, kir_program_immf(prog, 0.0f));
 		break;
 	}
 	case BRW_OPCODE_RNDU:

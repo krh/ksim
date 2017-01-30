@@ -364,7 +364,7 @@ emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format
 		dst[0] = emit_gather(prog, base, offset, 1, 0);
 		dst[1] = kir_program_immd(prog, 0);
 		dst[2] = kir_program_immd(prog, 0);
-		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
+		dst[3] = kir_program_immf(prog, 1.0f);
 		break;
 
 	case SF_R32G32_FLOAT:
@@ -373,7 +373,7 @@ emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format
 		dst[0] = emit_gather(prog, base, offset, 1, 0);
 		dst[1] = emit_gather(prog, base, offset, 1, 4);
 		dst[2] = kir_program_immd(prog, 0);
-		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
+		dst[3] = kir_program_immf(prog, 1.0f);
 		break;
 
 	case SF_R32G32B32_FLOAT:
@@ -382,7 +382,7 @@ emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format
 		dst[0] = emit_gather(prog, base, offset, 1, 0);
 		dst[1] = emit_gather(prog, base, offset, 1, 4);
 		dst[2] = emit_gather(prog, base, offset, 1, 8);
-		dst[3] = kir_program_immd(prog, float_to_u32(1.0f));
+		dst[3] = kir_program_immf(prog, 1.0f);
 		break;
 
 	case SF_R32G32B32A32_FLOAT:
@@ -504,10 +504,10 @@ emit_vertex_fetch(struct kir_program *prog)
 				src = dst[c];
 				break;
 			case VFCOMP_STORE_0:
-				src = kir_program_immd(prog, 0);
+				src = kir_program_immf(prog, 0.0f);
 				break;
 			case VFCOMP_STORE_1_FP:
-				src = kir_program_immd(prog, float_to_u32(1.0f));
+				src = kir_program_immf(prog, 1.0f);
 				break;
 			case VFCOMP_STORE_1_INT:
 				src = kir_program_immd(prog, 1);
@@ -600,7 +600,7 @@ emit_perspective_divide(struct kir_program *prog)
 	struct kir_reg inv_w0 = kir_program_alu(prog, kir_rcp, w);
 
 	/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
-	struct kir_reg two = kir_program_immd(prog, float_to_u32(2.0f));
+	struct kir_reg two = kir_program_immf(prog, 2.0f);
 
 	kir_program_alu(prog, kir_nmaddf, w, inv_w0, two);
 	struct kir_reg inv_w = kir_program_alu(prog, kir_mulf, inv_w0, prog->dst);
