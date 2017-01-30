@@ -103,6 +103,19 @@ builder_emit_vpmaskmovd(struct builder *bld, int mask, int src, int32_t offset)
 }
 
 static inline void
+builder_emit_vmovdqa(struct builder *bld, int dst, int src)
+{
+	ksim_assert(dst < 16 && src < 16);
+
+	if (src < 8)
+		emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f, 0xc0 + (src & 7) + (dst & 7) * 8);
+	else if (dst < 8)
+		emit(bld, 0xc5, 0x7d, 0x7f, 0xc0 + (src & 7) * 8 + (dst & 7));
+	else
+		emit(bld, 0xc4, 0x41, 0x7d, 0x6f, 0xc0 + (dst & 7) * 8 + (src & 7));
+}
+
+static inline void
 builder_emit_m256i_store(struct builder *bld, int src, int32_t offset)
 {
 	emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, 0x87 + (src & 7) * 0x08, emit_uint32(offset));
@@ -432,7 +445,7 @@ builder_emit_vfnmadd132ps(struct builder *bld, int dst, int src0, int src1)
 static inline void
 builder_emit_vfnmadd231ps(struct builder *bld, int dst, int src0, int src1)
 {
-	ksim_unreachable("figure this out");
+	builder_emit_short_alu(bld, 0xbc, dst, src0, src1);
 }
 
 static inline void

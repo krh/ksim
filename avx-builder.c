@@ -263,8 +263,8 @@ check_reg_imm_emit_function(const char *fmt,
 }
 
 void
-check_binop_emit_function(const char *fmt,
-			  void (*func)(struct builder *bld, int reg, int imm))
+check_unop_emit_function(const char *fmt,
+			 void (*func)(struct builder *bld, int dst, int src))
 {
 	struct builder bld;
 
@@ -402,6 +402,7 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vfmadd132ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfmadd132ps);
 	check_triop_emit_function("vfmadd231ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfmadd231ps);
 	check_triop_emit_function("vfnmadd132ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfnmadd132ps);
+	check_triop_emit_function("vfnmadd231ps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vfnmadd231ps);
 	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,1),%%ymm%3$d", emit_vpgatherdd_scale1);
 	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,2),%%ymm%3$d", emit_vpgatherdd_scale2);
 	check_triop_emit_function("vpgatherdd %%ymm%2$d,(%%rax,%%ymm%1$d,4),%%ymm%3$d", emit_vpgatherdd_scale4);
@@ -410,11 +411,14 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vpsrld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpsrld);
 	check_triop_emit_function("vpslld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpslld);
 
-	check_binop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
-	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
-	check_binop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
-	check_binop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
-	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,0x300(%%rdi)", emit_vpmaskmovd);
+	check_unop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
+	check_unop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
+	check_unop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
+	check_unop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
+	check_unop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,0x300(%%rdi)", emit_vpmaskmovd);
+	check_unop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
+	check_unop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
+	check_unop_emit_function("vmovdqa %%ymm%d,%%ymm%d", builder_emit_vmovdqa);
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 
@@ -427,8 +431,6 @@ int main(int argc, char *argv[])
 	/* xmm regs */
 	check_triop_emit_function("vpackssdw", builder_emit_vpackssdw);
 #endif
-	check_binop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
-	check_binop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
 
 	/* builder_emit_vextractf128 */
 

@@ -240,6 +240,9 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			len += snprintf(buf + len, size - len,
 					", r%d", insn->call.src1.n);
 		break;
+	case kir_mov:
+		snprintf(buf, size, "r%-3d = mov r%d", insn->dst.n, insn->alu.src0.n);
+		break;
 	case kir_zxwd:
 		snprintf(buf, size, "r%-3d = zxwd r%d", insn->dst.n, insn->alu.src0.n);
 		break;
@@ -584,6 +587,9 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			if (insn->call.args > 1)
 				set_live(insn->call.src1, live, insn, range, live_regs);
 			break;
+		case kir_mov:
+			ksim_unreachable();
+			break;
 		case kir_zxwd:
 		case kir_sxwd:
 		case kir_ps2d:
@@ -773,6 +779,9 @@ kir_program_copy_propagation(struct kir_program *prog)
 			}
 			break;
 
+		case kir_mov:
+			ksim_unreachable();
+			break;
 		case kir_zxwd:
 		case kir_sxwd:
 		case kir_ps2d:
@@ -847,19 +856,24 @@ kir_program_copy_propagation(struct kir_program *prog)
 }
 
 void
+kir_insn_destroy(struct kir_insn *insn)
+{
+	if (insn->opcode == kir_comment)
+		free(insn->comment);
+	free(insn);
+}
+
+void
 kir_program_dead_code_elimination(struct kir_program *prog)
 {
-	struct kir_insn *insn;
+	struct kir_insn *insn, *next;
 	uint32_t *range = prog->live_ranges;
 
-	insn = container_of(prog->insns.next, insn, link);
-	while (&insn->link != &prog->insns) {
-		struct kir_insn *next = container_of(insn->link.next, insn, link);
+	list_for_each_entry_safe(insn, next, &prog->insns, link) {
 		if (insn->dst.n >= range[insn->dst.n]) {
 			list_remove(&insn->link);
-			free(insn);
+			kir_insn_destroy(insn);
 		}
-		insn = next;
 	}
 }
 
@@ -868,8 +882,9 @@ struct ra_state {
 	uint32_t regs;
 	uint8_t *reg_to_avx;
 	struct kir_reg avx_to_reg[16];
-	uint32_t spill_slots;
-	uint32_t locked_regs;
+	uint32_t spill_slots;	/* Bitmask of spill slots */
+	uint32_t locked_regs;	/* Don't spill these */
+	uint32_t exclude_regs;	/* Don't allocate these */
 };
 
 static const struct kir_reg void_reg = { };
@@ -886,7 +901,8 @@ spill_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
 
 	/* FIXME: Don't spill regs that are simple region loads or
 	 * immediates, just make the unspill reload.  Not trivial for
-	 * regions as they're not SSA. */
+	 * regions as they're not SSA.  Prefer spilling one of these
+	 * regs when possible. */
 
 	struct kir_insn *spill =
 		kir_insn_create(kir_store_region, void_reg, insn->link.prev);
@@ -996,9 +1012,9 @@ spill_all(struct ra_state *state, struct kir_insn *insn)
 }
 
 static void
-allocate_reg(struct ra_state *state, struct kir_insn *insn, uint32_t exclude_regs)
+allocate_reg(struct ra_state *state, struct kir_insn *insn)
 {
-	uint32_t regs = state->regs & ~exclude_regs;
+	uint32_t regs = state->regs & ~state->exclude_regs;
 	if (regs == 0) {
 		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
 		spill_reg(state, insn, n);
@@ -1016,7 +1032,6 @@ kir_program_allocate_registers(struct kir_program *prog)
 {
 	struct kir_insn *insn;
 	struct ra_state state;
-	uint32_t exclude_regs;
 	char buf[128];
 
 	ksim_trace(TRACE_RA, "# --- ra debug dump\n");
@@ -1027,16 +1042,16 @@ kir_program_allocate_registers(struct kir_program *prog)
 	memset(state.reg_to_avx, 0xff, prog->next_reg.n * sizeof(state.reg_to_avx[0]));
 	state.range = prog->live_ranges;
 
-	insn = container_of(prog->insns.next, insn, link);
-	while (&insn->link != &prog->insns) {
+	list_for_each_entry(insn, &prog->insns, link) {
 		ksim_trace(TRACE_RA, "%s\n", kir_insn_format(insn, buf, sizeof(buf)));
 
-		exclude_regs = 0;
+		state.exclude_regs = 0;
 		state.locked_regs = 0;
 		switch (insn->opcode) {
 		case kir_comment:
 			break;
 		case kir_load_region:
+			allocate_reg(&state, insn);
 			break;
 		case kir_store_region_mask:
 		case kir_store_region:
@@ -1046,11 +1061,11 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_immw:
 		case kir_immv:
 		case kir_immvf:
+			allocate_reg(&state, insn);
 			break;
 
 		case kir_send:
 		case kir_const_send:
-			/* Don't need regs. */
 			break;
 			
 		case kir_call:
@@ -1060,8 +1075,13 @@ kir_program_allocate_registers(struct kir_program *prog)
 				insn->call.src0 = use_reg(&state, insn, insn->call.src0);
 			if (insn->call.args > 1)
 				insn->call.src1 = use_reg(&state, insn, insn->call.src1);
+			/* FIXME: Only if has return value. */
+			assign_reg(&state, insn, insn->call.src0.n);
 			break;
 
+		case kir_mov:
+			ksim_unreachable();
+			break;
 		case kir_zxwd:
 		case kir_sxwd:
 		case kir_ps2d:
@@ -1077,6 +1097,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_shri:
 		case kir_shli:
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
+			allocate_reg(&state, insn);
 			break;
 		case kir_and:
 		case kir_andn:
@@ -1104,6 +1125,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_cmp:
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
+			allocate_reg(&state, insn);
 			break;
 		case kir_int_div_q_and_r:
 		case kir_int_div_q:
@@ -1111,10 +1133,11 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_int_invm:
 		case kir_int_rsqrtm:
 		case kir_avg:
+			stub("ra insns");
+			allocate_reg(&state, insn);
 			break;
 		case kir_maddf:
-		case kir_nmaddf:
-		case kir_blend: {
+		case kir_nmaddf: {
 			struct kir_reg *reuse_src;
 
 			if (reg_dead(&state, insn, insn->alu.src0)) {
@@ -1127,6 +1150,12 @@ kir_program_allocate_registers(struct kir_program *prog)
 				reuse_src = NULL;
 			}
 
+			/* FIXME: There's another option here, if all
+			 * regs are live but one of them are spilled
+			 * and we have free regs: load the spilled
+			 * register into dst and leave the src marked
+			 * as spilled. */
+
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
@@ -1135,6 +1164,17 @@ kir_program_allocate_registers(struct kir_program *prog)
 				ksim_trace(TRACE_RA, "\treuse ymm%d for r%d\n",
 					   reuse_src->n, insn->dst.n);
 				assign_reg(&state, insn, reuse_src->n);
+			} else if (state.regs & state.exclude_regs) {
+				struct kir_insn *mov =
+					kir_insn_create(kir_mov, kir_reg(0), insn->link.prev);
+				allocate_reg(&state, insn);
+
+				mov->dst = insn->dst;
+				mov->alu.src0 = insn->alu.src0;
+				insn->alu.src0 = mov->dst;
+
+				ksim_trace(TRACE_RA, "\tmove ymm%d to ymm%d to not clobber r%d\n",
+					   mov->alu.src0.n, mov->dst.n, state.avx_to_reg[insn->alu.src0.n]);
 			} else {
 				ksim_trace(TRACE_RA, "\tspill ymm%d for r%d and reuse for r%d\n",
 					   insn->alu.src0.n,
@@ -1144,37 +1184,25 @@ kir_program_allocate_registers(struct kir_program *prog)
 				assign_reg(&state, insn, insn->alu.src0.n);
 			}
 			break;
+		case kir_blend:
+			/* We need to pick which src to clobber, but
+			 * unlike madd above, we can't pick any src. */
+			ksim_unreachable("blend");
+			break;
 		}
 
 		case kir_gather:
-			/* dst must be different than mask and offset for vpgatherdd. */
-			exclude_regs = ~state.regs;
+			/* dst must be different than mask and offset
+			 * for vpgatherdd. set exclude_regs to avoid
+			 * allocting any of the currently used regs. */
+			state.exclude_regs = ~state.regs;
 			insn->gather.mask = use_reg(&state, insn, insn->gather.mask);
 			insn->gather.offset = use_reg(&state, insn, insn->gather.offset);
+			allocate_reg(&state, insn);
 			break;
 		case kir_eot:
 			break;
 		}
-
-		switch (insn->opcode) {
-		case kir_comment:
-		case kir_store_region_mask:
-		case kir_store_region:
-		case kir_send:
-		case kir_const_send:
-		case kir_eot:
-			break;
-		case kir_maddf:
-		case kir_nmaddf:
-			/* These two reuse a src as dst. */
-			break;
-		default: {
-			allocate_reg(&state, insn, exclude_regs);
-			break;
-		}
-		}
-
-		insn = container_of(insn->link.next, insn, link);
 	}
 
 	free(state.reg_to_avx);
@@ -1254,6 +1282,9 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) insn->call.func - bld->p);
 			builder_emit_pop_rdi(bld);
+			break;
+		case kir_mov:
+			builder_emit_vmovdqa(bld, insn->dst.n, insn->alu.src0.n);
 			break;
 		case kir_zxwd:
 			builder_emit_vpmovzxwd(bld, insn->dst.n, insn->alu.src0.n);
@@ -1507,10 +1538,8 @@ kir_program_finish(struct kir_program *prog)
 	while (!list_empty(&prog->insns)) {
 		struct kir_insn *insn = 
 			container_of(prog->insns.next, insn, link);
-		if (insn->opcode == kir_comment)
-			free(insn->comment);
 		list_remove(&insn->link);
-		free(insn);
+		kir_insn_destroy(insn);
 	}
 
 	free(prog->live_ranges);

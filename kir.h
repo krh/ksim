@@ -64,6 +64,7 @@ enum kir_opcode {
 	kir_const_call, /* No side effects: typiclly math helpers */
 
 	/* alu unop */
+	kir_mov,
 	kir_zxwd,
 	kir_sxwd,
 	kir_ps2d,
