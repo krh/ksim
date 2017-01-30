@@ -1209,6 +1209,8 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
 	struct kir_insn *insn;
 
+	const void *rax = NULL;
+
 	list_for_each_entry(insn, &prog->insns, link) {
 		switch (insn->opcode) {
 		case kir_comment:
@@ -1261,6 +1263,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 				builder_emit_call_relative(bld, offset);
 				builder_emit_pop_rdi(bld);
 			}
+			rax = NULL;
 			break;
 
 		case kir_call:
@@ -1274,6 +1277,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) insn->call.func - bld->p);
 			builder_emit_pop_rdi(bld);
+			rax = NULL;
 			break;
 		case kir_mov:
 			builder_emit_vmovdqa(bld, insn->dst.n, insn->alu.src0.n);
@@ -1437,9 +1441,13 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 						insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_gather: {
-			const void **p = get_const_data(sizeof(*p), sizeof(*p));
-			*p = insn->gather.base;
-			builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
+			/* FIXME: Need to be more cautious about
+			 * caching rax with control flow. */
+			if (rax != insn->gather.base) {
+				const void **p = get_const_data(sizeof(*p), sizeof(*p));
+				*p = rax = insn->gather.base;
+				builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
+			}
 			builder_emit_vpgatherdd(bld, insn->dst.n,
 						insn->gather.offset.n,
 						insn->gather.mask.n,

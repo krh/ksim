@@ -452,8 +452,8 @@ emit_vertex_fetch(struct kir_program *prog)
 		if (!gt.vf.ve[i].valid)
 			continue;
 
-		kir_program_comment(prog, "vertex fetch: ve %d: offset %d, pitch %d, format %d",
-				 i, ve->offset, vb->pitch, ve->format);
+		kir_program_comment(prog, "vertex fetch: ve %d: offset %d, pitch %d, format %d, vb %p",
+				    i, ve->offset, vb->pitch, ve->format, vb->data);
 
 		if (gt.vf.ve[i].instancing) {
 			if (gt.vf.ve[i].step_rate > 1) {
