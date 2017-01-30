@@ -430,6 +430,12 @@ builder_emit_vfnmadd132ps(struct builder *bld, int dst, int src0, int src1)
 }
 
 static inline void
+builder_emit_vfnmadd231ps(struct builder *bld, int dst, int src0, int src1)
+{
+	ksim_unreachable("figure this out");
+}
+
+static inline void
 builder_emit_vpabsd(struct builder *bld, int dst, int src0)
 {
 	builder_emit_short_alu(bld, 0x1e, dst, src0, 0);

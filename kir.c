@@ -28,16 +28,26 @@
 #include "kir.h"
 
 struct kir_insn *
-kir_program_add_insn(struct kir_program *prog, uint32_t opcode)
+kir_insn_create(uint32_t opcode, struct kir_reg dst, struct list *other)
 {
 	struct kir_insn *insn;
 
 	insn = malloc(sizeof(*insn));
 	insn->opcode = opcode;
-	insn->dst = kir_reg(prog->next_reg.n++);
+	insn->dst = dst;
+	if (other)
+		list_insert(other, &insn->link);
 
-	list_insert(prog->insns.prev, &insn->link);
-	prog->dst = insn->dst;
+	return insn;
+}
+
+struct kir_insn *
+kir_program_add_insn(struct kir_program *prog, uint32_t opcode)
+{
+	struct kir_reg dst = kir_reg(prog->next_reg.n++);
+	struct kir_insn *insn = kir_insn_create(opcode, dst, prog->insns.prev);
+
+	prog->dst = dst;
 
 	return insn;
 }
@@ -862,26 +872,26 @@ struct ra_state {
 	uint32_t locked_regs;
 };
 
+static const struct kir_reg void_reg = { };
+
 /* Insert spill instruction of register reg before instruction insn */
 static void
-spill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
+spill_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
 {
 	ksim_assert(state->spill_slots);
 	int slot = __builtin_ffs(state->spill_slots) - 1;
 	state->spill_slots &= ~(1 << slot);
 
-	ksim_trace(TRACE_RA, "\tspill ymm%d to slot %d\n", reg.n, slot);
+	ksim_trace(TRACE_RA, "\tspill ymm%d to slot %d\n", avx_reg, slot);
 
-	/* FIXME: Need constructor for this */
-	struct kir_insn *spill;
+	/* FIXME: Don't spill regs that are simple region loads or
+	 * immediates, just make the unspill reload.  Not trivial for
+	 * regions as they're not SSA. */
 
-	spill = malloc(sizeof(*spill));
-	spill->opcode = kir_store_region;
-	spill->dst = kir_reg(0);
+	struct kir_insn *spill =
+		kir_insn_create(kir_store_region, void_reg, insn->link.prev);
 
-	list_insert(insn->link.prev, &spill->link);
-
-	spill->xfer.src = reg;
+	spill->xfer.src = kir_reg(avx_reg);
 	spill->xfer.region = (struct eu_region) {
 		.offset = offsetof(struct thread, spill[slot]),
 		.type_size = 4,
@@ -891,9 +901,9 @@ spill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 		.hstride = 1
 	};
 
-	struct kir_reg def = state->avx_to_reg[reg.n];
+	struct kir_reg def = state->avx_to_reg[avx_reg];
 
-	state->regs |= (1 << reg.n);
+	state->regs |= (1 << avx_reg);
 	state->reg_to_avx[def.n] = 16 + slot;
 }
 
@@ -917,7 +927,7 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 		/* Spill something else if we don't have a register
 		 * for unspilling into. */
 		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
-		spill_reg(state, insn, kir_reg(n));
+		spill_reg(state, insn, n);
 		regs = state->regs;
 	}
 
@@ -929,12 +939,8 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 
 	ksim_trace(TRACE_RA, "\tunspill slot %d to ymm%d\n", slot, avx_reg);
 
-	struct kir_insn *unspill;
-	unspill = malloc(sizeof(*unspill));
-	unspill->opcode = kir_load_region;
-	unspill->dst = reg;
-
-	list_insert(insn->link.prev, &unspill->link);
+	struct kir_insn *unspill =
+		kir_insn_create(kir_load_region, reg, insn->link.prev);
 
 	unspill->xfer.region = (struct eu_region) {
 		.offset = offsetof(struct thread, spill[slot]),
@@ -948,6 +954,12 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	assign_reg(state, unspill, avx_reg);
 }
 
+static inline bool
+reg_dead(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
+{
+	return insn->dst.n >= state->range[reg.n];
+}
+
 static inline struct kir_reg
 use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
@@ -959,7 +971,7 @@ use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	};
 
 	ksim_assert(avx_reg.n != 0xff);
-	if (insn->dst.n >= state->range[reg.n]) {
+	if (reg_dead(state, insn, reg)) {
 		ksim_trace(TRACE_RA, "\tuse ymm%d for r%d, dead now\n",
 			   avx_reg.n, reg.n);
 		state->regs |= (1 << avx_reg.n);
@@ -980,7 +992,23 @@ spill_all(struct ra_state *state, struct kir_insn *insn)
 	uint32_t avx_reg;
 
 	for_each_bit(avx_reg, live_regs)
-		spill_reg(state, insn, kir_reg(avx_reg));
+		spill_reg(state, insn, avx_reg);
+}
+
+static void
+allocate_reg(struct ra_state *state, struct kir_insn *insn, uint32_t exclude_regs)
+{
+	uint32_t regs = state->regs & ~exclude_regs;
+	if (regs == 0) {
+		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
+		spill_reg(state, insn, n);
+		regs = state->regs;
+	}
+	int avx_reg = __builtin_ffs(regs) - 1;
+	ksim_trace(TRACE_RA, "\tallocate ymm%d for r%d\n",
+		   avx_reg, insn->dst.n);
+
+	assign_reg(state, insn, avx_reg);
 }
 
 static void
@@ -991,6 +1019,8 @@ kir_program_allocate_registers(struct kir_program *prog)
 	uint32_t exclude_regs;
 	char buf[128];
 
+	ksim_trace(TRACE_RA, "# --- ra debug dump\n");
+
 	state.spill_slots = 0xffffffff;
 	state.regs = 0xffff;
 	state.reg_to_avx = malloc(prog->next_reg.n * sizeof(state.reg_to_avx[0]));
@@ -999,9 +1029,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 
 	insn = container_of(prog->insns.next, insn, link);
 	while (&insn->link != &prog->insns) {
-		if (trace_mask & TRACE_RA)
-			fprintf(trace_file, "%s\n",
-				kir_insn_format(insn, buf, sizeof(buf)));
+		ksim_trace(TRACE_RA, "%s\n", kir_insn_format(insn, buf, sizeof(buf)));
 
 		exclude_regs = 0;
 		state.locked_regs = 0;
@@ -1086,21 +1114,40 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 		case kir_maddf:
 		case kir_nmaddf:
-		case kir_blend:
+		case kir_blend: {
+			struct kir_reg *reuse_src;
+
+			if (reg_dead(&state, insn, insn->alu.src0)) {
+				reuse_src = &insn->alu.src0;
+			} else if (reg_dead(&state, insn, insn->alu.src1)) {
+				reuse_src = &insn->alu.src1;
+			} else if (reg_dead(&state, insn, insn->alu.src2)) {
+				reuse_src = &insn->alu.src2;
+			} else {
+				reuse_src = NULL;
+			}
+
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
 
-			spill_all(&state, insn);
-
-			ksim_trace(TRACE_RA, "\treuse ymm%d for r%d\n",
-				   insn->alu.src0.n, insn->dst.n);
-
-			/* src0 becomes dst */
-			assign_reg(&state, insn, insn->alu.src0.n);
+			if (reuse_src) {
+				ksim_trace(TRACE_RA, "\treuse ymm%d for r%d\n",
+					   reuse_src->n, insn->dst.n);
+				assign_reg(&state, insn, reuse_src->n);
+			} else {
+				ksim_trace(TRACE_RA, "\tspill ymm%d for r%d and reuse for r%d\n",
+					   insn->alu.src0.n,
+					   state.avx_to_reg[insn->alu.src0.n].n,
+					   insn->dst.n);
+				spill_reg(&state, insn, insn->alu.src0.n);
+				assign_reg(&state, insn, insn->alu.src0.n);
+			}
 			break;
+		}
+
 		case kir_gather:
-			/* dst must be different that mask and offset for vpgatherdd. */
+			/* dst must be different than mask and offset for vpgatherdd. */
 			exclude_regs = ~state.regs;
 			insn->gather.mask = use_reg(&state, insn, insn->gather.mask);
 			insn->gather.offset = use_reg(&state, insn, insn->gather.offset);
@@ -1122,16 +1169,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 			/* These two reuse a src as dst. */
 			break;
 		default: {
-			uint32_t regs = state.regs & ~exclude_regs;
-			if (regs == 0) {
-				int n = __builtin_ffs(0xffff ^ state.locked_regs) - 1;
-				spill_reg(&state, insn, kir_reg(n));
-				regs = state.regs;
-			}
-			int avx_reg = __builtin_ffs(regs) - 1;
-			ksim_trace(TRACE_RA, "\tallocate ymm%d for r%d\n",
-				   avx_reg, insn->dst.n);
-			assign_reg(&state, insn, avx_reg);
+			allocate_reg(&state, insn, exclude_regs);
 			break;
 		}
 		}
@@ -1140,6 +1178,8 @@ kir_program_allocate_registers(struct kir_program *prog)
 	}
 
 	free(state.reg_to_avx);
+
+	ksim_trace(TRACE_RA, "\n");
 }
 
 void
@@ -1346,12 +1386,26 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			stub("kir_avg");
 			break;
 		case kir_maddf:
-			builder_emit_vfmadd132ps(bld, insn->dst.n,
-						 insn->alu.src1.n, insn->alu.src2.n);
+			if (insn->dst.n == insn->alu.src0.n)
+				builder_emit_vfmadd132ps(bld, insn->dst.n,
+							 insn->alu.src1.n, insn->alu.src2.n);
+			else if (insn->dst.n == insn->alu.src1.n)
+				builder_emit_vfmadd132ps(bld, insn->dst.n,
+							 insn->alu.src0.n, insn->alu.src2.n);
+			else if (insn->dst.n == insn->alu.src2.n)
+				builder_emit_vfmadd231ps(bld, insn->dst.n,
+							 insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_nmaddf:
-			builder_emit_vfnmadd132ps(bld, insn->dst.n,
-						  insn->alu.src1.n, insn->alu.src2.n);
+			if (insn->dst.n == insn->alu.src0.n)
+				builder_emit_vfnmadd132ps(bld, insn->dst.n,
+							  insn->alu.src1.n, insn->alu.src2.n);
+			else if (insn->dst.n == insn->alu.src1.n)
+				builder_emit_vfnmadd132ps(bld, insn->dst.n,
+							  insn->alu.src0.n, insn->alu.src2.n);
+			else if (insn->dst.n == insn->alu.src2.n)
+				builder_emit_vfnmadd231ps(bld, insn->dst.n,
+							  insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_cmp:
 			builder_emit_vcmpps(bld, insn->alu.imm2, insn->dst.n,
