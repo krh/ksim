@@ -664,32 +664,10 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 }
 
 struct resident_region {
-	struct eu_region region;
+	uint32_t mask[2]; /* bitmask of region */
 	struct kir_reg reg;
 	struct list link;
 };
-
-static bool
-regions_equal(const struct eu_region *a, const struct eu_region *b)
-{
-	return memcmp(a, b, sizeof(*a)) == 0;
-}
-
-static bool
-regions_overlap(const struct eu_region *a, const struct eu_region *b)
-{
-	uint32_t a_size = (a->exec_size / a->width) * a->vstride * a->type_size;
-	uint32_t b_size = (b->exec_size / b->width) * b->vstride * b->type_size;
-
-	/* This is a coarse approximation, but probably sufficient: if
-	 * the "bounding boxs" of the regions overlap, we consider the
-	 * regions overlapping. This misses cases where a region could
-	 * be contained in a gap (ie, where width < vstride) of
-	 * another region or two regions could be interleaved. */
-
-	return a->offset + a_size > b->offset &&
-		 b->offset + b_size > a->offset;
-}
 
 void
 kir_program_copy_propagation(struct kir_program *prog)
@@ -715,13 +693,16 @@ kir_program_copy_propagation(struct kir_program *prog)
 		list_init(&region_to_reg[i]);
 
 	list_for_each_entry(insn, &prog->insns, link) {
+		uint32_t mask[2];
 		switch (insn->opcode) {
 		case kir_comment:
 			break;
 		case kir_load_region: {
-			ksim_assert(insn->xfer.region.offset / 32 < max_eu_regs);
-			list_for_each_entry(rr, &region_to_reg[insn->xfer.region.offset / 32], link) {
-				if (regions_equal(&insn->xfer.region, &rr->region)) {
+			uint32_t grf = insn->xfer.region.offset / 32;
+			ksim_assert(grf < max_eu_regs);
+			region_to_mask(&insn->xfer.region, mask);
+			list_for_each_entry(rr, &region_to_reg[grf], link) {
+				if (rr->mask[0] == mask[0] && rr->mask[1] == mask[1]) {
 					remap[insn->dst.n] = rr->reg;
 					goto load_region_done;
 				}
@@ -729,30 +710,40 @@ kir_program_copy_propagation(struct kir_program *prog)
 
 			/* FIXME: Insert an rr for each region_to_reg it overlaps */
 			rr = &rr_pool[rr_pool_next++];
-			rr->region = insn->xfer.region;
+			rr->mask[0] = mask[0];
+			rr->mask[1] = mask[1];
 			rr->reg = insn->dst;
-			list_insert(&region_to_reg[rr->region.offset / 32], &rr->link);
+			list_insert(&region_to_reg[grf], &rr->link);
 		load_region_done:
 			break;
 		}
 		case kir_store_region_mask:
 		case kir_store_region: {
+			uint32_t grf = insn->xfer.region.offset / 32;
 
 			insn->xfer.src = remap[insn->xfer.src.n];
 
-			ksim_assert(insn->xfer.region.offset / 32 < max_eu_regs);
+			ksim_assert(grf < max_eu_regs);
+			region_to_mask(&insn->xfer.region, mask);
 
 			/* Invalidate registers overlapping region */
-			struct list *head = &region_to_reg[insn->xfer.region.offset / 32];
-			list_for_each_entry_safe(rr, next, head, link) {
-				if (regions_overlap(&rr->region, &insn->xfer.region))
+			list_for_each_entry_safe(rr, next, &region_to_reg[grf], link) {
+				if ((mask[0] & rr->mask[0]) || (mask[1] & rr->mask[1]))
 					list_remove(&rr->link);
+			}
+			if (mask[1]) {
+				ksim_assert(grf + 1 < max_eu_regs);
+				list_for_each_entry_safe(rr, next, &region_to_reg[grf + 1], link) {
+					if (mask[1] & rr->mask[0])
+						list_remove(&rr->link);
+				}
 			}
 
 			rr = &rr_pool[rr_pool_next++];
-			rr->region = insn->xfer.region;
+			rr->mask[0] = mask[0];
+			rr->mask[1] = mask[1];
 			rr->reg = insn->xfer.src;
-			list_insert(&region_to_reg[rr->region.offset / 32], &rr->link);
+			list_insert(&region_to_reg[grf], &rr->link);
 			break;
 		}
 		case kir_immd:
@@ -944,7 +935,7 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 		 * for unspilling into. */
 		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
 		spill_reg(state, insn, n);
-		regs = state->regs;
+		regs = state->regs & ~state->locked_regs;
 	}
 
 	ksim_assert(regs);
@@ -974,6 +965,13 @@ static inline bool
 reg_dead(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
 	return insn->dst.n >= state->range[reg.n];
+}
+
+static inline void
+lock_reg(struct ra_state *state, struct kir_reg reg)
+{
+	if (state->reg_to_avx[reg.n] < 16)
+		state->locked_regs |= (1 << state->reg_to_avx[reg.n]);
 }
 
 static inline struct kir_reg
@@ -1127,6 +1125,8 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_mulw:
 		case kir_mulf:
 		case kir_cmp:
+			lock_reg(&state, insn->alu.src0);
+			lock_reg(&state, insn->alu.src1);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
 			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
 			allocate_reg(&state, insn);
@@ -1142,6 +1142,10 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_maddf:
 		case kir_nmaddf: {
 			struct kir_reg *reuse_src;
+
+			lock_reg(&state, insn->alu.src0);
+			lock_reg(&state, insn->alu.src1);
+			lock_reg(&state, insn->alu.src2);
 
 			if (reg_dead(&state, insn, insn->alu.src0)) {
 				reuse_src = &insn->alu.src0;
@@ -1195,6 +1199,9 @@ kir_program_allocate_registers(struct kir_program *prog)
 		}
 
 		case kir_gather:
+			lock_reg(&state, insn->gather.mask);
+			lock_reg(&state, insn->gather.offset);
+
 			/* dst must be different than mask and offset
 			 * for vpgatherdd. set exclude_regs to avoid
 			 * allocting any of the currently used regs. */
@@ -1538,7 +1545,6 @@ kir_program_finish(struct kir_program *prog)
 
 	builder_init(&bld);
 
-	/* builder_emit_program()? */
 	ksim_trace(TRACE_AVX | TRACE_EU, "# --- code emit\n");
 	kir_program_emit(prog, &bld);
 

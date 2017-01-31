@@ -311,7 +311,7 @@ struct gt {
 	} vf;
 
 	struct {
-		uint32_t topology;
+		enum GEN9_3D_Prim_Topo_Type topology;
 	} ia;
 
 	struct {

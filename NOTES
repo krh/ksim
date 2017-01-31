@@ -84,6 +84,45 @@ blend to implement write masking.
 Run on hw for a while, then switch to simulator when something
 triggers. Switch back.
 
-** KIR
+* KIR
 
-* Fix tail call optimization for eot sends/calls
+** Fix tail call optimization for eot sends/calls. For example, this:
+
+00a8  send(8)         g124<1>UW       g13<8,8,1>F
+                            sampler ld_lz SIMD8 Surface = 1 Sampler = 0 mlen 3 rlen 4 { align1 1Q };
+00b8  sendc(8)        null<1>UW       g124<8,8,1>F
+                            render RT write SIMD8 LastRT Surface = 0 mlen 4 rlen 0 { align1 1Q EOT };
+
+becomes
+
+       const_send src g13-g15, dst g124-g127  lea    -0x10e7(%rip),%rsi        # 0x0000000000000000
+                                            push   %rdi
+                                            callq  0x00000000082a44a2
+                                            pop    %rdi
+       send src g124-g127                   lea    -0x10b5(%rip),%rsi        # 0x0000000000000040
+                                            push   %rdi
+                                            callq  0x00000000082a0a76
+                                            pop    %rdi
+       eot                                  retq   
+
+which could just be
+
+       const_send src g13-g15, dst g124-g127  lea    -0x10e7(%rip),%rsi        # 0x0000000000000000
+                                            callq  0x00000000082a44a2
+       send src g124-g127                   lea    -0x10b5(%rip),%rsi        # 0x0000000000000040
+                                            jmp  0x00000000082a0a76
+
+since we don't need rdi anymore at that point and we can instead of
+call for the last call that ends the thread.
+
+** Detect same vb strides
+
+Only compute each vid * stride once, so that buffers with the same
+stride don't generate the same computation.
+
+** Spill registers that hold regions or immediates
+
+When choosing a register to spill, try to find one that holds an
+immediate, and avoid spilling. Make unspill just reload the value. Can
+be done for regions too, but needs analysis to determine that region
+is unchanged. Maybe rewrite grf access to be SSA?
