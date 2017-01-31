@@ -1246,6 +1246,111 @@ kir_program_allocate_registers(struct kir_program *prog)
 	ksim_trace(TRACE_RA, "\n");
 }
 
+static void
+emit_region_load(struct builder *bld, const struct eu_region *region, int reg)
+{
+	if (region->hstride == 1 && region->width == region->vstride) {
+		switch (region->type_size * region->exec_size) {
+		case 32:
+			builder_emit_m256i_load(bld, reg, region->offset);
+			break;
+		case 16:
+		default:
+			/* Could do broadcastq/d/w for sizes 8, 4 and
+			 * 2 to avoid loading too much */
+			builder_emit_m128i_load(bld, reg, region->offset);
+			break;
+		}
+	} else if (region->hstride == 0 && region->vstride == 0 && region->width == 1) {
+		switch (region->type_size) {
+		case 4:
+			builder_emit_vpbroadcastd(bld, reg, region->offset);
+			break;
+		default:
+			stub("unhandled broadcast load size %d\n", region->type_size);
+			break;
+		}
+	} else if (region->hstride == 0 && region->width == 4 && region->vstride == 1 &&
+		   region->type_size == 2) {
+		int tmp0_reg = 14;
+		int tmp1_reg = 15;
+
+		/* Handle the frag coord region */
+		builder_emit_vpbroadcastw(bld, tmp0_reg, region->offset);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 4);
+		builder_emit_vinserti128(bld, tmp0_reg, tmp1_reg, tmp0_reg, 1);
+
+		builder_emit_vpbroadcastw(bld, reg, region->offset + 2);
+		builder_emit_vpbroadcastw(bld, tmp1_reg, region->offset + 6);
+		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
+
+		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
+	} else if (region->hstride == 1 && region->width * region->type_size) {
+		for (int i = 0; i < region->exec_size / region->width; i++) {
+			int offset = region->offset + i * region->vstride * region->type_size;
+			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
+		}
+	} else if (region->type_size == 4) {
+		int offset, i = 0, tmp_reg = reg;
+
+		for (int y = 0; y < region->exec_size / region->width; y++) {
+			for (int x = 0; x < region->width; x++) {
+				if (i == 4)
+					tmp_reg = 14;
+				offset = region->offset + (y * region->vstride + x * region->hstride) * region->type_size;
+				builder_emit_vpinsrd_rdi_relative(bld, tmp_reg, tmp_reg, offset, i & 3);
+				i++;
+			}
+		}
+		if (tmp_reg != reg)
+			builder_emit_vinserti128(bld, reg, tmp_reg, reg, 1);
+	} else {
+		stub("src: g%d.%d<%d,%d,%d>",
+		     region->offset / 32, region->offset & 31,
+		     region->vstride, region->width, region->hstride);
+	}
+}
+
+static void
+emit_region_store_mask(struct builder *bld,
+			       const struct eu_region *region,
+			       int dst, int mask)
+{
+	/* Don't have a good way to do mask stores for
+	 * type_size < 4 and need builder_emit functions for
+	 * exec_size < 8. */
+	ksim_assert(region->exec_size == 8 && region->type_size == 4);
+
+	switch (region->exec_size * region->type_size) {
+	case 32:
+		builder_emit_vpmaskmovd(bld, dst, mask, region->offset);
+		break;
+	default:
+		stub("eu: type size %d in dest store", region->type_size);
+		break;
+	}
+}
+
+static void
+emit_region_store(struct builder *bld,
+			  const struct eu_region *region, int dst)
+{
+	switch (region->exec_size * region->type_size) {
+	case 32:
+		builder_emit_m256i_store(bld, dst, region->offset);
+		break;
+	case 16:
+		builder_emit_m128i_store(bld, dst, region->offset);
+		break;
+	case 4:
+		builder_emit_u32_store(bld, dst, region->offset);
+		break;
+	default:
+		stub("eu: type size %d in dest store", region->type_size);
+		break;
+	}
+}
+
 void
 kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
@@ -1258,16 +1363,16 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		case kir_comment:
 			break;
 		case kir_load_region:
-			builder_emit_region_load(bld, &insn->xfer.region, insn->dst.n);
+			emit_region_load(bld, &insn->xfer.region, insn->dst.n);
 			break;
 		case kir_store_region_mask:
-			builder_emit_region_store_mask(bld, &insn->xfer.region,
-						       insn->xfer.src.n,
-						       insn->xfer.mask.n);
+			emit_region_store_mask(bld, &insn->xfer.region,
+					       insn->xfer.src.n,
+					       insn->xfer.mask.n);
 			break;
 		case kir_store_region:
-			builder_emit_region_store(bld, &insn->xfer.region,
-						  insn->xfer.src.n);
+			emit_region_store(bld, &insn->xfer.region,
+					  insn->xfer.src.n);
 			break;
 		case kir_immd:
 		case kir_immw: {

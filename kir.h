@@ -126,6 +126,15 @@ enum kir_opcode {
 	kir_eot
 };
 
+struct eu_region {
+	uint32_t offset; /* num * 32 + subnum */
+	uint32_t type_size;
+	uint32_t exec_size;
+	uint32_t vstride;
+	uint32_t width;
+	uint32_t hstride;
+};
+
 struct kir_insn {
 	enum kir_opcode opcode;
 

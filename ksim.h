@@ -251,15 +251,6 @@ struct reg {
 	};
 };
 
-struct eu_region {
-	uint32_t offset; /* num * 32 + subnum */
-	uint32_t type_size;
-	uint32_t exec_size;
-	uint32_t vstride;
-	uint32_t width;
-	uint32_t hstride;
-};
-
 struct thread {
 	struct reg grf[128];
 	__m256i f[2];

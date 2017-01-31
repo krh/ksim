@@ -598,19 +598,6 @@ builder_emit_call(struct builder *bld, void *func)
 	return 0;
 }
 
-void
-builder_emit_region_load(struct builder *bld,
-			 const struct eu_region *region, int reg);
-
-void
-builder_emit_region_store_mask(struct builder *bld,
-			       const struct eu_region *region,
-			       int dst, int mask);
-
-void
-builder_emit_region_store(struct builder *bld,
-			  const struct eu_region *region, int dst);
-
 static inline void
 builder_emit_trap(struct builder *bld)
 {
@@ -632,18 +619,3 @@ builder_finish(struct builder *bld);
 
 bool
 builder_disasm(struct builder *bld);
-
-void
-builder_dump_register_cache(struct builder *bld, FILE *fp);
-
-static inline void
-builder_trace(struct builder *bld, FILE *fp)
-{
-	if (trace_mask & TRACE_AVX) {
-		while (builder_disasm(bld))
-			fprintf(fp, "      %s\n", bld->disasm_output);
-	}
-
-	if (trace_mask & TRACE_RA)
-		builder_dump_register_cache(bld, fp);
-}
