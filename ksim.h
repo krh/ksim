@@ -54,56 +54,6 @@ memfd_create(const char *name, unsigned int flags)
    return syscall(SYS_memfd_create, name, flags);
 }
 
-static inline void
-__ksim_assert(int cond, const char *file, int line, const char *msg)
-{
-	if (!cond) {
-		printf("%s:%d: assert failed: %s\n", file, line, msg);
-		raise(SIGTRAP);
-		__builtin_unreachable();
-	}
-}
-
-#ifdef KSIM_BUILD_RELEASE
-#define ksim_assert(cond) do { (void) (cond); } while (0)
-#else
-#define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
-#endif
-
-static inline void
-__ksim_unreachable(const char *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	vprintf(fmt, va);
-	va_end(va);
-
-	raise(SIGTRAP);
-	__builtin_unreachable();
-}
-
-#define ksim_unreachable(format, ...)				\
-	__ksim_unreachable("%s:%d: unreachable: " format "\n",	\
-			   __FILE__, __LINE__, ##__VA_ARGS__)
-
-enum {
-	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
-	TRACE_SPAM = 1 << 1,		/* Intermittent junk messages */
-	TRACE_WARN = 1 << 2,		/* Warnings for out-of-bounds/unintended behavior. */
-	TRACE_GEM = 1 << 3,		/* gem layer trace messages */
-	TRACE_CS = 1 << 4,		/* command streamer trace */
-	TRACE_VF = 1 << 5,		/* vertex fetch trace */
-	TRACE_VS = 1 << 6,		/* trace vs execution */
-	TRACE_PS = 1 << 7,		/* trace ps execution */
-	TRACE_EU = 1 << 8,		/* trace eu details */
-	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
-	TRACE_URB = 1 << 10,		/* urb traffic */
-	TRACE_QUEUE = 1 << 11,		/* thread queue */
-	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
-	TRACE_RA = 1 << 13,		/* register allocator */
-};
-
 extern uint32_t trace_mask;
 extern uint32_t breakpoint_mask;
 extern FILE *trace_file;
@@ -140,6 +90,58 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 #define stub(format, ...)						\
 	ksim_trace(TRACE_STUB, "%s:%d: unimplemented: " format "\n",	\
 		   __FILE__, __LINE__, ##__VA_ARGS__)
+
+static inline void
+__ksim_assert(bool cond, const char *file, int line, const char *msg)
+{
+	if (!cond) {
+		printf("%s:%d: assert failed: %s\n", file, line, msg);
+		fflush(trace_file);
+		raise(SIGTRAP);
+		__builtin_unreachable();
+	}
+}
+
+#ifdef KSIM_BUILD_RELEASE
+#define ksim_assert(cond) do { (void) (cond); } while (0)
+#else
+#define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
+#endif
+
+static inline void
+__ksim_unreachable(const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	vprintf(fmt, va);
+	va_end(va);
+
+	fflush(trace_file);
+	raise(SIGTRAP);
+	__builtin_unreachable();
+}
+
+#define ksim_unreachable(format, ...)				\
+	__ksim_unreachable("%s:%d: unreachable: " format "\n",	\
+			   __FILE__, __LINE__, ##__VA_ARGS__)
+
+enum {
+	TRACE_DEBUG = 1 << 0,		/* Debug trace messages. */
+	TRACE_SPAM = 1 << 1,		/* Intermittent junk messages */
+	TRACE_WARN = 1 << 2,		/* Warnings for out-of-bounds/unintended behavior. */
+	TRACE_GEM = 1 << 3,		/* gem layer trace messages */
+	TRACE_CS = 1 << 4,		/* command streamer trace */
+	TRACE_VF = 1 << 5,		/* vertex fetch trace */
+	TRACE_VS = 1 << 6,		/* trace vs execution */
+	TRACE_PS = 1 << 7,		/* trace ps execution */
+	TRACE_EU = 1 << 8,		/* trace eu details */
+	TRACE_STUB = 1 << 9,		/* unimplemented functionality */
+	TRACE_URB = 1 << 10,		/* urb traffic */
+	TRACE_QUEUE = 1 << 11,		/* thread queue */
+	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
+	TRACE_RA = 1 << 13,		/* register allocator */
+};
 
 static inline uint32_t
 field(uint32_t value, int start, int end)
@@ -266,7 +268,7 @@ struct thread {
 		__m256i mask_q1;
 	};
 	__m256i mask_q2;
-	__m256i spill[32]; /* Needs to be dynamically determined */
+	__m256i spill[64]; /* Needs to be dynamically determined */
 };
 
 typedef void (*shader_t)(struct thread *t);

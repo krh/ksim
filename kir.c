@@ -873,20 +873,35 @@ struct ra_state {
 	uint32_t regs;
 	uint8_t *reg_to_avx;
 	struct kir_reg avx_to_reg[16];
-	uint32_t spill_slots;	/* Bitmask of spill slots */
+	uint64_t spill_slots;	/* Bitmask of spill slots */
 	uint32_t locked_regs;	/* Don't spill these */
 	uint32_t exclude_regs;	/* Don't allocate these */
+
+	uint32_t next_reg;
+	uint32_t next_spill_reg;
 };
 
 static const struct kir_reg void_reg = { };
+
+static int
+pick_spill_reg(struct ra_state *state)
+{
+	uint32_t start_reg = state->next_spill_reg++ & 15;
+	uint32_t regs = 0xffff ^ state->locked_regs;
+
+	if (regs >> start_reg)
+		return __builtin_ffs(regs >> start_reg) + start_reg - 1;
+	else
+		return __builtin_ffs(regs) - 1;
+}
 
 /* Insert spill instruction of register reg before instruction insn */
 static void
 spill_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
 {
 	ksim_assert(state->spill_slots);
-	int slot = __builtin_ffs(state->spill_slots) - 1;
-	state->spill_slots &= ~(1 << slot);
+	int slot = __builtin_ffsl(state->spill_slots) - 1;
+	state->spill_slots &= ~(1ul << slot);
 
 	ksim_trace(TRACE_RA, "\tspill ymm%d to slot %d\n", avx_reg, slot);
 
@@ -933,7 +948,7 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 	if (regs == 0) {
 		/* Spill something else if we don't have a register
 		 * for unspilling into. */
-		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
+		int n = pick_spill_reg(state);
 		spill_reg(state, insn, n);
 		regs = state->regs & ~state->locked_regs;
 	}
@@ -942,7 +957,7 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 
 	int avx_reg = __builtin_ffs(regs) - 1;
 	uint32_t slot = state->reg_to_avx[reg.n] - 16;
-	state->spill_slots |= (1 << slot);
+	state->spill_slots |= (1ul << slot);
 
 	ksim_trace(TRACE_RA, "\tunspill slot %d to ymm%d\n", slot, avx_reg);
 
@@ -1014,13 +1029,21 @@ allocate_reg(struct ra_state *state, struct kir_insn *insn)
 {
 	uint32_t regs = state->regs & ~state->exclude_regs;
 	if (regs == 0) {
-		int n = __builtin_ffs(0xffff ^ state->locked_regs) - 1;
+		int n = pick_spill_reg(state);
 		spill_reg(state, insn, n);
 		regs = state->regs;
 	}
-	int avx_reg = __builtin_ffs(regs) - 1;
+	uint32_t start_reg = state->next_reg & 15;
+	int avx_reg;
+
+	if (regs >> start_reg)
+		avx_reg = __builtin_ffs(regs >> start_reg) + start_reg - 1;
+	else
+		avx_reg = __builtin_ffs(regs) - 1;
+
 	ksim_trace(TRACE_RA, "\tallocate ymm%d for r%d\n",
-		   avx_reg, insn->dst.n);
+		   avx_reg, insn->dst.n, state->next_reg);
+	state->next_reg++;
 
 	assign_reg(state, insn, avx_reg);
 }
@@ -1031,14 +1054,17 @@ kir_program_allocate_registers(struct kir_program *prog)
 	struct kir_insn *insn;
 	struct ra_state state;
 	char buf[128];
+	int count = prog->next_reg.n;
 
 	ksim_trace(TRACE_RA, "# --- ra debug dump\n");
 
-	state.spill_slots = 0xffffffff;
+	state.spill_slots = ~0ul;
 	state.regs = 0xffff;
-	state.reg_to_avx = malloc(prog->next_reg.n * sizeof(state.reg_to_avx[0]));
-	memset(state.reg_to_avx, 0xff, prog->next_reg.n * sizeof(state.reg_to_avx[0]));
+	state.reg_to_avx = malloc(count * sizeof(state.reg_to_avx[0]));
+	memset(state.reg_to_avx, 0xff, count * sizeof(state.reg_to_avx[0]));
 	state.range = prog->live_ranges;
+	state.next_reg = 0;
+	state.next_spill_reg = 0;
 
 	list_for_each_entry(insn, &prog->insns, link) {
 		ksim_trace(TRACE_RA, "%s\n", kir_insn_format(insn, buf, sizeof(buf)));
@@ -1269,6 +1295,10 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 
 		case kir_send:
 		case kir_const_send:
+			if (insn->send.func == NULL) {
+				stub("send func is NULL\n");
+				break;
+			}
 			builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, insn->send.args));
 			if (insn->link.next == &prog->insns) {
 				int32_t offset = (uint8_t *) insn->send.func - bld->p;
