@@ -38,11 +38,19 @@ struct edge {
 };
 
 struct dispatch {
-	struct reg w, z;;
+	struct reg w, z;
 	struct reg w2, w0, w1;
 	struct reg w2_pc, w1_pc;
 	struct reg mask;
 	int x, y;
+};
+
+struct ps_thread {
+	struct thread t;
+	float w_deltas[4];
+	struct reg attribute_deltas[64];
+	struct dispatch queue[2];
+	int queue_length;
 };
 
 struct primitive {
@@ -62,9 +70,6 @@ struct primitive {
 	float inv_z1, inv_z2;
 	float w_deltas[4];
 	struct reg attribute_deltas[64];
-
-	struct dispatch queue[2];
-	int queue_length;
 };
 
 /* Decode this at jit time and put in constant pool. */
@@ -335,23 +340,24 @@ depth_test(struct primitive *p, struct dispatch *d)
 }
 
 static void
-dispatch_ps(struct primitive *p, struct dispatch *d, int count)
+dispatch_ps(struct ps_thread *t)
 {
 	uint32_t g;
-	struct thread t;
-	bool simd16 = (count == 2);
-
+	bool simd16 = (t->queue_length == 2);
+	struct dispatch *d = &t->queue[0];
+	int count = t->queue_length;
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
+	struct reg *grf = &t->t.grf[0];
 
-	t.mask_q1 = d[0].mask.ireg;
+	t->t.mask_q1 = d[0].mask.ireg;
 	if (count == 2)
-		t.mask_q2 = d[1].mask.ireg;
+		t->t.mask_q2 = d[1].mask.ireg;
 	else
-		t.mask_q2 = _mm256_set1_epi32(0);
+		t->t.mask_q2 = _mm256_set1_epi32(0);
 
 	/* Fixed function header */
-	t.grf[0] = (struct reg) {
+	grf[0] = (struct reg) {
 		.ud = {
 			/* R0.0 */
 			gt.ia.topology |
@@ -374,8 +380,8 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 		}
 	};
 
-	uint32_t mask = _mm256_movemask_ps((__m256) t.mask_q1);
-	t.grf[1] = (struct reg) {
+	uint32_t mask = _mm256_movemask_ps((__m256) t->t.mask_q1);
+	grf[1] = (struct reg) {
 		.ud = {
 			/* R1.0-1: MBZ */
 			0,
@@ -398,78 +404,78 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 
 	g = 2;
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		t.grf[g].reg = d[0].w1_pc.reg;
-		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		grf[g].reg = d[0].w1_pc.reg;
+		grf[g + 1].reg = d[0].w2_pc.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1_pc.reg;
-			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			grf[g].reg = d[1].w1_pc.reg;
+			grf[g + 1].reg = d[1].w2_pc.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		t.grf[g].reg = d[0].w1_pc.reg;
-		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		grf[g].reg = d[0].w1_pc.reg;
+		grf[g + 1].reg = d[0].w2_pc.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1_pc.reg;
-			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			grf[g].reg = d[1].w1_pc.reg;
+			grf[g + 1].reg = d[1].w2_pc.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		t.grf[g].reg = d[0].w1_pc.reg;
-		t.grf[g + 1].reg = d[0].w2_pc.reg;
+		grf[g].reg = d[0].w1_pc.reg;
+		grf[g + 1].reg = d[0].w2_pc.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1_pc.reg;
-			t.grf[g + 1].reg = d[1].w2_pc.reg;
+			grf[g].reg = d[1].w1_pc.reg;
+			grf[g + 1].reg = d[1].w2_pc.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
-		t.grf[g].reg = d[0].w1.reg;
-		t.grf[g + 1].reg = d[0].w2.reg;
+		grf[g].reg = d[0].w1.reg;
+		grf[g + 1].reg = d[0].w2.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1.reg;
-			t.grf[g + 1].reg = d[1].w2.reg;
+			grf[g].reg = d[1].w1.reg;
+			grf[g + 1].reg = d[1].w2.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_CENTROID) {
-		t.grf[g].reg = d[0].w1.reg;
-		t.grf[g + 1].reg = d[0].w2.reg;
+		grf[g].reg = d[0].w1.reg;
+		grf[g + 1].reg = d[0].w2.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1.reg;
-			t.grf[g + 1].reg = d[1].w2.reg;
+			grf[g].reg = d[1].w1.reg;
+			grf[g + 1].reg = d[1].w2.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.wm.barycentric_mode & BIM_LINEAR_SAMPLE) {
-		t.grf[g].reg = d[0].w1.reg;
-		t.grf[g + 1].reg = d[0].w2.reg;
+		grf[g].reg = d[0].w1.reg;
+		grf[g + 1].reg = d[0].w2.reg;
 		g += 2;
 		if (simd16) {
-			t.grf[g].reg = d[1].w1.reg;
-			t.grf[g + 1].reg = d[1].w2.reg;
+			grf[g].reg = d[1].w1.reg;
+			grf[g + 1].reg = d[1].w2.reg;
 			g += 2;
 		}
 	}
 
 	if (gt.ps.uses_source_depth) {
-		t.grf[g].reg = d[0].z.reg;
+		grf[g].reg = d[0].z.reg;
 		g++;
 	}
 
 	if (gt.ps.uses_source_w) {
-		t.grf[g].reg = d[0].w.reg;
+		grf[g].reg = d[0].w.reg;
 		g++;
 	}
 
@@ -484,23 +490,23 @@ dispatch_ps(struct primitive *p, struct dispatch *d, int count)
 	}
 
 	if (gt.ps.push_constant_enable)
-		g = load_constants(&t, &gt.ps.curbe, gt.ps.grf_start0);
+		g = load_constants(&t->t, &gt.ps.curbe, gt.ps.grf_start0);
 	else
 		g = gt.ps.grf_start0;
 
 	if (gt.ps.attribute_enable) {
-		memcpy(&t.grf[g], p->attribute_deltas,
-		       gt.sbe.num_attributes * 2 * sizeof(t.grf[0]));
+		memcpy(&grf[g], t->attribute_deltas,
+		       gt.sbe.num_attributes * 2 * sizeof(grf[0]));
 	}
 
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
 	if (count == 1 && gt.ps.enable_simd8) {
-		gt.ps.avx_shader_simd8(&t);
+		gt.ps.avx_shader_simd8(&t->t);
 	} else {
 		ksim_assert(gt.ps.enable_simd16);
-		gt.ps.avx_shader_simd16(&t);
+		gt.ps.avx_shader_simd16(&t->t);
 	}
 }
 
@@ -579,9 +585,10 @@ tile_iterator_next(struct tile_iterator *iter, struct primitive *p)
 }
 
 static void
-fill_dispatch(struct primitive *p, struct tile_iterator *iter, struct reg mask)
+fill_dispatch(struct primitive *p, struct ps_thread *t,
+	      struct tile_iterator *iter, struct reg mask)
 {
-	struct dispatch *d = &p->queue[p->queue_length];
+	struct dispatch *d = &t->queue[t->queue_length];
 
 	if (_mm256_movemask_ps(mask.reg) == 0)
 		return;
@@ -625,17 +632,28 @@ fill_dispatch(struct primitive *p, struct tile_iterator *iter, struct reg mask)
 	if (_mm256_movemask_ps(mask.reg) == 0 || !gt.ps.enable)
 		return;
 
-	p->queue_length++;
-	if (gt.ps.enable_simd8 || p->queue_length == 2) {
-		dispatch_ps(p, &p->queue[0], p->queue_length);
-		p->queue_length = 0;
+	t->queue_length++;
+	if (gt.ps.enable_simd8 || t->queue_length == 2) {
+		dispatch_ps(t);
+		t->queue_length = 0;
 	}
+}
+
+static void
+init_ps_thread(struct ps_thread *t, struct primitive *p)
+{
+	memcpy(t->attribute_deltas, p->attribute_deltas,
+		gt.sbe.num_attributes * 2 * sizeof(t->t.grf[0]));
+	t->queue_length = 0;
 }
 
 static void
 rasterize_rectlist_tile(struct primitive *p)
 {
 	struct tile_iterator iter;
+	struct ps_thread t;
+
+	init_ps_thread(&t, p);
 
 	for (tile_iterator_init(&iter, p);
 	     !tile_iterator_done(&iter);
@@ -648,7 +666,7 @@ rasterize_rectlist_tile(struct primitive *p)
 		 * function from the opposite edge by subtracting from
 		 * the area. We also subtract 1 to either cancel out
 		 * the bias on the original edge, or to add it to the
-		 * oppoiste edge if the original doesn't have bias. */
+		 * opposite edge if the original doesn't have bias. */
 		c = _mm256_set1_epi32(p->area - 1);
 		w2 = _mm256_sub_epi32(c, iter.w2);
 		w3 = _mm256_sub_epi32(c, iter.w0);
@@ -657,12 +675,12 @@ rasterize_rectlist_tile(struct primitive *p)
 		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w2, iter.w0),
 					     _mm256_and_si256(w2, w3));
 
-		fill_dispatch(p, &iter, mask);
+		fill_dispatch(p, &t, &iter, mask);
 	}
 
-	if (p->queue_length > 0) {
-		dispatch_ps(p, &p->queue[0], p->queue_length);
-		p->queue_length = 0;
+	if (t.queue_length > 0) {
+		dispatch_ps(&t);
+		t.queue_length = 0;
 	}
 }
 
@@ -670,6 +688,9 @@ static void
 rasterize_triangle_tile(struct primitive *p)
 {
 	struct tile_iterator iter;
+	struct ps_thread t;
+
+	init_ps_thread(&t, p);
 
 	for (tile_iterator_init(&iter, p);
 	     !tile_iterator_done(&iter);
@@ -679,12 +700,12 @@ rasterize_triangle_tile(struct primitive *p)
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
 							  iter.w0), iter.w2);
 
-		fill_dispatch(p, &iter, mask);
+		fill_dispatch(p, &t, &iter, mask);
 	}
 
-	if (p->queue_length > 0) {
-		dispatch_ps(p, &p->queue[0], p->queue_length);
-		p->queue_length = 0;
+	if (t.queue_length > 0) {
+		dispatch_ps(&t);
+		t.queue_length = 0;
 	}
 }
 
@@ -854,7 +875,6 @@ rasterize_primitive(struct value **vue)
 	init_edge(&p.e12, p1, p2);
 	init_edge(&p.e20, p2, p0);
 	p.area = eval_edge(&p.e01, p2);
-	p.queue_length = 0;
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
