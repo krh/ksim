@@ -228,6 +228,47 @@ check_triop_emit_function(const char *fmt,
 			}
 }
 
+static void
+check_quadop_emit_function(const char *fmt,
+			   void (*func)(struct builder *bld, int dst, int mask, int src0, int src1))
+{
+	struct builder bld;
+
+	for (int dst = 0; dst < 16; dst++)
+		for (int mask = 0; mask < 16; mask++)
+			for (int src0 = 0; src0 < 16; src0++)
+				for (int src1 = 0; src1 < 16; src1++) {
+					int count, actual_dst, actual_mask;
+					int actual_src0, actual_src1;
+
+					reset_shader_pool();
+					builder_init(&bld);
+
+					func(&bld, dst, mask, src0, src1);
+					builder_disasm(&bld);
+
+					count = sscanf(bld.disasm_output,
+						       fmt, &actual_mask,
+						       &actual_src0, &actual_src1, &actual_dst);
+
+					if (count != 4 ||
+					    dst != actual_dst || mask != actual_mask ||
+					    src0 != actual_src0 || src1 != actual_src1) {
+
+						const uint8_t *code = (uint8_t *) bld.shader;
+						const int size = bld.p - code;
+
+						printf("fmt='%s' dst=%d src0=%d src1=%d:\n    ",
+						       fmt, dst, src0, src1);
+						for (int i = 0; i < size; i++)
+							printf("%02x ", code[i]);
+						printf("%s", bld.disasm_output);
+
+						exit(EXIT_FAILURE);
+					}
+				}
+}
+
 static inline void
 emit_vpgatherdd_scale1(struct builder *bld, int dst, int index, int mask)
 {
@@ -320,7 +361,8 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vmaxps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vmaxps);
 	check_triop_emit_function("vminps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vminps);
 
-	/* builder_emit_vpblendvb */
+	check_quadop_emit_function("vpblendvb %%ymm%d,%%ymm%d,%%ymm%d,%%ymm%d",
+				   builder_emit_vpblendvb);
 
 #if 0
 	/* xmm regs */

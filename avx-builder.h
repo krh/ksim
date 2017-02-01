@@ -521,7 +521,7 @@ static inline void
 builder_emit_vpblendvb(struct builder *bld, int dst, int mask, int src0, int src1)
 {
 	builder_emit_short_alu_e3(bld, 0x4c, dst, src0, src1);
-	emit(bld, mask);
+	emit(bld, mask * 16);
 }
 
 static inline void
