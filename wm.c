@@ -1002,3 +1002,57 @@ depth_clear(void)
 	for (i = 0; i < gt.depth.stride * height; i += 32)
 		_mm256_store_si256((depth + i), clear_value.ireg);
 }
+
+#define NO_KERNEL 1
+
+void
+compile_ps(void)
+{
+	uint64_t ksp_simd8 = NO_KERNEL, ksp_simd16 = NO_KERNEL, ksp_simd32 = NO_KERNEL;
+
+	if (gt.ps.enable) {
+		if (gt.ps.enable_simd8) {
+			ksp_simd8 = gt.ps.ksp0;
+			if (gt.ps.enable_simd16) {
+				ksp_simd16 = gt.ps.ksp2;
+				if (gt.ps.enable_simd32)
+					ksp_simd32 = gt.ps.ksp1;
+			} else {
+				ksp_simd32 = gt.ps.ksp2;
+			}
+		} else {
+			if (gt.ps.enable_simd16) {
+				if(gt.ps.enable_simd32) {
+					ksp_simd16 = gt.ps.ksp2;
+					ksp_simd32 = gt.ps.ksp1;
+				} else {
+					ksp_simd16 = gt.ps.ksp0;
+				}
+			} else {
+				ksp_simd32 = gt.ps.ksp0;
+			}
+		}
+
+		if (ksp_simd8 != NO_KERNEL) {
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd8 ps\n");
+			gt.ps.avx_shader_simd8 =
+				compile_shader(ksp_simd8,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
+		if (ksp_simd16 != NO_KERNEL) {
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd16 ps\n");
+			gt.ps.avx_shader_simd16 =
+				compile_shader(ksp_simd16,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
+		if (ksp_simd32 != NO_KERNEL) {
+			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd32 ps\n");
+			gt.ps.avx_shader_simd32 =
+				compile_shader(ksp_simd32,
+					       gt.ps.binding_table_address,
+					       gt.ps.sampler_state_address);
+		}
+	}
+}

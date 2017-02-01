@@ -756,8 +756,6 @@ dispatch_primitive(void)
 
 	ksim_assert(gt.vs.simd8 || !gt.vs.enable);
 
-	prepare_shaders();
-
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;
 
@@ -781,7 +779,11 @@ dispatch_primitive(void)
 
 	init_vf_buffer(&buffer);
 
+	reset_shader_pool();
+
 	compile_vs(&buffer);
+
+	compile_ps();
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };

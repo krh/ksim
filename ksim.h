@@ -721,7 +721,7 @@ void builder_emit_sfid_render_cache(struct kir_program *prog, struct inst *inst)
 void builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst);
 void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
-void prepare_shaders(void);
+void compile_ps(void);
 uint32_t load_constants(struct thread *t, struct curbe *c, uint32_t start);
 void reset_shader_pool(void);
 shader_t compile_shader(uint64_t kernel_offset,
