@@ -539,7 +539,7 @@ emit_vertex_fetch(struct kir_program *prog)
 }
 
 static uint32_t
-emit_load_constants(struct kir_program *prog, struct vf_buffer *buffer,
+emit_load_constants(struct kir_program *prog, struct thread *t,
 		    struct curbe *c, uint32_t start)
 {
 	uint32_t grf = start;
@@ -560,13 +560,13 @@ emit_load_constants(struct kir_program *prog, struct vf_buffer *buffer,
 		}
 
 		for (uint32_t i = 0; i < c->buffer[b].length; i++) {
-			buffer->constants[bc] = regs[i];
-			kir_program_load_v8(prog, offsetof(struct vf_buffer, constants[bc++]));
-			kir_program_store_v8(prog, offsetof(struct vf_buffer, t.grf[grf++]), prog->dst);
+			t->constants[bc] = regs[i].ireg;
+			kir_program_load_v8(prog, offsetof(struct thread, constants[bc++]));
+			kir_program_store_v8(prog, offsetof(struct thread, grf[grf++]), prog->dst);
 		}
 	}
 
-	ksim_assert(bc < ARRAY_LENGTH(buffer->constants));
+	ksim_assert(bc < ARRAY_LENGTH(t->constants));
 
 	return grf;
 }
@@ -682,7 +682,7 @@ compile_vs(struct vf_buffer *buffer)
 
 	uint32_t grf;
 	if (gt.vs.enable) {
-		grf = emit_load_constants(&prog, buffer,
+		grf = emit_load_constants(&prog, &buffer->t,
 					  &gt.vs.curbe,
 					  gt.vs.urb_start_grf);
 	}

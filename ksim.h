@@ -259,6 +259,7 @@ struct thread {
 		__m256i mask_q1;
 	};
 	__m256i mask_q2;
+	__m256i constants[32];
 	__m256i spill[64]; /* Needs to be dynamically determined */
 };
 
@@ -633,7 +634,6 @@ struct vf_buffer {
 			__m256 x, y, z, w;
 		};
 	};
-	struct reg constants[32];
 };
 
 bool valid_vertex_format(uint32_t format);
