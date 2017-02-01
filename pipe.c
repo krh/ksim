@@ -708,7 +708,7 @@ init_vf_buffer(struct vf_buffer *buffer)
 		buffer->vp.m32 = vp[5];
 	}
 
-	load_constants_to_thread(&buffer->t, &gt.vs.curbe);
+	load_constants(&buffer->t, &gt.vs.curbe);
 }
 
 void
