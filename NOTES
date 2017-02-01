@@ -126,3 +126,36 @@ When choosing a register to spill, try to find one that holds an
 immediate, and avoid spilling. Make unspill just reload the value. Can
 be done for regions too, but needs analysis to determine that region
 is unchanged. Maybe rewrite grf access to be SSA?
+
+
+** Better region xfer copy prop
+
+When we compile in code to copy constants into the shader regs we get
+code like:
+
+# --- code emit
+# load attribute deltas
+r0   = load_region g236.0<8,8,1>4           vmovdqa 0x1d80(%rdi),%ymm0
+       store_region r0, g2.0<8,8,1>4        vmovdqa %ymm0,0x40(%rdi)
+r1   = load_region g237.0<8,8,1>4           vmovdqa 0x1da0(%rdi),%ymm1
+       store_region r1, g3.0<8,8,1>4        vmovdqa %ymm1,0x60(%rdi)
+# eu ps
+r2   = load_region g2.12<0,1,0>4            vpbroadcastd 0x4c(%rdi),%ymm2
+       store_region r2, g124.0<8,8,1>4      vmovdqa %ymm2,0xf80(%rdi)
+r3   = load_region g2.28<0,1,0>4            vpbroadcastd 0x5c(%rdi),%ymm3
+       store_region r3, g125.0<8,8,1>4      vmovdqa %ymm3,0xfa0(%rdi)
+r4   = load_region g3.12<0,1,0>4            vpbroadcastd 0x6c(%rdi),%ymm4
+       store_region r4, g126.0<8,8,1>4      vmovdqa %ymm4,0xfc0(%rdi)
+r5   = load_region g3.28<0,1,0>4            vpbroadcastd 0x7c(%rdi),%ymm5
+       store_region r5, g127.0<8,8,1>4      vmovdqa %ymm5,0xfe0(%rdi)
+       send src g124-g127                   lea    -0x144b(%rip),%rsi        # 0x0000000000000060
+                                            push   %rdi
+                                            callq  0xffffffffff741749
+                                            pop    %rdi
+       eot                                  retq   
+
+This inlines and unrolls the copy, but sine we load uniforms from the
+constants, the regions don't match and we don't propagate into the
+later loads.  It would be even better if we could rewrite the loads
+from, eg g2.12<0,1,0>4 to load directly from g236.12<0,1,0>4 and avoid
+the intermediate stores.

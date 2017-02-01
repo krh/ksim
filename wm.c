@@ -490,16 +490,6 @@ dispatch_ps(struct ps_thread *t)
 		g++;
 	}
 
-	if (gt.ps.push_constant_enable)
-		g = load_constants(&t->t, &gt.ps.curbe, gt.ps.grf_start0);
-	else
-		g = gt.ps.grf_start0;
-
-	if (gt.ps.attribute_enable) {
-		memcpy(&grf[g], t->attribute_deltas,
-		       gt.sbe.num_attributes * 2 * sizeof(grf[0]));
-	}
-
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
 
@@ -1006,6 +996,16 @@ depth_clear(void)
 
 #define NO_KERNEL 1
 
+static void
+emit_load_attributes_deltas(struct kir_program *prog, int g)
+{
+	kir_program_comment(prog, "load attribute deltas");
+	for (uint32_t i = 0; i < gt.sbe.num_attributes * 2; i++) {
+		kir_program_load_v8(prog, offsetof(struct ps_thread, attribute_deltas[i]));
+		kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+	}
+}
+
 static shader_t
 compile_ps_for_width(uint64_t kernel_offset, int width)
 {
@@ -1014,6 +1014,16 @@ compile_ps_for_width(uint64_t kernel_offset, int width)
 	kir_program_init(&prog, gt.ps.binding_table_address,
 			 gt.ps.sampler_state_address);
 
+	uint32_t g;
+	if (gt.ps.push_constant_enable)
+		g = emit_load_constants(&prog, &gt.ps.curbe, gt.ps.grf_start0);
+	else
+		g = gt.ps.grf_start0;
+
+	if (gt.ps.attribute_enable)
+		emit_load_attributes_deltas(&prog, g);
+
+	kir_program_comment(&prog, "eu ps");
 	kir_program_emit_shader(&prog, kernel_offset);
 
 	kir_program_add_insn(&prog, kir_eot);
