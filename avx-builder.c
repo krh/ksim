@@ -127,7 +127,24 @@ uint32_t trace_mask = 0;
 uint32_t breakpoint_mask = 0;
 FILE *trace_file;
 
-void
+static void
+test_fail(struct builder *bld, const char *fmt, ...)
+{
+	const uint8_t *code = (uint8_t *) bld->shader;
+	const int size = bld->p - code;
+	va_list va;
+
+	va_start(va, fmt);
+	vprintf(fmt, va);
+	va_end(va);
+
+	for (int i = 0; i < size; i++)
+		printf("%02x ", code[i]);
+	printf("%s\n", bld->disasm_output);
+	exit(EXIT_FAILURE);
+}
+
+static void
 check_reg_imm_emit_function(const char *fmt,
 			    void (*func)(struct builder *bld, int reg, int imm), int delta)
 {
@@ -145,19 +162,12 @@ check_reg_imm_emit_function(const char *fmt,
 
 		count = sscanf(bld.disasm_output, fmt, &actual_reg, &actual_imm);
 
-		if (count != 2 || reg != actual_reg || imm - delta != actual_imm) {
-			const uint8_t *code = (uint8_t *) bld.shader;
-			const int size = bld.p - code;
-			printf("fmt='%s' reg=%d imm=%d:\n    ", fmt, reg, imm);
-			for (int i = 0; i < size; i++)
-				printf("%02x ", code[i]);
-			printf("%s\n", bld.disasm_output);
-			exit(EXIT_FAILURE);
-		}
+		if (count != 2 || reg != actual_reg || imm - delta != actual_imm)
+			test_fail(&bld, "fmt='%s' reg=%d imm=%d:\n    ", fmt, reg, imm);
 	}
 }
 
-void
+static void
 check_unop_emit_function(const char *fmt,
 			 void (*func)(struct builder *bld, int dst, int src))
 {
@@ -177,20 +187,13 @@ check_unop_emit_function(const char *fmt,
 				       &actual_src, &actual_dst);
 
 			if (count != 2 ||
-			    dst != actual_dst || src != actual_src) {
-				const uint8_t *code = (uint8_t *) bld.shader;
-				const int size = bld.p - code;
-				printf("fmt='%s' dst=%d src=%d:\n    ", fmt, dst, src);
-				for (int i = 0; i < size; i++)
-					printf("%02x ", code[i]);
-				printf("%s", bld.disasm_output);
-				exit(EXIT_FAILURE);
-			}
+			    dst != actual_dst || src != actual_src)
+				test_fail(&bld, "fmt='%s' dst=%d src=%d:\n    ", fmt, dst, src);
 		}
 	}
 }
 
-void
+static void
 check_triop_emit_function(const char *fmt,
 			  void (*func)(struct builder *bld, int dst, int src0, int src1))
 {
@@ -211,20 +214,9 @@ check_triop_emit_function(const char *fmt,
 					       fmt, &actual_src0, &actual_src1, &actual_dst);
 
 				if (count != 3 ||
-				    dst != actual_dst || src0 != actual_src0 || src1 != actual_src1) {
-
-					const uint8_t *code = (uint8_t *) bld.shader;
-
-					const int size = bld.p - code;
-
-					printf("fmt='%s' dst=%d src0=%d src1=%d:\n    ",
-					       fmt, dst, src0, src1);
-					for (int i = 0; i < size; i++)
-						printf("%02x ", code[i]);
-					printf("%s", bld.disasm_output);
-
-					exit(EXIT_FAILURE);
-				}
+				    dst != actual_dst || src0 != actual_src0 || src1 != actual_src1)
+					test_fail(&bld, "fmt='%s' dst=%d src0=%d src1=%d:\n    ",
+						  fmt, dst, src0, src1);
 			}
 }
 
@@ -253,19 +245,9 @@ check_quadop_emit_function(const char *fmt,
 
 					if (count != 4 ||
 					    dst != actual_dst || mask != actual_mask ||
-					    src0 != actual_src0 || src1 != actual_src1) {
-
-						const uint8_t *code = (uint8_t *) bld.shader;
-						const int size = bld.p - code;
-
-						printf("fmt='%s' dst=%d src0=%d src1=%d:\n    ",
-						       fmt, dst, src0, src1);
-						for (int i = 0; i < size; i++)
-							printf("%02x ", code[i]);
-						printf("%s", bld.disasm_output);
-
-						exit(EXIT_FAILURE);
-					}
+					    src0 != actual_src0 || src1 != actual_src1)
+						test_fail(&bld, "fmt='%s' dst=%d src0=%d src1=%d:\n    ",
+							  fmt, dst, src0, src1);
 				}
 }
 
