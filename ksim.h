@@ -672,8 +672,8 @@ struct surface {
 	enum GEN9_TILE_MODE tile_mode;
 };
 
-bool
-get_surface(uint32_t binding_table_offset, int i, struct surface *s);
+bool get_surface(uint32_t binding_table_offset, int i, struct surface *s);
+void dump_surface(const char *filename, uint32_t binding_table_offset, int i);
 
 void wm_stall(void);
 void wm_flush(void);
