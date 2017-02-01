@@ -1540,14 +1540,14 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			break;
 		case kir_subd:
 			builder_emit_vpsubd(bld, insn->dst.n,
-					    insn->alu.src0.n, insn->alu.src1.n);
+					    insn->alu.src1.n, insn->alu.src0.n);
 			break;
 		case kir_subw:
 			stub("kir_subw");
 			break;
 		case kir_subf:
 			builder_emit_vsubps(bld, insn->dst.n,
-					    insn->alu.src0.n, insn->alu.src1.n);
+					    insn->alu.src1.n, insn->alu.src0.n);
 			break;
 		case kir_muld:
 			builder_emit_vpmulld(bld, insn->dst.n,
