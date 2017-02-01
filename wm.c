@@ -343,8 +343,6 @@ depth_test(struct primitive *p, struct dispatch *d)
 static void
 dispatch_ps(struct ps_thread *t)
 {
-	uint32_t g;
-	bool simd16 = (t->queue_length == 2);
 	struct dispatch *d = &t->queue[0];
 	int count = t->queue_length;
 	/* Not sure what we should make this. */
@@ -402,93 +400,6 @@ dispatch_ps(struct ps_thread *t)
 
 		}
 	};
-
-	g = 2;
-	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_PIXEL) {
-		grf[g].reg = d[0].w1_pc.reg;
-		grf[g + 1].reg = d[0].w2_pc.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1_pc.reg;
-			grf[g + 1].reg = d[1].w2_pc.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_CENTROID) {
-		grf[g].reg = d[0].w1_pc.reg;
-		grf[g + 1].reg = d[0].w2_pc.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1_pc.reg;
-			grf[g + 1].reg = d[1].w2_pc.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_PERSPECTIVE_SAMPLE) {
-		grf[g].reg = d[0].w1_pc.reg;
-		grf[g + 1].reg = d[0].w2_pc.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1_pc.reg;
-			grf[g + 1].reg = d[1].w2_pc.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_LINEAR_PIXEL) {
-		grf[g].reg = d[0].w1.reg;
-		grf[g + 1].reg = d[0].w2.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1.reg;
-			grf[g + 1].reg = d[1].w2.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_LINEAR_CENTROID) {
-		grf[g].reg = d[0].w1.reg;
-		grf[g + 1].reg = d[0].w2.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1.reg;
-			grf[g + 1].reg = d[1].w2.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.wm.barycentric_mode & BIM_LINEAR_SAMPLE) {
-		grf[g].reg = d[0].w1.reg;
-		grf[g + 1].reg = d[0].w2.reg;
-		g += 2;
-		if (simd16) {
-			grf[g].reg = d[1].w1.reg;
-			grf[g + 1].reg = d[1].w2.reg;
-			g += 2;
-		}
-	}
-
-	if (gt.ps.uses_source_depth) {
-		grf[g].reg = d[0].z.reg;
-		g++;
-	}
-
-	if (gt.ps.uses_source_w) {
-		grf[g].reg = d[0].w.reg;
-		g++;
-	}
-
-	if (gt.ps.position_offset_xy == POSOFFSET_CENTROID) {
-		g++;
-	} else if (gt.ps.position_offset_xy == POSOFFSET_SAMPLE) {
-		g++;
-	}
-
-	if (gt.ps.input_coverage_mask_state != ICMS_NONE) {
-		g++;
-	}
 
 	if (gt.ps.statistics)
 		gt.ps_invocation_count++;
@@ -1006,6 +917,55 @@ emit_load_attributes_deltas(struct kir_program *prog, int g)
 	}
 }
 
+static void
+emit_load_payload(struct kir_program *prog, int width)
+{
+	int g = 2;
+
+	if (gt.wm.barycentric_mode)
+		kir_program_comment(prog, "load payload: barycentric coordinates");
+	for (uint32_t i = 0; i < 6; i++) {
+		if (gt.wm.barycentric_mode & (1 << i)) {
+			kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w1_pc));
+			kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+			kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w2_pc));
+			kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+
+			if (width == 16) {
+				kir_program_load_v8(prog, offsetof(struct ps_thread, queue[1].w1_pc));
+				kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+				kir_program_load_v8(prog, offsetof(struct ps_thread, queue[1].w2_pc));
+				kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+			}
+		}
+	}
+
+	if (gt.ps.uses_source_depth) {
+		kir_program_comment(prog, "load payload: source depth");
+		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].z));
+		kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+	}
+
+	if (gt.ps.uses_source_w) {
+		kir_program_comment(prog, "load payload: source w");
+		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w));
+		kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
+	}
+
+	if (gt.ps.position_offset_xy == POSOFFSET_CENTROID) {
+		kir_program_comment(prog, "load payload: POSOFFSET_CENTROID stub");
+		g++;
+	} else if (gt.ps.position_offset_xy == POSOFFSET_SAMPLE) {
+		kir_program_comment(prog, "load payload: POSOFFSET_SAMPLE stub");
+		g++;
+	}
+
+	if (gt.ps.input_coverage_mask_state != ICMS_NONE) {
+		kir_program_comment(prog, "load payload: coverage mask stub");
+		g++;
+	}
+}
+
 static shader_t
 compile_ps_for_width(uint64_t kernel_offset, int width)
 {
@@ -1014,7 +974,9 @@ compile_ps_for_width(uint64_t kernel_offset, int width)
 	kir_program_init(&prog, gt.ps.binding_table_address,
 			 gt.ps.sampler_state_address);
 
-	uint32_t g;
+	emit_load_payload(&prog, width);
+
+	int g;
 	if (gt.ps.push_constant_enable)
 		g = emit_load_constants(&prog, &gt.ps.curbe, gt.ps.grf_start0);
 	else
