@@ -1090,6 +1090,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 
 		case kir_send:
 		case kir_const_send:
+			spill_all(&state, insn);
 			break;
 			
 		case kir_call:
