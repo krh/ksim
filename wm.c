@@ -31,6 +31,7 @@
 #include <libpng16/png.h>
 
 #include "ksim.h"
+#include "kir.h"
 
 struct edge {
 	int32_t a, b, c, bias;
@@ -1005,6 +1006,21 @@ depth_clear(void)
 
 #define NO_KERNEL 1
 
+static shader_t
+compile_ps_for_width(uint64_t kernel_offset, int width)
+{
+	struct kir_program prog;
+
+	kir_program_init(&prog, gt.ps.binding_table_address,
+			 gt.ps.sampler_state_address);
+
+	kir_program_emit_shader(&prog, kernel_offset);
+
+	kir_program_add_insn(&prog, kir_eot);
+
+	return kir_program_finish(&prog);
+}
+
 void
 compile_ps(void)
 {
@@ -1036,23 +1052,17 @@ compile_ps(void)
 		if (ksp_simd8 != NO_KERNEL) {
 			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd8 ps\n");
 			gt.ps.avx_shader_simd8 =
-				compile_shader(ksp_simd8,
-					       gt.ps.binding_table_address,
-					       gt.ps.sampler_state_address);
+				compile_ps_for_width(ksp_simd8, 8);
 		}
 		if (ksp_simd16 != NO_KERNEL) {
 			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd16 ps\n");
 			gt.ps.avx_shader_simd16 =
-				compile_shader(ksp_simd16,
-					       gt.ps.binding_table_address,
-					       gt.ps.sampler_state_address);
+				compile_ps_for_width(ksp_simd16, 16);
 		}
 		if (ksp_simd32 != NO_KERNEL) {
 			ksim_trace(TRACE_EU | TRACE_AVX, "jit simd32 ps\n");
 			gt.ps.avx_shader_simd32 =
-				compile_shader(ksp_simd32,
-					       gt.ps.binding_table_address,
-					       gt.ps.sampler_state_address);
+				compile_ps_for_width(ksp_simd32, 32);
 		}
 	}
 }
