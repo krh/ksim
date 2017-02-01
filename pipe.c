@@ -538,39 +538,6 @@ emit_vertex_fetch(struct kir_program *prog)
 		kir_program_call(prog, dump_vue, 0);
 }
 
-static uint32_t
-emit_load_constants(struct kir_program *prog, struct thread *t,
-		    struct curbe *c, uint32_t start)
-{
-	uint32_t grf = start;
-	struct reg *regs;
-	uint64_t base, range;
-	uint32_t bc = 0;
-
-	kir_program_comment(prog, "load constants");
-	for (uint32_t b = 0; b < 4; b++) {
-		if (b == 0 && gt.curbe_dynamic_state_base)
-			base = gt.dynamic_state_base_address;
-		else
-			base = 0;
-
-		if (c->buffer[b].length > 0) {
-			regs = map_gtt_offset(c->buffer[b].address + base, &range);
-			ksim_assert(c->buffer[b].length * sizeof(regs[0]) <= range);
-		}
-
-		for (uint32_t i = 0; i < c->buffer[b].length; i++) {
-			t->constants[bc] = regs[i].ireg;
-			kir_program_load_v8(prog, offsetof(struct thread, constants[bc++]));
-			kir_program_store_v8(prog, offsetof(struct thread, grf[grf++]), prog->dst);
-		}
-	}
-
-	ksim_assert(bc < ARRAY_LENGTH(t->constants));
-
-	return grf;
-}
-
 static void
 emit_load_vue(struct kir_program *prog, uint32_t grf)
 {
@@ -670,7 +637,7 @@ emit_viewport_transform(struct kir_program *prog)
 }
 
 static void
-compile_vs(struct vf_buffer *buffer)
+compile_vs(void)
 {
 	struct kir_program prog;
 
@@ -681,11 +648,9 @@ compile_vs(struct vf_buffer *buffer)
 			 gt.vs.sampler_state_address);
 
 	uint32_t grf;
-	if (gt.vs.enable) {
-		grf = emit_load_constants(&prog, &buffer->t,
-					  &gt.vs.curbe,
+	if (gt.vs.enable)
+		grf = emit_load_constants(&prog, &gt.vs.curbe,
 					  gt.vs.urb_start_grf);
-	}
 
 	/* Always need to fetch, even if we don't have a VS. */
 	emit_vertex_fetch(&prog);
@@ -742,6 +707,8 @@ init_vf_buffer(struct vf_buffer *buffer)
 		buffer->vp.m31 = vp[4];
 		buffer->vp.m32 = vp[5];
 	}
+
+	load_constants_to_thread(&buffer->t, &gt.vs.curbe);
 }
 
 void
@@ -775,15 +742,15 @@ dispatch_primitive(void)
 
 	_mm_setcsr(csr_default);
 
+	reset_shader_pool();
+
+	compile_vs();
+
+	compile_ps();
+
 	struct vf_buffer buffer;
 
 	init_vf_buffer(&buffer);
-
-	reset_shader_pool();
-
-	compile_vs(&buffer);
-
-	compile_ps();
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };

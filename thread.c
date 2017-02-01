@@ -49,6 +49,48 @@ load_constants(struct thread *t, struct curbe *c, uint32_t start)
 	return grf;
 }
 
+uint32_t
+emit_load_constants(struct kir_program *prog, struct curbe *c, uint32_t start)
+{
+	uint32_t grf = start;
+	uint32_t bc = 0;
+
+	kir_program_comment(prog, "load constants");
+	for (uint32_t b = 0; b < 4; b++) {
+		for (uint32_t i = 0; i < c->buffer[b].length; i++) {
+			kir_program_load_v8(prog, offsetof(struct thread, constants[bc++]));
+			kir_program_store_v8(prog, offsetof(struct thread, grf[grf++]), prog->dst);
+		}
+	}
+
+	return grf;
+}
+
+void
+load_constants_to_thread(struct thread *t, struct curbe *c)
+{
+	struct reg *regs;
+	uint64_t base, range;
+	uint32_t bc = 0;
+
+	for (uint32_t b = 0; b < 4; b++) {
+		if (b == 0 && gt.curbe_dynamic_state_base)
+			base = gt.dynamic_state_base_address;
+		else
+			base = 0;
+
+		if (c->buffer[b].length > 0) {
+			regs = map_gtt_offset(c->buffer[b].address + base, &range);
+			ksim_assert(c->buffer[b].length * sizeof(regs[0]) <= range);
+		}
+
+		for (uint32_t i = 0; i < c->buffer[b].length; i++)
+			t->constants[bc++] = regs[i].ireg;
+	}
+
+	ksim_assert(bc < ARRAY_LENGTH(t->constants));
+}
+
 shader_t
 compile_shader(uint64_t kernel_offset,
 	       uint64_t surfaces, uint64_t samplers)
