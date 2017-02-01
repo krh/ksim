@@ -1219,9 +1219,13 @@ kir_program_allocate_registers(struct kir_program *prog)
 			}
 			break;
 		case kir_blend:
-			/* We need to pick which src to clobber, but
-			 * unlike madd above, we can't pick any src. */
-			ksim_unreachable("blend");
+			lock_reg(&state, insn->alu.src0);
+			lock_reg(&state, insn->alu.src1);
+			lock_reg(&state, insn->alu.src2);
+			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
+			insn->alu.src1 = use_reg(&state, insn, insn->alu.src1);
+			insn->alu.src2 = use_reg(&state, insn, insn->alu.src2);
+			allocate_reg(&state, insn);
 			break;
 		}
 
