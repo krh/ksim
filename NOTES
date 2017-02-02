@@ -159,3 +159,22 @@ constants, the regions don't match and we don't propagate into the
 later loads.  It would be even better if we could rewrite the loads
 from, eg g2.12<0,1,0>4 to load directly from g236.12<0,1,0>4 and avoid
 the intermediate stores.
+
+** Pre-populate registers with common loads
+
+For example, we have a bit of masking and shift to generate the frag
+coord hearder in grf1, and then an awkward region load to load in a
+different order. We can pre-load a register with the fragcord region
+in a more efficient way (construct from x and y) and alias the
+fragcoord region to it.
+
+** Create fragcoord header in PS
+
+This allows us to optimize it out for shaders (most) that don't use
+fragcoord.
+
+** Maintain pointer to current pixel for rt0
+
+Or maybe just an offset from the surface base. Updating the offset
+incrementally is a lot less code than computing a y tile offset from
+scratch for every pixel.
