@@ -85,7 +85,6 @@ builder_init(struct builder *bld)
 
 	bld->disasm_tail = bld->p - (uint8_t *) shader_pool;
 	init_disassemble_info(&bld->info, bld, builder_disasm_printf);
-	/* info.print_address_func = override_print_address; */
 	bld->info.arch = bfd_arch_i386;
 	bld->info.mach = bfd_mach_x86_64;
 	bld->info.buffer_vma = 0;
@@ -113,12 +112,43 @@ builder_disasm(struct builder *bld)
 	bld->disasm_length = 0;
 	if (bld->disasm_tail < end) {
 		bld->disasm_last = bld->disasm_tail;
+		bld->disasm_length += snprintf(bld->disasm_output + bld->disasm_length,
+					       sizeof(bld->disasm_output) - bld->disasm_length,
+					       "%08x  ", bld->disasm_tail);
+
 		bld->disasm_tail +=
 			print_insn_i386(bld->disasm_tail, &bld->info);
 		return true;
 	} else {
 		return false;
 	}
+}
+
+void
+builder_align(struct builder *bld)
+{
+	int len = (-(intptr_t) bld->p) & 15;
+	static const uint8_t nops[][10] = {
+		{ },
+		{ 0x90 },
+		{ 0x66, 0x90},
+		{ 0x0f, 0x1f, 0x00 },
+		{ 0x0f, 0x1f, 0x40, 0x00 },
+		{ 0x0f, 0x1f, 0x44, 0x00, 0x00, },
+		{ 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00},
+		{ 0x0f, 0x1f, 0x80, 0x00, 0x00, 0x00, 0x00,},
+		{ 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00,},
+		{ 0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 },
+	};
+
+	if (len >= 9) {
+		memcpy(bld->p, nops[9], 9);
+		bld->p += 9;
+		len -= 9;
+	}
+
+	memcpy(bld->p, nops[len], len);
+	bld->p += len;
 }
 
 #ifdef TEST_AVX_BUILDER
@@ -169,7 +199,31 @@ check_reg_imm_emit_function(const char *fmt,
 
 static void
 check_unop_emit_function(const char *fmt,
-			 void (*func)(struct builder *bld, int dst, int src))
+			 void (*func)(struct builder *bld, int dst))
+{
+	struct builder bld;
+
+	for (int dst = 0; dst < 16; dst++) {
+		int count, actual_dst;
+
+		reset_shader_pool();
+		builder_init(&bld);
+
+		func(&bld, dst);
+		builder_disasm(&bld);
+
+		count = sscanf(bld.disasm_output, fmt, &actual_dst);
+
+		if (count != 1 || dst != actual_dst)
+			test_fail(&bld, "fmt='%s' dst=%d:\n    ", fmt, dst);
+	}
+}
+
+
+
+static void
+check_binop_emit_function(const char *fmt,
+			  void (*func)(struct builder *bld, int dst, int src))
 {
 	struct builder bld;
 
@@ -281,6 +335,11 @@ emit_vpmaskmovd(struct builder *bld, int mask, int src)
 	builder_emit_vpmaskmovd(bld, mask, src, 0x300);
 }
 
+static inline void
+emit_vmovdqa_from_rax(struct builder *bld, int mask, int src)
+{
+}
+
 int main(int argc, char *argv[])
 {
 	check_reg_imm_emit_function("vpbroadcastd 0x%2$x(%%rip),%%ymm%1$d",
@@ -329,14 +388,15 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vpsrld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpsrld);
 	check_triop_emit_function("vpslld $0x%2$x,%%ymm%1$d,%%ymm%3$d", builder_emit_vpslld);
 
-	check_unop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
-	check_unop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
-	check_unop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
-	check_unop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
-	check_unop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,0x300(%%rdi)", emit_vpmaskmovd);
-	check_unop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
-	check_unop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
-	check_unop_emit_function("vmovdqa %%ymm%d,%%ymm%d", builder_emit_vmovdqa);
+	check_binop_emit_function("vpabsd %%ymm%d,%%ymm%d", builder_emit_vpabsd); 
+	check_binop_emit_function("vrsqrtps %%ymm%d,%%ymm%d", builder_emit_vrsqrtps);
+	check_binop_emit_function("vsqrtps %%ymm%d,%%ymm%d", builder_emit_vsqrtps);
+	check_binop_emit_function("vrcpps %%ymm%d,%%ymm%d", builder_emit_vrcpps);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,0x300(%%rdi)", emit_vpmaskmovd);
+	check_binop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
+	check_binop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
+	check_binop_emit_function("vmovdqa %%ymm%d,%%ymm%d", builder_emit_vmovdqa);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,(%%rax)", builder_emit_vpmaskmovd_to_rax);
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 
@@ -345,6 +405,9 @@ int main(int argc, char *argv[])
 
 	check_quadop_emit_function("vpblendvb %%ymm%d,%%ymm%d,%%ymm%d,%%ymm%d",
 				   builder_emit_vpblendvb);
+
+	check_unop_emit_function("vmovdqa (%%rax),%%ymm%d", builder_emit_vmovdqa_from_rax);
+	check_unop_emit_function("vmovdqa %%ymm%d,(%%rax)", builder_emit_vmovdqa_to_rax);
 
 #if 0
 	/* xmm regs */

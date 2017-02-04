@@ -159,6 +159,27 @@ kir_program_gather(struct kir_program *prog,
 	return insn->dst;
 }
 
+struct kir_reg
+kir_program_load(struct kir_program *prog, uint32_t offset)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_load);
+
+	insn->xfer.offset = offset;
+
+	return insn->dst;
+}
+
+void
+kir_program_mask_store(struct kir_program *prog, uint32_t offset,
+		       struct kir_reg src, struct kir_reg mask)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_mask_store);
+
+	insn->xfer.offset = offset;
+	insn->xfer.src = src;
+	insn->xfer.mask = mask;
+}
+
 static char *
 format_region(char *buf, int len, struct eu_region *region)
 {
@@ -195,6 +216,13 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "       store_region r%d, %s",
 			 insn->xfer.src.n,
 			 format_region(region, sizeof(region), &insn->xfer.region));
+		break;
+	case kir_load:
+		snprintf(buf, size, "r%-3d = load (%d)", insn->dst.n, insn->xfer.offset);
+		break;
+	case kir_mask_store:
+		snprintf(buf, size, "       mask_store r%d, r%d, (%d)",
+			 insn->xfer.mask.n, insn->xfer.src.n, insn->xfer.offset);
 		break;
 	case kir_immd:
 		snprintf(buf, size, "r%-3d = imm %dd %ff", insn->dst.n, insn->imm.d,
@@ -420,6 +448,9 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 	case kir_eot:
 		snprintf(buf, size, "       eot");
 		break;
+	case kir_eot_if_dead:
+		snprintf(buf, size, "       eot_if_dead r%d", insn->eot.src.n);
+		break;
 	}
 
 	return buf;
@@ -548,6 +579,15 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 				range[insn->dst.n] = insn->dst.n + 1;
 			set_region_live(&insn->xfer.region, false, region_map);
 			break;
+		case kir_load:
+			break;
+		case kir_mask_store:
+			live = true;
+			set_live(insn->xfer.src, live, insn, range, live_regs);
+			set_live(insn->xfer.mask, live, insn, range, live_regs);
+			if (live)
+				range[insn->dst.n] = insn->dst.n + 1;
+			break;
 		case kir_immd:
 		case kir_immw:
 		case kir_immv:
@@ -653,6 +693,11 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_eot:
 			range[insn->dst.n] = insn->dst.n + 1;
 			break;
+		case kir_eot_if_dead:
+			set_live(insn->eot.src, true, insn, range, live_regs);
+			range[insn->dst.n] = insn->dst.n + 1;
+			break;
+
 		}
 
 		insn = container_of(insn->link.prev, insn, link);
@@ -746,6 +791,11 @@ kir_program_copy_propagation(struct kir_program *prog)
 			list_insert(&region_to_reg[grf], &rr->link);
 			break;
 		}
+		case kir_load:
+			break;
+		case kir_mask_store:
+			break;
+
 		case kir_immd:
 		case kir_immw:
 		case kir_immv:
@@ -837,8 +887,9 @@ kir_program_copy_propagation(struct kir_program *prog)
 			break;
 		case kir_eot:
 			break;
-
-
+		case kir_eot_if_dead:
+			insn->eot.src = remap[insn->eot.src.n];
+			break;
 		}
 	}
 
@@ -1241,7 +1292,22 @@ kir_program_allocate_registers(struct kir_program *prog)
 			insn->gather.offset = use_reg(&state, insn, insn->gather.offset);
 			allocate_reg(&state, insn);
 			break;
+
+		case kir_load:
+			allocate_reg(&state, insn);
+			break;
+		case kir_mask_store:
+			lock_reg(&state, insn->xfer.src);
+			lock_reg(&state, insn->xfer.mask);
+			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
+			insn->xfer.mask = use_reg(&state, insn, insn->xfer.mask);
+			break;
+
 		case kir_eot:
+			break;
+		case kir_eot_if_dead:
+			lock_reg(&state, insn->eot.src);
+			insn->eot.src = use_reg(&state, insn, insn->eot.src);
 			break;
 		}
 	}
@@ -1361,7 +1427,8 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
 	struct kir_insn *insn;
 
-	const void *rax = NULL;
+	enum kir_opcode rax_def = kir_comment;
+	uint64_t rax = 0;
 
 	list_for_each_entry(insn, &prog->insns, link) {
 		switch (insn->opcode) {
@@ -1379,6 +1446,21 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			emit_region_store(bld, &insn->xfer.region,
 					  insn->xfer.src.n);
 			break;
+		case kir_load:
+			if (rax_def != kir_load || rax != insn->xfer.offset)
+				builder_emit_load_rax_from_offset(bld, insn->xfer.offset);
+			builder_emit_vmovdqa_from_rax(bld, insn->dst.n);
+			rax = insn->xfer.offset;
+			rax_def = kir_load;
+			break;
+		case kir_mask_store:
+			if (rax_def != kir_load || rax != insn->xfer.offset)
+				builder_emit_load_rax_from_offset(bld, insn->xfer.offset);
+			builder_emit_vpmaskmovd_to_rax(bld, insn->xfer.src.n, insn->xfer.mask.n);
+			rax = insn->xfer.offset;
+			rax_def = kir_load;
+			break;
+
 		case kir_immd:
 		case kir_immw: {
 			uint32_t *p = get_const_data(sizeof(*p), sizeof(*p));
@@ -1419,7 +1501,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 				builder_emit_call_relative(bld, offset);
 				builder_emit_pop_rdi(bld);
 			}
-			rax = NULL;
+			rax_def = kir_comment;
 			break;
 
 		case kir_call:
@@ -1433,7 +1515,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) insn->call.func - bld->p);
 			builder_emit_pop_rdi(bld);
-			rax = NULL;
+			rax_def = kir_comment;
 			break;
 		case kir_mov:
 			builder_emit_vmovdqa(bld, insn->dst.n, insn->alu.src0.n);
@@ -1599,9 +1681,9 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		case kir_gather: {
 			/* FIXME: Need to be more cautious about
 			 * caching rax with control flow. */
-			if (rax != insn->gather.base) {
+			if (rax_def != kir_gather || rax != (uint64_t) insn->gather.base) {
 				const void **p = get_const_data(sizeof(*p), sizeof(*p));
-				*p = rax = insn->gather.base;
+				*p = insn->gather.base;
 				builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
 			}
 			builder_emit_vpgatherdd(bld, insn->dst.n,
@@ -1609,11 +1691,23 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 						insn->gather.mask.n,
 						insn->gather.scale,
 						insn->gather.base_offset);
+			rax = (uint64_t) insn->gather.base;
+			rax_def = kir_gather;
 			break;
 		}			
 		case kir_eot:
 			builder_emit_ret(bld);
 			break;
+
+		case kir_eot_if_dead: {
+			builder_emit_vmovmskps(bld, insn->eot.src.n);
+			void *branch = builder_emit_jne(bld);
+			builder_emit_ret(bld);
+			builder_align(bld);
+			builder_set_branch_target(bld, branch, bld->p);
+			rax_def = kir_comment;
+			break;
+		}
 		}
 
 		if (trace_mask & TRACE_AVX) {

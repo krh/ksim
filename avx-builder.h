@@ -46,6 +46,12 @@ builder_emit_pop_rdi(struct builder *bld)
 }
 
 static inline void
+builder_emit_load_rax_from_offset(struct builder *bld, uint32_t offset)
+{
+	emit(bld, 0x48, 0x8b, 0x87, emit_uint32(offset));
+}
+
+static inline void
 builder_emit_jmp_relative(struct builder *bld, int32_t offset)
 {
 	emit(bld, 0xe9, emit_uint32(offset - 5));
@@ -75,6 +81,25 @@ builder_emit_ret(struct builder *bld)
 	emit(bld, 0xc3);
 }
 
+static inline void *
+builder_emit_jne(struct builder *bld)
+{
+	void *p = bld->p;
+
+	emit(bld, 0x75, 0);
+
+	return p;
+}
+
+static inline void
+builder_set_branch_target(struct builder *bld, uint8_t *branch, uint8_t *target)
+{
+	int distance = target - (branch + 2);
+
+	ksim_assert((distance & ~0xff) == 0);
+	branch[1] = distance;
+}
+
 static inline void
 builder_emit_m256i_load(struct builder *bld, int dst, int32_t offset)
 {
@@ -96,9 +121,9 @@ builder_emit_m256i_load_rip_relative(struct builder *bld, int dst, int32_t offse
 }
 
 static inline void
-builder_emit_vpmaskmovd(struct builder *bld, int mask, int src, int32_t offset)
+builder_emit_vpmaskmovd(struct builder *bld, int src, int mask, int32_t offset)
 {
-	emit(bld, 0xc4, 0xe2 - (mask & 8) * 16, 0x7d - src * 8, 0x8e, 0x87 + (mask & 7) * 8,
+	emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e, 0x87 + (src & 7) * 8,
 	     emit_uint32(offset));
 }
 
@@ -113,6 +138,27 @@ builder_emit_vmovdqa(struct builder *bld, int dst, int src)
 		emit(bld, 0xc5, 0x7d, 0x7f, 0xc0 + (src & 7) * 8 + (dst & 7));
 	else
 		emit(bld, 0xc4, 0x41, 0x7d, 0x6f, 0xc0 + (dst & 7) * 8 + (src & 7));
+}
+
+static inline void
+builder_emit_vmovdqa_to_rax(struct builder *bld, int src)
+{
+	/* vmovdqa %ymm0,(%rax) */
+	emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, (src & 7) * 8);
+}
+
+static inline void
+builder_emit_vmovdqa_from_rax(struct builder *bld, int dst)
+{
+	/* vmovdqa (%rax),%ymm0 */
+	emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f, (dst & 7) * 8);
+}
+
+static inline void
+builder_emit_vpmaskmovd_to_rax(struct builder *bld, int src, int mask)
+{
+	/* vpmaskmovd %ymm0,%ymm1,(%rax) */
+	emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e, (src & 7) * 8);
 }
 
 static inline void
@@ -210,6 +256,15 @@ static inline void
 builder_emit_load_rax_rip_relative(struct builder *bld, uint32_t offset)
 {
 	emit(bld, 0x48, 0x8b, 0x05, emit_uint32(offset - 7));
+}
+
+static inline void
+builder_emit_vmovmskps(struct builder *bld, uint32_t src)
+{
+	if (src < 8)
+		emit(bld, 0xc5, 0xfc, 0x50, 0xc0 + src);
+	else
+		emit(bld, 0xc4, 0xc1, 0x7c, 0x50, 0xc0 + src);
 }
 
 static inline void
@@ -613,6 +668,9 @@ builder_emit_trap(struct builder *bld)
 
 void
 builder_init(struct builder *bld);
+
+void
+builder_align(struct builder *bld);
 
 shader_t
 builder_finish(struct builder *bld);

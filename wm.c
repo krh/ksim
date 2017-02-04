@@ -47,9 +47,12 @@ struct dispatch {
 
 struct ps_thread {
 	struct thread t;
-	float w_deltas[4];
 	struct reg attribute_deltas[64];
 	struct dispatch queue[2];
+
+	void *depth;
+
+	float w_deltas[4];
 	int queue_length;
 };
 
@@ -73,88 +76,97 @@ struct primitive {
 };
 
 static void
-depth_test(struct primitive *p, struct dispatch *d)
+emit_depth_test(struct kir_program *prog)
 {
-	uint32_t cpp = depth_format_size(gt.depth.format);
+	struct kir_reg depth;
 
-	struct reg w_unorm;
-	struct reg d24x8, cmp, d_f;
+	if (!gt.depth.test_enable && !gt.depth.write_enable)
+		return;
 
-	void *base = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
+	kir_program_comment(prog, "load depth");
+	switch (gt.depth.format) {
+	case D32_FLOAT:
+		depth = kir_program_load(prog, offsetof(struct ps_thread, depth));
+		break;
+	case D24_UNORM_X8_UINT:
+		depth = kir_program_load(prog, offsetof(struct ps_thread, depth));
+		depth = kir_program_alu(prog, kir_d2ps, depth);
+		kir_program_immf(prog, 1.0f / 16777215.0f);
+		depth = kir_program_alu(prog, kir_mulf, depth, prog->dst);
+		break;
+	case D16_UNORM:
+		stub("D16_UNORM");
+	default:
+		ksim_unreachable("invalid depth format");
+	}
+
+	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
+	 * match the shader dispatch subspan ordering. */
+	// d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
+
+	struct kir_reg computed_depth =
+		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w));
+	struct kir_reg mask =
+		kir_program_load_v8(prog, offsetof(struct ps_thread, t.mask_q1));
 
 	if (gt.depth.test_enable) {
-		const __m256 inv_scale = _mm256_set1_ps(1.0f / 16777215.0f);
-		switch (gt.depth.format) {
-		case D32_FLOAT:
-			d_f.reg = _mm256_load_ps(base);
-			break;
-		case D24_UNORM_X8_UINT:
-			d24x8.ireg = _mm256_load_si256(base);
-			d_f.reg = _mm256_mul_ps(_mm256_cvtepi32_ps(d24x8.ireg),
-						inv_scale);
-			break;
-		case D16_UNORM:
-			stub("D16_UNORM");
-		default:
-			ksim_unreachable("invalid depth format");
-		}
+		kir_program_comment(prog, "depth test");
 
-		/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
-		 * match the shader dispatch subspan orderingg. */
-		d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
+		static const uint32_t gen_function_to_avx2[] = {
+			[COMPAREFUNCTION_ALWAYS]	= _CMP_TRUE_US,
+			[COMPAREFUNCTION_NEVER]		= _CMP_FALSE_OS,
+			[COMPAREFUNCTION_LESS]		= _CMP_LT_OS,
+			[COMPAREFUNCTION_EQUAL]		= _CMP_EQ_OS,
+			[COMPAREFUNCTION_LEQUAL]	= _CMP_LE_OS,
+			[COMPAREFUNCTION_GREATER]	= _CMP_GT_OS,
+			[COMPAREFUNCTION_NOTEQUAL]	= _CMP_NEQ_OS,
+			[COMPAREFUNCTION_GEQUAL]	= _CMP_GE_OS,
+		};
 
-		switch (gt.depth.test_function) {
-		case COMPAREFUNCTION_ALWAYS:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_TRUE_US);
-			break;
-		case COMPAREFUNCTION_NEVER:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_FALSE_OS);
-			break;
-		case COMPAREFUNCTION_LESS:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_LT_OS);
-			break;
-		case COMPAREFUNCTION_EQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_EQ_OS);
-			break;
-		case COMPAREFUNCTION_LEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_LE_OS);
-			break;
-		case COMPAREFUNCTION_GREATER:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_GT_OS);
-			break;
-		case COMPAREFUNCTION_NOTEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_NEQ_OS);
-			break;
-		case COMPAREFUNCTION_GEQUAL:
-			cmp.reg = _mm256_cmp_ps(d_f.reg, d->w.reg, _CMP_GE_OS);
-			break;
-		}
-		d->mask.ireg = _mm256_and_si256(cmp.ireg, d->mask.ireg);
+		kir_program_alu(prog, kir_cmp, computed_depth, depth,
+				gen_function_to_avx2[gt.depth.test_function]);
+		mask = kir_program_alu(prog, kir_and, mask, prog->dst);
+		kir_program_store_v8(prog, offsetof(struct ps_thread, t.mask_q1), mask);
 	}
 
 	if (gt.depth.write_enable) {
-		const __m256 scale = _mm256_set1_ps(16777215.0f);
-		const __m256 half =  _mm256_set1_ps(0.5f);
+		kir_program_comment(prog, "write depth");
 
+#if 0
 		struct reg w;
 		w.ireg = _mm256_permute4x64_epi64(d->w.ireg, SWIZZLE(0, 2, 1, 3));
 		__m256i m = _mm256_permute4x64_epi64(d->mask.ireg,
 						     SWIZZLE(0, 2, 1, 3));
+#endif
+		struct kir_reg r;
 
 		switch (gt.depth.format) {
 		case D32_FLOAT:
-			_mm256_maskstore_ps(base, m, w.reg);
+			kir_program_mask_store(prog, offsetof(struct ps_thread, depth),
+					       computed_depth, mask);
 			break;
 		case D24_UNORM_X8_UINT:
-			w_unorm.ireg = _mm256_cvtps_epi32(_mm256_add_ps(_mm256_mul_ps(w.reg, scale), half));
-			_mm256_maskstore_epi32(base, m, w_unorm.ireg);
+			r = computed_depth;
+			kir_program_immf(prog, 16777215.0f);
+			r = kir_program_alu(prog, kir_mulf, r, prog->dst);
+			kir_program_immf(prog, 0.5f);
+			kir_program_alu(prog, kir_addf, r, prog->dst);
+			kir_program_alu(prog, kir_ps2d, prog->dst);
+			kir_program_mask_store(prog, offsetof(struct ps_thread, depth),
+					       prog->dst, mask);
 			break;
 		case D16_UNORM:
 			stub("D16_UNORM");
+			break;
 		default:
 			ksim_unreachable("invalid depth format");
 		}
 
+	}
+
+	if (gt.depth.test_enable) {
+		struct kir_insn *insn = kir_program_add_insn(prog, kir_eot_if_dead);
+		insn->eot.src = mask;
 	}
 }
 
@@ -346,11 +358,8 @@ fill_dispatch(struct primitive *p, struct ps_thread *t,
 	d->x = p->x0 + iter->x;
 	d->y = p->y0 + iter->y;
 
-	if (gt.depth.test_enable || gt.depth.write_enable)
-		depth_test(p, d);
-
-	if (_mm256_movemask_ps(mask.reg) == 0 || !gt.ps.enable)
-		return;
+	uint32_t cpp = depth_format_size(gt.depth.format);
+	t->depth = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
 
 	t->queue_length++;
 	if (gt.ps.enable_simd8 || t->queue_length == 2) {
@@ -792,19 +801,23 @@ compile_ps_for_width(uint64_t kernel_offset, int width)
 	kir_program_init(&prog, gt.ps.binding_table_address,
 			 gt.ps.sampler_state_address);
 
-	emit_load_payload(&prog, width);
+	emit_depth_test(&prog);
 
-	int g;
-	if (gt.ps.push_constant_enable)
-		g = emit_load_constants(&prog, &gt.ps.curbe, gt.ps.grf_start0);
-	else
-		g = gt.ps.grf_start0;
+	if (gt.ps.enable) {
+		emit_load_payload(&prog, width);
 
-	if (gt.ps.attribute_enable)
-		emit_load_attributes_deltas(&prog, g);
+		int g;
+		if (gt.ps.push_constant_enable)
+			g = emit_load_constants(&prog, &gt.ps.curbe, gt.ps.grf_start0);
+		else
+			g = gt.ps.grf_start0;
 
-	kir_program_comment(&prog, "eu ps");
-	kir_program_emit_shader(&prog, kernel_offset);
+		if (gt.ps.attribute_enable)
+			emit_load_attributes_deltas(&prog, g);
+
+		kir_program_comment(&prog, "eu ps");
+		kir_program_emit_shader(&prog, kernel_offset);
+	}
 
 	kir_program_add_insn(&prog, kir_eot);
 

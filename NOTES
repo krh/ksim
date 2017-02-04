@@ -166,7 +166,8 @@ For example, we have a bit of masking and shift to generate the frag
 coord hearder in grf1, and then an awkward region load to load in a
 different order. We can pre-load a register with the fragcord region
 in a more efficient way (construct from x and y) and alias the
-fragcoord region to it.
+fragcoord region to it.  Also just for uniform loads from attribute
+deltas.
 
 ** Create fragcoord header in PS
 

@@ -52,6 +52,8 @@ enum kir_opcode {
 	kir_store_region_mask,
 	kir_store_region,
 	kir_gather,
+	kir_load,
+	kir_mask_store,
 
 	kir_immd,
 	kir_immw,
@@ -123,7 +125,8 @@ enum kir_opcode {
 	kir_maddf,
 	kir_blend,
 
-	kir_eot
+	kir_eot,
+	kir_eot_if_dead
 };
 
 struct eu_region {
@@ -145,6 +148,7 @@ struct kir_insn {
 
 		struct {
 			struct eu_region region;
+			uint32_t offset;
 			struct kir_reg src;
 			struct kir_reg mask;
 		} xfer;
@@ -196,6 +200,10 @@ struct kir_insn {
 			struct kir_reg src0, src1;
 			uint32_t args;
 		} call;
+
+		struct {
+			struct kir_reg src;
+		} eot;
 	};
 
 	struct list link;
@@ -223,6 +231,13 @@ kir_program_store_region_mask(struct kir_program *prog, const struct eu_region *
 void
 kir_program_store_region(struct kir_program *prog, const struct eu_region *region,
 			 struct kir_reg src);
+
+struct kir_reg
+kir_program_load(struct kir_program *prog, uint32_t offset);
+
+void
+kir_program_mask_store(struct kir_program *prog,
+		       uint32_t offset, struct kir_reg mask, struct kir_reg src);
 
 struct kir_reg
 kir_program_call(struct kir_program *prog, void *func, uint32_t args, ...);
