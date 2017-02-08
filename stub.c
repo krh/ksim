@@ -343,7 +343,9 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_EU_TOTAL:
 		*getparam->value = 24;
 		return 0;
-
+	case I915_PARAM_HAS_EXEC_ASYNC:
+		*getparam->value = 1;
+		return 0;
 	default:
 		trace(TRACE_WARN, "unhandled getparam %d\n",
 		      getparam->param);
@@ -836,6 +838,7 @@ ioctl(int fd, unsigned long request, ...)
 		return -1;
 
 	case DRM_IOCTL_I915_GEM_EXECBUFFER2:
+	case DRM_IOCTL_I915_GEM_EXECBUFFER2_WR:
 		return dispatch_execbuffer2(fd, request, argp);
 
 	case DRM_IOCTL_I915_GEM_BUSY:
