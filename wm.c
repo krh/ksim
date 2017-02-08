@@ -84,12 +84,13 @@ emit_depth_test(struct kir_program *prog)
 		return;
 
 	kir_program_comment(prog, "load depth");
+	kir_program_set_load_base_indirect(prog, offsetof(struct ps_thread, depth));
 	switch (gt.depth.format) {
 	case D32_FLOAT:
-		depth = kir_program_load(prog, offsetof(struct ps_thread, depth));
+		depth = kir_program_load(prog, 0);
 		break;
 	case D24_UNORM_X8_UINT:
-		depth = kir_program_load(prog, offsetof(struct ps_thread, depth));
+		depth = kir_program_load(prog, 0);
 		depth = kir_program_alu(prog, kir_d2ps, depth);
 		kir_program_immf(prog, 1.0f / 16777215.0f);
 		depth = kir_program_alu(prog, kir_mulf, depth, prog->dst);
@@ -142,8 +143,7 @@ emit_depth_test(struct kir_program *prog)
 
 		switch (gt.depth.format) {
 		case D32_FLOAT:
-			kir_program_mask_store(prog, offsetof(struct ps_thread, depth),
-					       computed_depth, mask);
+			kir_program_mask_store(prog, 0, computed_depth, mask);
 			break;
 		case D24_UNORM_X8_UINT:
 			r = computed_depth;
@@ -152,8 +152,7 @@ emit_depth_test(struct kir_program *prog)
 			kir_program_immf(prog, 0.5f);
 			kir_program_alu(prog, kir_addf, r, prog->dst);
 			kir_program_alu(prog, kir_ps2d, prog->dst);
-			kir_program_mask_store(prog, offsetof(struct ps_thread, depth),
-					       prog->dst, mask);
+			kir_program_mask_store(prog, 0, prog->dst, mask);
 			break;
 		case D16_UNORM:
 			stub("D16_UNORM");

@@ -52,6 +52,9 @@ enum kir_opcode {
 	kir_store_region_mask,
 	kir_store_region,
 	kir_gather,
+
+	kir_set_load_base_indirect,
+	kir_set_load_base_imm,
 	kir_load,
 	kir_mask_store,
 
@@ -154,6 +157,11 @@ struct kir_insn {
 		} xfer;
 
 		struct {
+			uint32_t offset;
+			void *pointer;
+		} set_load_base;
+
+		struct {
 			/* avx regs, for alu ops */
 			struct kir_reg src0;
 			union {
@@ -167,7 +175,6 @@ struct kir_insn {
 		} alu;
 
 		struct {
-			const void *base;
 			struct kir_reg offset;	/* per-channel offset, register */
 			struct kir_reg mask;	/* mask register */
 			uint32_t scale;		/* immediate scale, 1, 2 or 4 */
@@ -232,6 +239,12 @@ void
 kir_program_store_region(struct kir_program *prog, const struct eu_region *region,
 			 struct kir_reg src);
 
+void
+kir_program_set_load_base_indirect(struct kir_program *prog, uint32_t offset);
+
+void
+kir_program_set_load_base_imm(struct kir_program *prog, void *pointer);
+
 struct kir_reg
 kir_program_load(struct kir_program *prog, uint32_t offset);
 
@@ -247,7 +260,7 @@ kir_program_const_call(struct kir_program *prog, void *func, uint32_t args, ...)
 
 struct kir_reg
 kir_program_gather(struct kir_program *prog,
-		   const void *base, struct kir_reg offset,
+		   struct kir_reg offset,
 		   struct kir_reg mask,
 		   uint32_t scale, uint32_t base_offset);
 

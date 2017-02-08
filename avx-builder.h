@@ -140,25 +140,69 @@ builder_emit_vmovdqa(struct builder *bld, int dst, int src)
 		emit(bld, 0xc4, 0x41, 0x7d, 0x6f, 0xc0 + (dst & 7) * 8 + (src & 7));
 }
 
-static inline void
-builder_emit_vmovdqa_to_rax(struct builder *bld, int src)
+enum {
+	RAX,
+	RCX,
+	RDX,
+	RBX,
+	RSP,
+	RBP,
+	RSI,
+	RDI,
+};
+
+enum {
+	IMM_BYTE_OFFSET = 0x40,
+	IMM_DWORD_OFFSET = 0x80,
+};	
+
+static bool
+is_byte_range(int offset)
 {
-	/* vmovdqa %ymm0,(%rax) */
-	emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, (src & 7) * 8);
+	return (offset + 128) < 256;
+}
+static inline void
+builder_emit_vmovdqa_to_rax(struct builder *bld, int src, int offset)
+{
+	/* vmovdqa %ymm0,offset(%rax) */
+	if (offset == 0)
+		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, (src & 7) * 8 | RAX);
+	else if (is_byte_range(offset))
+		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f,
+		     (src & 7) * 8 | RAX | IMM_BYTE_OFFSET, offset);
+	else
+		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f,
+		     (src & 7) * 8 | RAX | IMM_DWORD_OFFSET,
+		     emit_uint32(offset));
 }
 
 static inline void
-builder_emit_vmovdqa_from_rax(struct builder *bld, int dst)
+builder_emit_vmovdqa_from_rax(struct builder *bld, int dst, int offset)
 {
-	/* vmovdqa (%rax),%ymm0 */
-	emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f, (dst & 7) * 8);
+	/* vmovdqa offset(%rax),%ymm0 */
+	if (offset == 0)
+		emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f,
+		     (dst & 7) * 8 | RAX);
+	else if (is_byte_range(offset))
+		emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f,
+		     (dst & 7) * 8 | RAX | IMM_BYTE_OFFSET, offset);
+	else
+		emit(bld, 0xc5, 0xfd - (dst & 8) * 16, 0x6f,
+		     (dst & 7) * 8 | RAX | IMM_DWORD_OFFSET,
+		     emit_uint32(offset));
 }
 
 static inline void
-builder_emit_vpmaskmovd_to_rax(struct builder *bld, int src, int mask)
+builder_emit_vpmaskmovd_to_rax(struct builder *bld, int src, int mask, int offset)
 {
 	/* vpmaskmovd %ymm0,%ymm1,(%rax) */
-	emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e, (src & 7) * 8);
+	if (offset == 0)
+		emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e,
+		     (src & 7) * 8 | RAX);
+	else if (is_byte_range(offset))
+		emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e,
+		     (src & 7) * 8 | RAX | IMM_BYTE_OFFSET,
+		     emit_uint32(offset));
 }
 
 static inline void

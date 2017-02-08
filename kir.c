@@ -145,18 +145,33 @@ kir_program_const_call(struct kir_program *prog, void *func, uint32_t args, ...)
 
 struct kir_reg
 kir_program_gather(struct kir_program *prog, 
-		   const void *base, struct kir_reg offset, struct kir_reg mask,
+		   struct kir_reg offset, struct kir_reg mask,
 		   uint32_t scale, uint32_t base_offset)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_gather);
 
-	insn->gather.base = base;
 	insn->gather.offset = offset;
 	insn->gather.mask = mask;
 	insn->gather.scale = scale;
 	insn->gather.base_offset = base_offset;
 
 	return insn->dst;
+}
+
+void
+kir_program_set_load_base_indirect(struct kir_program *prog, uint32_t offset)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_set_load_base_indirect);
+
+	insn->set_load_base.offset = offset;
+}
+
+void
+kir_program_set_load_base_imm(struct kir_program *prog, void *pointer)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_set_load_base_imm);
+
+	insn->set_load_base.pointer = pointer;
 }
 
 struct kir_reg
@@ -216,6 +231,12 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "       store_region r%d, %s",
 			 insn->xfer.src.n,
 			 format_region(region, sizeof(region), &insn->xfer.region));
+		break;
+	case kir_set_load_base_indirect:
+		snprintf(buf, size, "       set_load_base (%d)", insn->set_load_base.offset);
+		break;
+	case kir_set_load_base_imm:
+		snprintf(buf, size, "       set_load_base %p", insn->set_load_base.pointer);
 		break;
 	case kir_load:
 		snprintf(buf, size, "r%-3d = load (%d)", insn->dst.n, insn->xfer.offset);
@@ -439,10 +460,10 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
 	case kir_gather:
-		snprintf(buf, size, "r%-3d = gather r%d, %d(%p,r%d,%d)",
+		snprintf(buf, size, "r%-3d = gather r%d, %d(r%d,%d)",
 			 insn->dst.n,
 			 insn->gather.mask.n,
-			 insn->gather.base_offset, insn->gather.base,
+			 insn->gather.base_offset,
 			 insn->gather.offset.n, insn->gather.scale);
 		break;
 	case kir_eot:
@@ -578,6 +599,12 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			if (live)
 				range[insn->dst.n] = insn->dst.n + 1;
 			set_region_live(&insn->xfer.region, false, region_map);
+			break;
+		case kir_set_load_base_indirect:
+			range[insn->dst.n] = insn->dst.n + 1;
+			break;
+		case kir_set_load_base_imm:
+			range[insn->dst.n] = insn->dst.n + 1;
 			break;
 		case kir_load:
 			break;
@@ -791,6 +818,10 @@ kir_program_copy_propagation(struct kir_program *prog)
 			list_insert(&region_to_reg[grf], &rr->link);
 			break;
 		}
+		case kir_set_load_base_indirect:
+			break;
+		case kir_set_load_base_imm:
+			break;
 		case kir_load:
 			break;
 		case kir_mask_store:
@@ -1293,6 +1324,10 @@ kir_program_allocate_registers(struct kir_program *prog)
 			allocate_reg(&state, insn);
 			break;
 
+		case kir_set_load_base_indirect:
+			break;
+		case kir_set_load_base_imm:
+			break;
 		case kir_load:
 			allocate_reg(&state, insn);
 			break;
@@ -1427,9 +1462,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 {
 	struct kir_insn *insn;
 
-	enum kir_opcode rax_def = kir_comment;
-	uint64_t rax = 0;
-
 	list_for_each_entry(insn, &prog->insns, link) {
 		switch (insn->opcode) {
 		case kir_comment:
@@ -1446,19 +1478,21 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			emit_region_store(bld, &insn->xfer.region,
 					  insn->xfer.src.n);
 			break;
+		case kir_set_load_base_indirect:
+			builder_emit_load_rax_from_offset(bld, insn->set_load_base.offset);
+			break;
+		case kir_set_load_base_imm: {
+			const void **p = get_const_data(sizeof(*p), sizeof(*p));
+			*p = insn->set_load_base.pointer;
+			builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
+			break;
+		}
 		case kir_load:
-			if (rax_def != kir_load || rax != insn->xfer.offset)
-				builder_emit_load_rax_from_offset(bld, insn->xfer.offset);
-			builder_emit_vmovdqa_from_rax(bld, insn->dst.n);
-			rax = insn->xfer.offset;
-			rax_def = kir_load;
+			builder_emit_vmovdqa_from_rax(bld, insn->dst.n, insn->xfer.offset);
 			break;
 		case kir_mask_store:
-			if (rax_def != kir_load || rax != insn->xfer.offset)
-				builder_emit_load_rax_from_offset(bld, insn->xfer.offset);
-			builder_emit_vpmaskmovd_to_rax(bld, insn->xfer.src.n, insn->xfer.mask.n);
-			rax = insn->xfer.offset;
-			rax_def = kir_load;
+			builder_emit_vpmaskmovd_to_rax(bld, insn->xfer.src.n,
+						       insn->xfer.mask.n, insn->xfer.offset);
 			break;
 
 		case kir_immd:
@@ -1501,7 +1535,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 				builder_emit_call_relative(bld, offset);
 				builder_emit_pop_rdi(bld);
 			}
-			rax_def = kir_comment;
 			break;
 
 		case kir_call:
@@ -1515,7 +1548,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_push_rdi(bld);
 			builder_emit_call_relative(bld, (uint8_t *) insn->call.func - bld->p);
 			builder_emit_pop_rdi(bld);
-			rax_def = kir_comment;
 			break;
 		case kir_mov:
 			builder_emit_vmovdqa(bld, insn->dst.n, insn->alu.src0.n);
@@ -1679,20 +1711,11 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 						insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_gather: {
-			/* FIXME: Need to be more cautious about
-			 * caching rax with control flow. */
-			if (rax_def != kir_gather || rax != (uint64_t) insn->gather.base) {
-				const void **p = get_const_data(sizeof(*p), sizeof(*p));
-				*p = insn->gather.base;
-				builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
-			}
 			builder_emit_vpgatherdd(bld, insn->dst.n,
 						insn->gather.offset.n,
 						insn->gather.mask.n,
 						insn->gather.scale,
 						insn->gather.base_offset);
-			rax = (uint64_t) insn->gather.base;
-			rax_def = kir_gather;
 			break;
 		}			
 		case kir_eot:
@@ -1705,7 +1728,6 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_ret(bld);
 			builder_align(bld);
 			builder_set_branch_target(bld, branch, bld->p);
-			rax_def = kir_comment;
 			break;
 		}
 		}

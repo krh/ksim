@@ -340,6 +340,24 @@ emit_vmovdqa_from_rax(struct builder *bld, int mask, int src)
 {
 }
 
+static void
+emit_vpmaskmovd_to_rax(struct builder *bld, int src, int mask)
+{
+	builder_emit_vpmaskmovd_to_rax(bld, src, mask, 0);
+}
+
+static void
+emit_vpmaskmovd_to_rax_20(struct builder *bld, int src, int mask)
+{
+	builder_emit_vpmaskmovd_to_rax(bld, src, mask, 20);
+}
+
+static void
+emit_vpmaskmovd_to_rax_500(struct builder *bld, int src, int mask)
+{
+	builder_emit_vpmaskmovd_to_rax(bld, src, mask, 500);
+}
+
 int main(int argc, char *argv[])
 {
 	check_reg_imm_emit_function("vpbroadcastd 0x%2$x(%%rip),%%ymm%1$d",
@@ -396,7 +414,9 @@ int main(int argc, char *argv[])
 	check_binop_emit_function("vpmovsxwd %%xmm%d,%%ymm%d", builder_emit_vpmovsxwd);
 	check_binop_emit_function("vpmovzxwd %%xmm%d,%%ymm%d", builder_emit_vpmovzxwd);
 	check_binop_emit_function("vmovdqa %%ymm%d,%%ymm%d", builder_emit_vmovdqa);
-	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,(%%rax)", builder_emit_vpmaskmovd_to_rax);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,(%%rax)", emit_vpmaskmovd_to_rax);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,20(%%rax)", emit_vpmaskmovd_to_rax_20);
+	check_binop_emit_function("vpmaskmovd %%ymm%2$d,%%ymm%1$d,500(%%rax)", emit_vpmaskmovd_to_rax_500);
 
 	/* check_triop_emit_function("vcmpps", builder_emit_vcmpps); */
 
