@@ -32,11 +32,8 @@ RT tile (page) in cache the whole time.
 
 ** JIT in ps thread setup code
 
-We can generate code to copy in the exact payload we'll need. Also
-compile in depth test. Maybe even entire tile level loop to avoid
-function pointer dispatch per SIMD8 group. This should use the
-register allocator so that ideally for small shader we might never
-need to write out the payload.  Compile in RT write, blending, srgb
+Maybe compile in entire tile level loop to avoid function pointer
+dispatch per SIMD8 group.  Compile in RT write, blending, srgb
 conversion.
 
 ** Track constants per sub reg (use case: msg headers)
@@ -51,8 +48,6 @@ it into the shader as a regular load.
 * WM
 
 ** SIMD16 dispatch
-
-** Use AVX2
 
 ** Perspective correct barycentric
 
@@ -74,8 +69,6 @@ it into the shader as a regular load.
 
 Can ignore outside control flow, inside control flow we can use avx2
 blend to implement write masking.
-
-** Execution size greater than 8
 
 * Misc
 
