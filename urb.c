@@ -122,32 +122,75 @@ builder_emit_sfid_urb_simd8_write(struct kir_program *prog, struct inst *inst)
 	}
 }
 
+enum urb_opcode {
+	URB_WRITE_HWORD = 0,
+	URB_WRITE_OWORD = 1,
+	URB_READ_HWORD = 2,
+	URB_READ_OWORD = 3,
+	URB_ATOMIC_MOV = 4,
+	URB_ATOMIC_INC = 5,
+	URB_ATOMIC_ADD = 6,
+	URB_SIMD8_WRITE = 7,
+	URB_SIMD8_READ = 8,
+};
+
+enum urb_swizzle_control {
+	URB_NOSWIZZLE = 0,
+	URB_INTERLEAVED = 1,
+};
+
+struct urb_message_descriptor {
+	enum urb_opcode			opcode;
+	uint32_t			global_offset;
+	enum urb_swizzle_control	swizzle;
+	bool				per_slot_offset;
+	bool				header_present;
+	uint32_t			response_length;
+	uint32_t			message_length;
+	bool				eot;
+};
+
+static inline struct urb_message_descriptor
+unpack_urb_message_descriptor(uint32_t function_control)
+{
+	return (struct urb_message_descriptor) {
+		.opcode			= field(function_control,   0,    3),
+		.global_offset		= field(function_control,   4,   14),
+		.swizzle		= field(function_control,  15,   15),
+		.per_slot_offset	= field(function_control,  17,   17),
+		.header_present		= field(function_control,  19,   19),
+		.response_length	= field(function_control,  20,   24),
+		.message_length		= field(function_control,  25,   28),
+		.eot			= field(function_control,  31,   31),
+	};
+}
+
 void
 builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
+	struct urb_message_descriptor md =
+		unpack_urb_message_descriptor(send.function_control);
 
-	uint32_t opcode = field(send.function_control, 0, 3);
-	bool per_slot_offset = field(send.function_control, 17, 17);
-
-	switch (opcode) {
-	case 0: /* write HWord */
-	case 1: /* write OWord */
-	case 2: /* read HWord */
-	case 3: /* read OWord */
-	case 4: /* atomic mov */
-	case 5: /* atomic inc */
-	case 6: /* atomic add */
-		stub("sfid urb opcode %d", opcode);
+	switch (md.opcode) {
+	case URB_WRITE_HWORD:
+	case URB_WRITE_OWORD:
+	case URB_READ_HWORD:
+	case URB_READ_OWORD:
+	case URB_ATOMIC_MOV:
+	case URB_ATOMIC_INC:
+	case URB_ATOMIC_ADD:
+	case URB_SIMD8_READ:
+		stub("sfid urb opcode %d", md.opcode);
 		return;
-	case 7: /* SIMD8 write */
+	case URB_SIMD8_WRITE:
 		ksim_assert(send.header_present);
 		ksim_assert(send.rlen == 0);
-		ksim_assert(!per_slot_offset);
+		ksim_assert(!md.per_slot_offset);
 		builder_emit_sfid_urb_simd8_write(prog, inst);
 		break;
 	default:
-		ksim_unreachable("out of range urb opcode: %d", opcode);
+		ksim_unreachable("out of range urb opcode: %d", md.opcode);
 		break;
 	}
 
