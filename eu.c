@@ -479,6 +479,127 @@ builder_emit_sfid_dataport1(struct kir_program *prog, struct inst *inst)
 	insn->send.args = args;
 }
 
+enum dp_ro_message_type {
+	/* Vol 2a, MSD_CC_* */
+	MT_CC_OWB	= 0x00, /* [Default] Oword Block Read Constant Cache message */
+	MT_CC_OWUB	= 0x01, /* Unaligned Oword Block Read Constant Cache message */
+	MT_CC_OWDB	= 0x02, /* Oword Dual Block Read Constant Cache message */
+	MT_CC_DWS	= 0x03, /* Dword Scattered Read Constant Cache message */
+	MT_SC_OWUB	= 0x04, /* Unaligned Oword Block Read Sampler Cache message */
+	MT_SC_MB	= 0x05,	/* Media Block Read Sampler Cache message */
+	MT_RSI		= 0x06,	/* Read Surface Info message */
+};
+
+enum dp_ro_data_elements {
+	OW1L = 0x00, /* 1 Oword, read into or written from the low 128 bits of the destination register */
+	OW1U = 0x01, /* 1 Oword, read into or written from the high 128 bits of the destination register */
+	OW2 = 0x02, /* 2 Owords */
+	OW4 = 0x03, /* 4 Owords */
+	OW8 = 0x04, /* 8 Owords */
+};
+
+struct dp_ro_message_descriptor {
+	uint32_t			binding_table_index;
+	enum dp_ro_data_elements	data_elements;
+	bool				legacy_simd_mode;
+	bool				simd_mode;
+	uint32_t			invalidate_after_read;
+	enum dp_ro_message_type		message_type;
+	bool				legacy_message;
+	bool				header_present;
+	uint32_t			response_length;
+	uint32_t			message_length;
+	uint32_t			return_format;
+	bool				eot;
+};
+
+static inline struct dp_ro_message_descriptor
+unpack_dp_ro_message_descriptor(uint32_t function_control)
+{
+	return (struct dp_ro_message_descriptor) {
+		.binding_table_index	= field(function_control,   0,    7),
+		.data_elements		= field(function_control,   8,   10),
+		.simd_mode		= field(function_control,   8,    8),
+		.legacy_simd_mode	= field(function_control,   9,    9),
+		.invalidate_after_read	= field(function_control,  13,   13),
+		.message_type		= field(function_control,  14,   17),
+		.legacy_message		= field(function_control,  18,   18),
+		.header_present		= field(function_control,  19,   19),
+		.response_length	= field(function_control,  20,   24),
+		.message_length		= field(function_control,  25,   28),
+		.return_format		= field(function_control,  30,   30),
+		.eot			= field(function_control,  31,   31),
+	};
+}
+
+static void
+builder_emit_sfid_dataport_ro(struct kir_program *prog, struct inst *inst)
+{
+	const struct inst_send send = unpack_inst_send(inst);
+	const struct dp_ro_message_descriptor md =
+		unpack_dp_ro_message_descriptor(send.function_control);
+	struct inst_src src = unpack_inst_2src_src0(inst);
+	struct inst_dst dst = unpack_inst_2src_dst(inst);
+	struct surface buffer;
+	bool valid;
+	struct kir_reg v, offset, base;
+
+	switch (md.message_type) {
+	case MT_CC_OWB:
+		valid = get_surface(prog->binding_table_address,
+				    md.binding_table_index,
+				    &buffer);
+		ksim_assert(valid);
+		switch (md.data_elements) {
+		case OW4:
+			kir_program_comment(prog, "ro dp read 4 ow from bti %d",
+					    md.binding_table_index);
+
+			/* FIXME: Two problems.  This send instruction
+			 * is exec size 16 and gets emitted
+			 * twice. First one ends up as dead writes to
+			 * the dst region, but the set_load_base
+			 * doesn't get DCEd." */
+
+			/* FIXME: We need constant propagation at this
+			 * point to recognize that r72.2 (for example)
+			 * is constant and we can compute the exact
+			 * address at comppile time. Something like,
+			 *
+			 *     if (is_constant(grf, 72, 2, &value) {
+			 *         base = load_base_imm(buffer.pixels);
+			 *         load(prog, base, value * 16 + 0);
+			 *         load(prog, base, value * 16 + 32);
+			 *     } else {
+			 *         what we have below now...
+			 *     }
+			 *
+			 * and then ideally multiple ubo loads from
+			 * the same ubo will use the same
+			 * load_base_imm.
+			 */
+
+			offset = kir_program_load_v8(prog, offsetof(struct thread, grf[src.num]));
+			/* Offset is in owords; multiply by 16. */
+			offset = kir_program_alu(prog, kir_shli, offset, 4);
+			base = kir_program_set_load_base_imm_offset(prog, buffer.pixels, offset);
+
+			v = kir_program_load(prog, base, 0);
+			kir_program_store_v8(prog, offsetof(struct thread, grf[dst.num]), v);
+			v = kir_program_load(prog, base, 32);
+			kir_program_store_v8(prog, offsetof(struct thread, grf[dst.num + 1]), v);
+			break;
+		default:
+			stub("unhandled md.data_elements");
+			break;
+		}
+		break;
+	default:
+		stub("dp_ro message type %d", md.message_type);
+		break;
+	}
+}
+
 /* Vectorized AVX2 math functions from glibc's libmvec */
 __m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
 __m256 _ZGVdN8v___logf_finite(__m256 x);
@@ -669,6 +790,9 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			break;
 		case HSW_SFID_DATAPORT_DATA_CACHE_1:
 			builder_emit_sfid_dataport1(prog, inst);
+			break;
+		case GEN6_SFID_DATAPORT_CONSTANT_CACHE:
+			builder_emit_sfid_dataport_ro(prog, inst);
 			break;
 		default:
 			stub("sfid: %d", send.sfid);
