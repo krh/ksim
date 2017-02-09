@@ -55,6 +55,7 @@ enum kir_opcode {
 
 	kir_set_load_base_indirect,
 	kir_set_load_base_imm,
+	kir_set_load_base_imm_offset,
 	kir_load,
 	kir_mask_store,
 
@@ -156,7 +157,24 @@ struct kir_insn {
 			struct kir_reg mask;
 		} xfer;
 
+		/* The base register for store and load comes from the
+		 * set_load_base instructions. It's not a real kir
+		 * register and we always allocate rax for it. It's
+		 * present as a kir_reg so that we can to liveness
+		 * analysis and dependency tracking for it. */
 		struct {
+			struct kir_reg base;
+			uint32_t offset;
+			struct kir_reg src;
+			struct kir_reg mask;
+		} store;
+		struct {
+			uint32_t offset;
+			struct kir_reg base;
+		} load;
+
+		struct {
+			struct kir_reg src;
 			uint32_t offset;
 			void *pointer;
 		} set_load_base;
@@ -175,6 +193,7 @@ struct kir_insn {
 		} alu;
 
 		struct {
+			struct kir_reg base;	/* base address */
 			struct kir_reg offset;	/* per-channel offset, register */
 			struct kir_reg mask;	/* mask register */
 			uint32_t scale;		/* immediate scale, 1, 2 or 4 */
@@ -239,18 +258,22 @@ void
 kir_program_store_region(struct kir_program *prog, const struct eu_region *region,
 			 struct kir_reg src);
 
-void
+struct kir_reg
 kir_program_set_load_base_indirect(struct kir_program *prog, uint32_t offset);
 
-void
+struct kir_reg
 kir_program_set_load_base_imm(struct kir_program *prog, void *pointer);
 
 struct kir_reg
-kir_program_load(struct kir_program *prog, uint32_t offset);
+kir_program_set_load_base_imm_offset(struct kir_program *prog, void *pointer, struct kir_reg offset);
+
+struct kir_reg
+kir_program_load(struct kir_program *prog, struct kir_reg base, uint32_t offset);
 
 void
 kir_program_mask_store(struct kir_program *prog,
-		       uint32_t offset, struct kir_reg mask, struct kir_reg src);
+		       struct kir_reg base, uint32_t offset,
+		       struct kir_reg mask, struct kir_reg src);
 
 struct kir_reg
 kir_program_call(struct kir_program *prog, void *func, uint32_t args, ...);
@@ -260,6 +283,7 @@ kir_program_const_call(struct kir_program *prog, void *func, uint32_t args, ...)
 
 struct kir_reg
 kir_program_gather(struct kir_program *prog,
+		   struct kir_reg base,
 		   struct kir_reg offset,
 		   struct kir_reg mask,
 		   uint32_t scale, uint32_t base_offset);

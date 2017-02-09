@@ -145,11 +145,13 @@ kir_program_const_call(struct kir_program *prog, void *func, uint32_t args, ...)
 
 struct kir_reg
 kir_program_gather(struct kir_program *prog, 
+		   struct kir_reg base,
 		   struct kir_reg offset, struct kir_reg mask,
 		   uint32_t scale, uint32_t base_offset)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_gather);
 
+	insn->gather.base = base;
 	insn->gather.offset = offset;
 	insn->gather.mask = mask;
 	insn->gather.scale = scale;
@@ -158,41 +160,59 @@ kir_program_gather(struct kir_program *prog,
 	return insn->dst;
 }
 
-void
+struct kir_reg
 kir_program_set_load_base_indirect(struct kir_program *prog, uint32_t offset)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_set_load_base_indirect);
 
 	insn->set_load_base.offset = offset;
+
+	return insn->dst;
 }
 
-void
+struct kir_reg
 kir_program_set_load_base_imm(struct kir_program *prog, void *pointer)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_set_load_base_imm);
 
 	insn->set_load_base.pointer = pointer;
+
+	return insn->dst;
 }
 
 struct kir_reg
-kir_program_load(struct kir_program *prog, uint32_t offset)
+kir_program_set_load_base_imm_offset(struct kir_program *prog, void *pointer, struct kir_reg src)
+{
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_set_load_base_imm_offset);
+
+	insn->set_load_base.pointer = pointer;
+	insn->set_load_base.src = src;
+
+	return insn->dst;
+}
+
+struct kir_reg
+kir_program_load(struct kir_program *prog, struct kir_reg base, uint32_t offset)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_load);
 
-	insn->xfer.offset = offset;
+	insn->load.base = base;
+	insn->load.offset = offset;
 
 	return insn->dst;
 }
 
 void
-kir_program_mask_store(struct kir_program *prog, uint32_t offset,
+kir_program_mask_store(struct kir_program *prog,
+		       struct kir_reg base, uint32_t offset,
 		       struct kir_reg src, struct kir_reg mask)
 {
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_mask_store);
 
-	insn->xfer.offset = offset;
-	insn->xfer.src = src;
-	insn->xfer.mask = mask;
+	insn->store.base = base;
+	insn->store.offset = offset;
+	insn->store.src = src;
+	insn->store.mask = mask;
 }
 
 static char *
@@ -233,17 +253,25 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_set_load_base_indirect:
-		snprintf(buf, size, "       set_load_base (%d)", insn->set_load_base.offset);
+		snprintf(buf, size, "r%-3d = set_load_base (%d)",
+			 insn->dst.n, insn->set_load_base.offset);
 		break;
 	case kir_set_load_base_imm:
-		snprintf(buf, size, "       set_load_base %p", insn->set_load_base.pointer);
+		snprintf(buf, size, "r%-3d = set_load_base %p",
+			 insn->dst.n, insn->set_load_base.pointer);
+		break;
+	case kir_set_load_base_imm_offset:
+		snprintf(buf, size, "r%-3d = set_load_base %p + r%d.2",
+			 insn->dst.n, insn->set_load_base.pointer, insn->set_load_base.src.n);
 		break;
 	case kir_load:
-		snprintf(buf, size, "r%-3d = load (%d)", insn->dst.n, insn->xfer.offset);
+		snprintf(buf, size, "r%-3d = load %d(r%d)",
+			 insn->dst.n, insn->load.offset, insn->load.base.n);
 		break;
 	case kir_mask_store:
-		snprintf(buf, size, "       mask_store r%d, r%d, (%d)",
-			 insn->xfer.mask.n, insn->xfer.src.n, insn->xfer.offset);
+		snprintf(buf, size, "       mask_store r%d, r%d, %d(r%d)",
+			 insn->store.mask.n, insn->store.src.n,
+			 insn->store.offset, insn->store.base.n);
 		break;
 	case kir_immd:
 		snprintf(buf, size, "r%-3d = imm %dd %ff", insn->dst.n, insn->imm.d,
@@ -460,11 +488,11 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
 	case kir_gather:
-		snprintf(buf, size, "r%-3d = gather r%d, %d(r%d,%d)",
+		snprintf(buf, size, "r%-3d = gather r%d, %d(r%d,r%d,%d)",
 			 insn->dst.n,
 			 insn->gather.mask.n,
 			 insn->gather.base_offset,
-			 insn->gather.offset.n, insn->gather.scale);
+			 insn->gather.offset.n, insn->gather.base.n, insn->gather.scale);
 		break;
 	case kir_eot:
 		snprintf(buf, size, "       eot");
@@ -580,7 +608,7 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 	memset(region_map, 0, 128 * sizeof(region_map[0]));
 	/* Initialize regions past the eu registers to live. */
 	memset(region_map + 128, ~0, 384 * sizeof(region_map[0]));
-	
+
 	insn = container_of(prog->insns.prev, insn, link);
 	while (&insn->link != &prog->insns) {
 		bool live = false;
@@ -601,17 +629,21 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			set_region_live(&insn->xfer.region, false, region_map);
 			break;
 		case kir_set_load_base_indirect:
-			range[insn->dst.n] = insn->dst.n + 1;
-			break;
 		case kir_set_load_base_imm:
-			range[insn->dst.n] = insn->dst.n + 1;
+			break;
+		case kir_set_load_base_imm_offset:
+			live = live_regs[insn->dst.n];
+			set_live(insn->set_load_base.src, live, insn, range, live_regs);
 			break;
 		case kir_load:
+			live = live_regs[insn->dst.n];
+			set_live(insn->load.base, live, insn, range, live_regs);
 			break;
 		case kir_mask_store:
 			live = true;
-			set_live(insn->xfer.src, live, insn, range, live_regs);
-			set_live(insn->xfer.mask, live, insn, range, live_regs);
+			set_live(insn->store.src, live, insn, range, live_regs);
+			set_live(insn->store.mask, live, insn, range, live_regs);
+			set_live(insn->store.base, live, insn, range, live_regs);
 			if (live)
 				range[insn->dst.n] = insn->dst.n + 1;
 			break;
@@ -716,6 +748,7 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			live = live_regs[insn->dst.n];
 			set_live(insn->gather.mask, live, insn, range, live_regs);
 			set_live(insn->gather.offset, live, insn, range, live_regs);
+			set_live(insn->gather.base, live, insn, range, live_regs);
 			break;
 		case kir_eot:
 			range[insn->dst.n] = insn->dst.n + 1;
@@ -723,6 +756,8 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_eot_if_dead:
 			set_live(insn->eot.src, true, insn, range, live_regs);
 			range[insn->dst.n] = insn->dst.n + 1;
+
+			/* FIXME: assert that rax is not live */
 			break;
 
 		}
@@ -819,12 +854,17 @@ kir_program_copy_propagation(struct kir_program *prog)
 			break;
 		}
 		case kir_set_load_base_indirect:
-			break;
 		case kir_set_load_base_imm:
+			/* Detect duplicate base loads here. */
+			break;
+		case kir_set_load_base_imm_offset:
+			insn->set_load_base.src = remap[insn->set_load_base.src.n];
 			break;
 		case kir_load:
+			insn->load.base = remap[insn->load.base.n];
 			break;
 		case kir_mask_store:
+			insn->store.base = remap[insn->store.base.n];
 			break;
 
 		case kir_immd:
@@ -915,6 +955,7 @@ kir_program_copy_propagation(struct kir_program *prog)
 			/* Don't copy propagate mask: gather overwrites
 			 * the mask and we need a fresh copy each time. */
 			insn->gather.offset = remap[insn->gather.offset.n];
+			insn->gather.base = remap[insn->gather.base.n];
 			break;
 		case kir_eot:
 			break;
@@ -1325,17 +1366,20 @@ kir_program_allocate_registers(struct kir_program *prog)
 			break;
 
 		case kir_set_load_base_indirect:
-			break;
 		case kir_set_load_base_imm:
+			break;
+		case kir_set_load_base_imm_offset:
+			lock_reg(&state, insn->set_load_base.src);
+			insn->set_load_base.src = use_reg(&state, insn, insn->set_load_base.src);
 			break;
 		case kir_load:
 			allocate_reg(&state, insn);
 			break;
 		case kir_mask_store:
-			lock_reg(&state, insn->xfer.src);
-			lock_reg(&state, insn->xfer.mask);
-			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
-			insn->xfer.mask = use_reg(&state, insn, insn->xfer.mask);
+			lock_reg(&state, insn->store.src);
+			lock_reg(&state, insn->store.mask);
+			insn->store.src = use_reg(&state, insn, insn->store.src);
+			insn->store.mask = use_reg(&state, insn, insn->store.mask);
 			break;
 
 		case kir_eot:
@@ -1487,12 +1531,20 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_load_rax_rip_relative(bld, builder_offset(bld, p));
 			break;
 		}
+		case kir_set_load_base_imm_offset: {
+			const void **p = get_const_data(sizeof(*p), sizeof(*p));
+			*p = insn->set_load_base.pointer;
+
+			builder_emit_vpextrd(bld, insn->set_load_base.src.n, 2);
+			builder_emit_add_rax_rip_relative(bld, builder_offset(bld, p));
+			break;
+		}
 		case kir_load:
-			builder_emit_vmovdqa_from_rax(bld, insn->dst.n, insn->xfer.offset);
+			builder_emit_vmovdqa_from_rax(bld, insn->dst.n, insn->load.offset);
 			break;
 		case kir_mask_store:
-			builder_emit_vpmaskmovd_to_rax(bld, insn->xfer.src.n,
-						       insn->xfer.mask.n, insn->xfer.offset);
+			builder_emit_vpmaskmovd_to_rax(bld, insn->store.src.n,
+						       insn->store.mask.n, insn->store.offset);
 			break;
 
 		case kir_immd:

@@ -336,8 +336,15 @@ emit_vpmaskmovd(struct builder *bld, int mask, int src)
 }
 
 static inline void
-emit_vmovdqa_from_rax(struct builder *bld, int mask, int src)
+emit_vmovdqa_from_rax(struct builder *bld, int dst)
 {
+	builder_emit_vmovdqa_from_rax(bld, dst, 0);
+}
+
+static inline void
+emit_vmovdqa_to_rax(struct builder *bld, int src)
+{
+	builder_emit_vmovdqa_from_rax(bld, src, 0);
 }
 
 static void
@@ -426,8 +433,8 @@ int main(int argc, char *argv[])
 	check_quadop_emit_function("vpblendvb %%ymm%d,%%ymm%d,%%ymm%d,%%ymm%d",
 				   builder_emit_vpblendvb);
 
-	check_unop_emit_function("vmovdqa (%%rax),%%ymm%d", builder_emit_vmovdqa_from_rax);
-	check_unop_emit_function("vmovdqa %%ymm%d,(%%rax)", builder_emit_vmovdqa_to_rax);
+	check_unop_emit_function("vmovdqa (%%rax),%%ymm%d", emit_vmovdqa_from_rax);
+	check_unop_emit_function("vmovdqa %%ymm%d,(%%rax)", emit_vmovdqa_to_rax);
 
 #if 0
 	/* xmm regs */

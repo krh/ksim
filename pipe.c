@@ -339,7 +339,8 @@ flush_to_vues(struct vf_buffer *buffer, __m256i mask, struct ia_state *s)
 }
 
 static struct kir_reg
-emit_gather(struct kir_program *prog, struct kir_reg offset,
+emit_gather(struct kir_program *prog,
+	    struct kir_reg base, struct kir_reg offset,
 	    uint32_t scale, uint32_t base_offset)
 {
 	/* This little gather helper loads the mask, gathers and then
@@ -350,20 +351,18 @@ emit_gather(struct kir_program *prog, struct kir_reg offset,
 
 	struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct vf_buffer, t.mask_q1));
 
-	return kir_program_gather(prog, offset, mask, scale, base_offset);
+	return kir_program_gather(prog, base, offset, mask, scale, base_offset);
 }
 
 static void
 emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format,
-		       void *base, struct kir_reg offset, struct kir_reg *dst)
+		       struct kir_reg base, struct kir_reg offset, struct kir_reg *dst)
 {
-	kir_program_set_load_base_imm(prog, base);
-
 	switch (format) {
 	case SF_R32_FLOAT:
 	case SF_R32_SINT:
 	case SF_R32_UINT:
-		dst[0] = emit_gather(prog, offset, 1, 0);
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
 		dst[1] = kir_program_immd(prog, 0);
 		dst[2] = kir_program_immd(prog, 0);
 		dst[3] = kir_program_immf(prog, 1.0f);
@@ -372,8 +371,8 @@ emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format
 	case SF_R32G32_FLOAT:
 	case SF_R32G32_SINT:
 	case SF_R32G32_UINT:
-		dst[0] = emit_gather(prog, offset, 1, 0);
-		dst[1] = emit_gather(prog, offset, 1, 4);
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = emit_gather(prog, base, offset, 1, 4);
 		dst[2] = kir_program_immd(prog, 0);
 		dst[3] = kir_program_immf(prog, 1.0f);
 		break;
@@ -381,19 +380,19 @@ emit_load_format_simd8(struct kir_program *prog, enum GEN9_SURFACE_FORMAT format
 	case SF_R32G32B32_FLOAT:
 	case SF_R32G32B32_SINT:
 	case SF_R32G32B32_UINT:
-		dst[0] = emit_gather(prog, offset, 1, 0);
-		dst[1] = emit_gather(prog, offset, 1, 4);
-		dst[2] = emit_gather(prog, offset, 1, 8);
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = emit_gather(prog, base, offset, 1, 4);
+		dst[2] = emit_gather(prog, base, offset, 1, 8);
 		dst[3] = kir_program_immf(prog, 1.0f);
 		break;
 
 	case SF_R32G32B32A32_FLOAT:
 	case SF_R32G32B32A32_SINT:
 	case SF_R32G32B32A32_UINT:
-		dst[0] = emit_gather(prog, offset, 1, 0);
-		dst[1] = emit_gather(prog, offset, 1, 4);
-		dst[2] = emit_gather(prog, offset, 1, 8);
-		dst[3] = emit_gather(prog, offset, 1, 12);
+		dst[0] = emit_gather(prog, base, offset, 1, 0);
+		dst[1] = emit_gather(prog, base, offset, 1, 4);
+		dst[2] = emit_gather(prog, base, offset, 1, 8);
+		dst[3] = emit_gather(prog, base, offset, 1, 12);
 		break;
 
 	default:
@@ -421,22 +420,22 @@ emit_vertex_fetch(struct kir_program *prog)
 		 * the index buffer. */
 		uint64_t range;
 		void *index_buffer = map_gtt_offset(gt.vf.ib.address, &range);
-		struct kir_reg dst;
+		struct kir_reg dst, base;
 
-		kir_program_set_load_base_imm(prog, index_buffer);
+		base = kir_program_set_load_base_imm(prog, index_buffer);
 		switch (gt.vf.ib.format) {
 		case INDEX_BYTE:
-			dst = emit_gather(prog, vid, 1, 0);
+			dst = emit_gather(prog, base, vid, 1, 0);
 			dst = kir_program_alu(prog, kir_shli, dst, 24);
 			dst = kir_program_alu(prog, kir_shri, dst, 24);
 			break;
 		case INDEX_WORD:
-			dst = emit_gather(prog, vid, 2, 0);
+			dst = emit_gather(prog, base, vid, 2, 0);
 			dst = kir_program_alu(prog, kir_shli, dst, 16);
 			dst = kir_program_alu(prog, kir_shri, dst, 16);
 			break;
 		case INDEX_DWORD:
-			dst = emit_gather(prog, vid, 4, 0);
+			dst = emit_gather(prog, base, vid, 4, 0);
 			break;
 		}
 
@@ -496,7 +495,8 @@ emit_vertex_fetch(struct kir_program *prog)
 		}
 
 		struct kir_reg dst[4];
-		emit_load_format_simd8(prog, ve->format, vb->data, offset, dst);
+		struct kir_reg base = kir_program_set_load_base_imm(prog, vb->data);
+		emit_load_format_simd8(prog, ve->format, base, offset, dst);
 
 		for (uint32_t c = 0; c < 4; c++) {
 			struct kir_reg src;

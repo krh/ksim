@@ -161,6 +161,7 @@ is_byte_range(int offset)
 {
 	return (offset + 128) < 256;
 }
+
 static inline void
 builder_emit_vmovdqa_to_rax(struct builder *bld, int src, int offset)
 {
@@ -666,7 +667,19 @@ builder_emit_vpmovzxwd(struct builder *bld, int dst, int src)
 static inline void
 builder_emit_vextractf128(struct builder *bld, int dst, int src, int sel)
 {
-	emit(bld, 0xc4, 0xe3, 0x7d, 0x19, 0xc0 + dst + src * 8, sel);
+	emit(bld, 0xc4, 0xe3, 0x79, 0x16, 0xc0 + dst + src * 8, sel);
+}
+
+static inline void
+builder_emit_vpextrd(struct builder *bld, int src, int sel)
+{
+	emit(bld, 0xc4, 0xe3 - (src & 8) * 16, 0x79, 0x16, 0xc0 | (src & 7) * 8 | RAX, sel);
+}
+
+static inline void
+builder_emit_add_rax_rip_relative(struct builder *bld, uint32_t offset)
+{
+	emit(bld, 0x48, 0x03, 0x05, emit_uint32(offset - 7));
 }
 
 static inline void
