@@ -362,6 +362,7 @@ struct gt {
 		uint32_t line_strip_provoking;
 		uint32_t tri_fan_provoking;
 		struct rectanglef guardband;
+		float line_width;
 	} sf;
 
 	struct {

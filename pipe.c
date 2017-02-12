@@ -267,6 +267,43 @@ assemble_primitives(struct ia_state *s)
 		}
 		break;
 
+	case _3DPRIM_LINELIST:
+		while (s->head - tail >= 2) {
+			vue[0] = s->vue[(tail + 0) & 15];
+			vue[1] = s->vue[(tail + 1) & 15];
+			setup_prim(vue, 0);
+			tail += 2;
+		}
+		break;
+
+	case _3DPRIM_LINESTRIP:
+		while (s->head - tail >= 2) {
+			vue[0] = s->vue[(tail + 0) & 15];
+			vue[1] = s->vue[(tail + 1) & 15];
+			setup_prim(vue, 0);
+			tail += 1;
+		}
+		break;
+
+	case _3DPRIM_LINELOOP:
+		if (s->trifan_first_vertex == NULL) {
+			/* We always have at least one vertex
+			 * when we get, so this is safe. */
+			ksim_assert(s->head - tail >= 1);
+			s->trifan_first_vertex = s->vue[tail & 15];
+			/* Bump the queue tail now so we don't free
+			 * the vue below */
+			s->tail++;
+		}
+
+		while (s->head - tail >= 2) {
+			vue[0] = s->vue[(tail + 0) & 15];
+			vue[1] = s->vue[(tail + 1) & 15];
+			setup_prim(vue, 0);
+			tail += 1;
+		}
+		break;
+
 	default:
 		stub("topology %d", gt.ia.topology);
 		tail = s->head;
@@ -282,6 +319,22 @@ assemble_primitives(struct ia_state *s)
 void
 reset_ia_state(struct ia_state *s)
 {
+	struct value *vue[3];
+	uint32_t tail = s->tail;
+
+	switch (gt.ia.topology) {
+	case _3DPRIM_LINELOOP:
+		if (s->head - tail == 1) {
+			vue[0] = s->vue[(tail + 0) & 15];
+			vue[1] = s->trifan_first_vertex;
+			setup_prim(vue, 0);
+			gt.ia_primitives_count++;
+		}
+		break;
+	default:
+		break;
+	}
+
 	if (s->trifan_first_vertex) {
 		free_urb_entry(&gt.vs.urb, s->trifan_first_vertex);
 		s->trifan_first_vertex = NULL;

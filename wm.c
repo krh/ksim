@@ -590,11 +590,39 @@ void
 rasterize_primitive(struct value **vue)
 {
 	struct primitive p;
-	const struct vec4 v[3] = {
-		vue[0][1].vec4,
-		vue[1][1].vec4,
-		vue[2][1].vec4
-	};
+	float length, dx, dy, px, py;
+	struct vec4 v[3];
+
+	switch (gt.ia.topology) {
+	case _3DPRIM_LINELOOP:
+	case _3DPRIM_LINELIST:
+	case _3DPRIM_LINESTRIP:
+		vue[2] = vue[1];
+		v[0] = vue[0][1].vec4;
+		v[1] = vue[1][1].vec4;
+		v[2] = vue[2][1].vec4;
+
+		dx = v[1].x - v[0].x;
+		dy = v[1].y - v[0].y;
+		length = gt.sf.line_width / 2.0f / hypot(dx, dy);
+		dx *= length;
+		dy *= length;
+		px = -dy;
+		py = dx;
+		v[0].x = v[0].x - dx - px;
+		v[0].y = v[0].y - dy - py;
+		v[1].x = v[1].x + dx - px;
+		v[1].y = v[1].y + dy - py;
+		v[2].x = v[2].x + dx + px;
+		v[2].y = v[2].y + dy + py;
+		break;
+	default:
+		v[0] = vue[0][1].vec4;
+		v[1] = vue[1][1].vec4;
+		v[2] = vue[2][1].vec4;
+		break;
+	}
+
 	struct point p0 = snap_point(v[0].x, v[0].y);
 	struct point p1 = snap_point(v[1].x, v[1].y);
 	struct point p2 = snap_point(v[2].x, v[2].y);
@@ -690,10 +718,16 @@ rasterize_primitive(struct value **vue)
 	p.row_w0 = eval_edge(&p.e12, min);
 	p.row_w1 = eval_edge(&p.e20, min);
 
-	if (gt.ia.topology == _3DPRIM_RECTLIST)
+	switch (gt.ia.topology) {
+	case _3DPRIM_RECTLIST:
+	case _3DPRIM_LINELOOP:
+	case _3DPRIM_LINELIST:
+	case _3DPRIM_LINESTRIP:
 		rasterize_rectlist(&p);
-	else
+		break;
+	default:
 		rasterize_triangle(&p);
+	}
 }
 
 void
