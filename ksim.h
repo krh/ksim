@@ -616,29 +616,6 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 void dispatch_primitive(void);
 void dispatch_compute(void);
 
-struct vf_buffer {
-	struct thread t;
-	struct reg vue_handles;
-	struct reg vid;
-	void *index_buffer;
-	struct rectanglef clip;
-	struct { float m00, m11, m22, m30, m31, m32; } vp;
-	uint32_t iid;
-	uint32_t start_vertex;
-	uint32_t base_vertex;
-	uint32_t start_instance;
-	union {
-		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
-		struct {
-			struct reg clip_flags;
-			struct reg rt_index;
-			struct reg vp_index;
-			struct reg point_width;
-			__m256 x, y, z, w;
-		};
-	};
-};
-
 bool valid_vertex_format(uint32_t format);
 bool srgb_format(uint32_t format);
 uint32_t format_size(uint32_t format);

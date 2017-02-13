@@ -24,6 +24,29 @@
 #include "ksim.h"
 #include "kir.h"
 
+struct vf_buffer {
+	struct thread t;
+	struct reg vue_handles;
+	struct reg vid;
+	void *index_buffer;
+	struct rectanglef clip;
+	struct { float m00, m11, m22, m30, m31, m32; } vp;
+	uint32_t iid;
+	uint32_t start_vertex;
+	uint32_t base_vertex;
+	uint32_t start_instance;
+	union {
+		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
+		struct {
+			struct reg clip_flags;
+			struct reg rt_index;
+			struct reg vp_index;
+			struct reg point_width;
+			__m256 x, y, z, w;
+		};
+	};
+};
+
 static void
 dispatch_vs(struct vf_buffer *buffer, __m256i mask)
 {
@@ -702,6 +725,8 @@ compile_vs(void)
 	kir_program_init(&prog,
 			 gt.vs.binding_table_address,
 			 gt.vs.sampler_state_address);
+
+	prog.urb_offset = offsetof(struct vf_buffer, data);
 
 	uint32_t grf;
 	if (gt.vs.enable)

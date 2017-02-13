@@ -1810,6 +1810,7 @@ kir_program_init(struct kir_program *prog, uint64_t surfaces, uint64_t samplers)
 	list_init(&prog->insns);
 	prog->next_reg = kir_reg(0);
 	prog->scope = 0;
+	prog->urb_offset = 0;
 	prog->binding_table_address = surfaces;
 	prog->sampler_state_address = samplers;
 }
