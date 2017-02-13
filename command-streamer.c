@@ -1278,6 +1278,8 @@ handle_3dstate_raster(uint32_t *p)
 	gt.wm.front_winding = v.FrontWinding;
 	gt.wm.cull_mode = v.CullMode;
 	gt.wm.scissor_rectangle_enable = v.ScissorRectangleEnable;
+	gt.wm.front_face_fill_mode = v.FrontFaceFillMode;
+	gt.wm.back_face_fill_mode = v.BackFaceFillMode;
 }
 
 static void

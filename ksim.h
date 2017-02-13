@@ -375,6 +375,8 @@ struct gt {
 		uint32_t barycentric_mode;
 		uint32_t front_winding;
 		uint32_t cull_mode;
+		uint32_t front_face_fill_mode;
+		uint32_t back_face_fill_mode;
 
 		bool scissor_rectangle_enable;
 		struct rectangle scissor_rect;

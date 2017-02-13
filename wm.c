@@ -645,6 +645,35 @@ rasterize_primitive(struct value **vue)
 
 	if (p.area >= 0)
 		return;
+
+	switch (gt.ia.topology) {
+	case _3DPRIM_LINELOOP:
+	case _3DPRIM_LINELIST:
+	case _3DPRIM_LINESTRIP:
+		break;
+	default:
+		if (gt.wm.front_face_fill_mode != FILL_MODE_WIREFRAME)
+			break;
+
+		/* Hacky wireframe implementation: turn each triangle
+		 * edge into a line and call back into
+		 * rasterize_primitive(). */
+		uint32_t topology = gt.ia.topology;
+		struct value *wf_vue[3];
+		gt.ia.topology = _3DPRIM_LINELIST;
+		wf_vue[0] = vue[0];
+		wf_vue[1] = vue[1];
+		rasterize_primitive(wf_vue);
+		wf_vue[0] = vue[1];
+		wf_vue[1] = vue[2];
+		rasterize_primitive(wf_vue);
+		wf_vue[0] = vue[2];
+		wf_vue[1] = vue[0];
+		rasterize_primitive(wf_vue);
+		gt.ia.topology = topology;
+		return;
+	}
+
 	p.inv_area = 1.0f / p.area;
 
 	float w[3] = {
