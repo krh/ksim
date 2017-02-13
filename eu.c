@@ -380,7 +380,7 @@ kir_program_emit_dst_store(struct kir_program *prog,
 	struct eu_region region;
 	fill_region_for_dst(&region, dst, subnum, prog);
 
-	if (prog->scope > 0) {
+	if (prog->scope > 0 && !common.mask_control) {
 		struct kir_reg mask =
 			kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
 		kir_program_store_region_mask(prog, &region, reg, mask);
