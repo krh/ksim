@@ -146,6 +146,7 @@ struct urb_message_descriptor {
 	enum urb_opcode			opcode;
 	uint32_t			global_offset;
 	enum urb_swizzle_control	swizzle;
+	bool				channel_mask;
 	bool				per_slot_offset;
 	bool				header_present;
 	uint32_t			response_length;
@@ -160,6 +161,7 @@ unpack_urb_message_descriptor(uint32_t function_control)
 		.opcode			= field(function_control,   0,    3),
 		.global_offset		= field(function_control,   4,   14),
 		.swizzle		= field(function_control,  15,   15),
+		.channel_mask		= field(function_control,  15,   15),
 		.per_slot_offset	= field(function_control,  17,   17),
 		.header_present		= field(function_control,  19,   19),
 		.response_length	= field(function_control,  20,   24),
@@ -187,10 +189,12 @@ builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst)
 		stub("sfid urb opcode %d", md.opcode);
 		return;
 	case URB_SIMD8_WRITE:
-		ksim_assert(send.header_present);
 		ksim_assert(send.rlen == 0);
-		ksim_assert(!md.per_slot_offset);
-		builder_emit_sfid_urb_simd8_write(prog, inst);
+		if (send.header_present && !md.per_slot_offset)
+			builder_emit_sfid_urb_simd8_write(prog, inst);
+		else
+			stub("urb write: header %d, per_slot_offset %d",
+			     md.header_present, md.per_slot_offset);
 		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", md.opcode);
