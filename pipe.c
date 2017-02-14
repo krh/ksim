@@ -47,15 +47,49 @@ struct vs_thread {
 	};
 };
 
+struct ia_state {
+	struct value *vue[16];
+	uint32_t head, tail;
+	int tristrip_parity;
+	struct value *trifan_first_vertex;
+};
+
 static void
-dispatch_vs(struct vs_thread *t, __m256i mask)
+flush_to_vues(struct vs_thread *t, uint32_t count, struct ia_state *s)
+{
+	/* Transpose the SIMD8 vs_thread back into individual VUEs */
+	for (uint32_t c = 0; c < count; c++) {
+		__m256i *vue = urb_handle_to_entry(t->vue_handles.ud[c]);
+		__m256i offsets = (__m256i) (__v8si) { 0, 8, 16, 24, 32, 40, 48, 56 };
+		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
+			vue[i] = _mm256_i32gather_epi32(&t->data[i * 8].d[c], offsets, 4);
+
+
+		s->vue[s->head++ & 15] = (struct value *) vue;
+ 	}
+
+	ksim_assert(s->head - s->tail < 16);
+}
+
+static void
+dispatch_vs(struct vs_thread *t, uint32_t iid, uint32_t vid, struct ia_state *state)
 {
 	struct reg *grf = &t->t.grf[0];
 
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
 
-	t->t.mask_q1 = mask;
+	uint32_t rest = gt.prim.vertex_count - vid;
+	uint32_t count;
+	if (rest > 8)
+		count = 8;
+	else
+		count = rest;
+
+	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
+	t->t.mask_q1 = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(rest));
+	t->iid = iid;
+	t->vid.ireg = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(vid));
 
 	/* Fixed function header */
 	grf[0] = (struct reg) {
@@ -78,10 +112,7 @@ dispatch_vs(struct vs_thread *t, __m256i mask)
 		}
 	};
 
-	const struct reg m = { .ireg = mask };
-	for (uint32_t c = 0; c < 8; c++) {
-		if (m.d[c] >= 0)
-			continue;
+	for (uint32_t c = 0; c < count; c++) {
 		void *entry = alloc_urb_entry(&gt.vs.urb);
 		t->vue_handles.ud[c] = urb_entry_to_handle(entry);
 	}
@@ -92,6 +123,8 @@ dispatch_vs(struct vs_thread *t, __m256i mask)
 		gt.vs_invocation_count++;
 
 	gt.vs.avx_shader(&t->t);
+
+	flush_to_vues(t, count, state);
 }
 
 static void
@@ -190,13 +223,6 @@ setup_prim(struct value **vue_in, uint32_t parity)
 
 	rasterize_primitive(vue);
 }
-
-struct ia_state {
-	struct value *vue[16];
-	uint32_t head, tail;
-	int tristrip_parity;
-	struct value *trifan_first_vertex;
-};
 
 static void
 assemble_primitives(struct ia_state *s)
@@ -392,26 +418,6 @@ dump_vue(struct vs_thread *t)
 			ksim_trace(TRACE_VF, "  %8.2f", t->data[i].f[c]);
 		ksim_trace(TRACE_VF, "\n");
 	}
-}
-
-static void
-flush_to_vues(struct vs_thread *t, __m256i mask, struct ia_state *s)
-{
-	/* Transpose the SIMD8 vs_thread back into individual VUEs */
-	const struct reg m = { .ireg = mask };
-	for (uint32_t c = 0; c < 8; c++) {
-		if (m.d[c] >= 0)
-			continue;
-
-		__m256i *vue = urb_handle_to_entry(t->vue_handles.ud[c]);
-		__m256i offsets = (__m256i) (__v8si) { 0, 8, 16, 24, 32, 40, 48, 56 };
-		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
-			vue[i] = _mm256_i32gather_epi32(&t->data[i * 8].d[c], offsets, 4);
-
-		s->vue[s->head++ & 15] = (struct value *) vue;
- 	}
-
-	ksim_assert(s->head - s->tail < 16);
 }
 
 static struct kir_reg
@@ -833,18 +839,10 @@ dispatch_primitive(void)
 
 	init_vs_thread(&t);
 
-	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
 	struct ia_state state = { 0, };
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
-			__m256i vid = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(i));
-			__m256i mask = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(gt.prim.vertex_count - i));
-
-			t.iid = iid;
-			t.vid.ireg = vid;
-
-			dispatch_vs(&t, mask);
-			flush_to_vues(&t, mask, &state);
+			dispatch_vs(&t, iid, i, &state);
 			assemble_primitives(&state);
 		}
 
