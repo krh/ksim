@@ -1050,7 +1050,8 @@ do_compile_inst(struct kir_program *prog, struct inst *inst)
 	else
 		dst = unpack_inst_2src_dst(inst);
 
-	if (exec_size * type_size(dst.type) < 64) {
+	if (exec_size * type_size(dst.type) < 64 ||
+	    opcode == BRW_OPCODE_SEND || opcode == BRW_OPCODE_SENDC) {
 		prog->exec_size = exec_size;
 		prog->exec_offset = 0;
 		eot = compile_inst(prog, inst);
