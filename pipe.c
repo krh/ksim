@@ -160,7 +160,7 @@ dump_sf_clip_viewport(void)
 	     gt.cc.viewport[0], gt.cc.viewport[1]);
 }
 
-static void
+void
 setup_prim(struct value **vue_in, uint32_t parity)
 {
 	struct value *vue[3];
@@ -215,8 +215,9 @@ setup_prim(struct value **vue_in, uint32_t parity)
 static void
 assemble_primitives(struct ia_state *s)
 {
-	struct value *vue[3];
+	struct value *vue[32];
 	uint32_t tail = s->tail;
+	int count;
 
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
@@ -338,6 +339,18 @@ assemble_primitives(struct ia_state *s)
 			vue[1] = s->vue[(tail + 1) & 15];
 			setup_prim(vue, 0);
 			tail += 1;
+		}
+		break;
+
+	case _3DPRIM_PATCHLIST_1 ... _3DPRIM_PATCHLIST_32:
+		/* FIXME: Need to bump s->vue queue size to accomodate
+		 * big patchlist primitives. */
+		count = gt.ia.topology - _3DPRIM_PATCHLIST_1 + 1;
+		while (s->head - tail >= count) {
+			for (uint32_t i = 0; i < count; i++)
+				vue[i] = s->vue[(tail + i) & 15];
+			tessellate_patch(vue);
+			tail += count;
 		}
 		break;
 
@@ -819,6 +832,18 @@ dispatch_primitive(void)
 
 	ksim_assert(gt.vs.simd8 || !gt.vs.enable);
 
+	if (gt.ia.topology < _3DPRIM_PATCHLIST_1)
+		ksim_assert(!gt.hs.enable && !gt.ds.enable && !gt.te.enable);
+	else
+		ksim_assert(gt.hs.enable && gt.ds.enable && gt.te.enable);
+	if (gt.hs.enable) {
+		ksim_assert(gt.hs.dispatch_mode == DISPATCH_MODE_SINGLE_PATCH);
+		ksim_assert(gt.te.domain == TRI);
+		ksim_assert(gt.te.topology == OUTPUT_TRI_CW ||
+			    gt.te.topology == OUTPUT_TRI_CCW);
+		ksim_assert(gt.ds.dispatch_mode == DISPATCH_MODE_SIMD8_SINGLE_PATCH);
+	}
+
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;
 
@@ -841,7 +866,8 @@ dispatch_primitive(void)
 	reset_shader_pool();
 
 	compile_vs();
-
+	compile_hs();
+	compile_ds();
 	compile_ps();
 
 	struct vs_thread t;

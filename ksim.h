@@ -141,6 +141,7 @@ enum {
 	TRACE_QUEUE = 1 << 11,		/* thread queue */
 	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
 	TRACE_RA = 1 << 13,		/* register allocator */
+	TRACE_TS = 1 << 14,		/* tessellation shader */
 };
 
 static inline uint32_t
@@ -642,8 +643,10 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 	return (struct value) { .uvec4 = { x, y, z, w } };
 }
 
+void tessellate_patch(struct value **vue);
 void dispatch_primitive(void);
 void dispatch_compute(void);
+void setup_prim(struct value **vue_in, uint32_t parity);
 
 bool valid_vertex_format(uint32_t format);
 bool srgb_format(uint32_t format);
@@ -731,7 +734,8 @@ void builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst);
 void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
 uint32_t emit_load_constants(struct kir_program *prog, struct curbe *c, uint32_t start);
-void load_constants(struct thread *t, struct curbe *c);
+uint32_t load_constants(struct thread *t, struct curbe *c);
+
 struct vue_buffer {
 	struct rectanglef clip;
 	struct { float m00, m11, m22, m30, m31, m32; } vp;
@@ -752,6 +756,8 @@ void init_vue_buffer(struct vue_buffer *b);
 void emit_vertex_post_processing(struct kir_program *prog, uint32_t base);
 
 void compile_ps(void);
+void compile_hs(void);
+void compile_ds(void);
 void reset_shader_pool(void);
 shader_t compile_shader(uint64_t kernel_offset,
 			uint64_t surfaces, uint64_t samplers);

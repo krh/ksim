@@ -41,7 +41,7 @@ emit_load_constants(struct kir_program *prog, struct curbe *c, uint32_t start)
 	return grf;
 }
 
-void
+uint32_t
 load_constants(struct thread *t, struct curbe *c)
 {
 	struct reg *regs;
@@ -64,6 +64,8 @@ load_constants(struct thread *t, struct curbe *c)
 	}
 
 	ksim_assert(bc < ARRAY_LENGTH(t->constants));
+
+	return bc;
 }
 
 shader_t

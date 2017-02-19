@@ -50,6 +50,7 @@ ksim_files = files(
 	'sampler.c',
 	'stub.c',
 	'surface.c',
+	'tessellation.c',
 	'thread.c',
 	'urb.c',
 	'wm.c',
