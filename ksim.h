@@ -339,13 +339,39 @@ struct gt {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+		bool enable;
+		bool statistics;
+		uint64_t ksp;
+		uint32_t instance_count;
+		bool include_vertex_handles;
+		uint32_t urb_start_grf;
+		uint32_t dispatch_mode;
+		uint32_t vue_read_length;
+		uint32_t vue_read_offset;
+		shader_t avx_shader;
 	} hs;
+
+	struct {
+		uint32_t partitioning;
+		uint32_t topology;
+		uint32_t domain;
+		bool enable;
+	} te;
 
 	struct {
 		struct urb urb;
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+		uint64_t ksp;
+		uint32_t urb_start_grf;
+		uint32_t pue_read_length;
+		uint32_t pue_read_offset;
+		uint32_t dispatch_mode;
+		bool enable;
+		bool statistics;
+		bool compute_w;
+		shader_t avx_shader;
 	} ds;
 
 	struct {
@@ -353,6 +379,7 @@ struct gt {
 		struct curbe curbe;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+		bool enable;
 	} gs;
 
 	struct {
@@ -534,6 +561,8 @@ struct gt {
 	} blt;
 
 	uint32_t vs_invocation_count;
+	uint32_t hs_invocation_count;
+	uint32_t ds_invocation_count;
 	uint32_t ia_vertices_count;
 	uint32_t ia_primitives_count;
 	uint32_t ps_invocation_count;

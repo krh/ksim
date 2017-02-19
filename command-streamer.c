@@ -766,6 +766,11 @@ static void
 handle_3dstate_gs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_GS\n");
+
+	struct GEN9_3DSTATE_GS v;
+	GEN9_3DSTATE_GS_unpack(p, &v);
+
+	gt.gs.enable = v.FunctionEnable;
 }
 
 static void
@@ -871,18 +876,51 @@ static void
 handle_3dstate_hs(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_HS\n");
+
+	struct GEN9_3DSTATE_HS v;
+	GEN9_3DSTATE_HS_unpack(p, &v);
+
+	gt.hs.ksp = v.KernelStartPointer;
+	gt.hs.enable = v.Enable;
+	gt.hs.statistics = v.StatisticsEnable;
+	gt.hs.instance_count = v.InstanceCount;
+	gt.hs.include_vertex_handles = v.IncludeVertexHandles;
+	gt.hs.urb_start_grf = v.DispatchGRFStartRegisterForURBData;
+	gt.hs.dispatch_mode = v.DispatchMode;
+	gt.hs.vue_read_length = v.VertexURBEntryReadLength;
+	gt.hs.vue_read_offset = v.VertexURBEntryReadOffset;
 }
 
 static void
 handle_3dstate_te(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_TE\n");
+
+	struct GEN9_3DSTATE_TE v;
+	GEN9_3DSTATE_TE_unpack(p, &v);
+
+	gt.te.partitioning = v.Partitioning;
+	gt.te.topology = v.OutputTopology;
+	gt.te.domain = v.TEDomain;
+	gt.te.enable = v.TEEnable;
 }
 
 static void
 handle_3dstate_ds(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_DS\n");
+
+	struct GEN9_3DSTATE_DS v;
+	GEN9_3DSTATE_DS_unpack(p, &v);
+
+	gt.ds.ksp = v.KernelStartPointer;
+	gt.ds.enable = v.FunctionEnable;
+	gt.ds.statistics = v.StatisticsEnable;
+	gt.ds.urb_start_grf = v.DispatchGRFStartRegisterForURBData;
+	gt.ds.pue_read_length = v.PatchURBEntryReadLength;
+	gt.ds.pue_read_offset = v.PatchURBEntryReadOffset;
+	gt.ds.compute_w = v.ComputeWCoordinateEnable;
+	gt.ds.dispatch_mode = v.DispatchMode;
 }
 
 static void
