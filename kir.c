@@ -633,7 +633,8 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			break;
 		case kir_load_region:
 			live = live_regs[insn->dst.n];
-			set_region_live(&insn->xfer.region, live, region_map);
+			if (live)
+				set_region_live(&insn->xfer.region, live, region_map);
 			break;
 		case kir_store_region_mask:
 		case kir_store_region:
