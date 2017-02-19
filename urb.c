@@ -106,7 +106,7 @@ validate_urb_state(void)
 }
 
 static void
-builder_emit_sfid_urb_simd8_write(struct kir_program *prog, struct inst *inst)
+emit_sfid_urb_simd8_simple_write(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	uint32_t src = (unpack_inst_2src_src0(inst).num + 1) * 32;
@@ -170,12 +170,119 @@ unpack_urb_message_descriptor(uint32_t function_control)
 	};
 }
 
+struct sfid_urb_args {
+	uint32_t global_offset;
+	bool per_slot_offset;
+	bool channel_mask;
+	uint32_t src, dst, len, rlen;
+	uint32_t scope;
+};
+
+static void
+sfid_urb_simd8_read(struct thread *t, struct sfid_urb_args *args)
+{
+	uint32_t grf = args->src;
+	struct reg vue_handles = t->grf[grf++];
+	struct reg offset, channel_mask;
+
+	offset.ireg = _mm256_set1_epi32(args->global_offset);
+	if (args->per_slot_offset)
+		offset.ireg = _mm256_add_epi32(offset.ireg, t->grf[grf++].ireg);
+
+	uint32_t valid_bits = (1 << args->rlen) - 1;
+
+	if (args->channel_mask) {
+		channel_mask.ireg = t->grf[grf++].ireg;
+		channel_mask.ireg = _mm256_srli_epi32(channel_mask.ireg, 16);
+		channel_mask.ireg = _mm256_and_si256(channel_mask.ireg,
+						     _mm256_set1_epi32(valid_bits));
+	} else {
+		channel_mask.ireg = _mm256_set1_epi32(valid_bits);
+	}
+
+	struct reg mask;
+	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask_stack[args->scope]);
+	for (uint32_t c = 0; c < 8; c++) {
+		if (!mask.ud[c])
+			continue;
+		uint32_t *vue = urb_handle_to_entry(vue_handles.ud[c]) +
+			offset.ud[c] * 16;
+		uint32_t i;
+		for_each_bit(i, channel_mask.ud[c])
+			t->grf[args->dst + i].ud[c] = vue[i];
+	}
+}
+
+
+static void
+sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args)
+{
+	uint32_t grf = args->src;
+	struct reg vue_handles = t->grf[grf++];
+	struct reg offset, channel_mask;
+
+	/* FIXME: For tessellation we often get a constant channel
+	 * mask with just one bit set. We should find a way to emit
+	 * just a single dword store for that. */
+
+	offset.ireg = _mm256_set1_epi32(args->global_offset);
+	if (args->per_slot_offset)
+		offset.ireg = _mm256_add_epi32(offset.ireg, t->grf[grf++].ireg);
+
+	if (args->channel_mask) {
+		channel_mask.ireg = t->grf[grf++].ireg;
+		uint32_t valid_bits = (1 << (args->src + args->len - grf)) - 1;
+		channel_mask.ireg = _mm256_srli_epi32(channel_mask.ireg, 16);
+		channel_mask.ireg = _mm256_and_si256(channel_mask.ireg,
+						     _mm256_set1_epi32(valid_bits));
+	} else {
+		uint32_t valid_bits = (1 << (args->src + args->len - grf)) - 1;
+		channel_mask.ireg = _mm256_set1_epi32(valid_bits);
+	}
+
+	struct reg mask;
+	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask_stack[args->scope]);
+	for (uint32_t c = 0; c < 8; c++) {
+		if (!mask.ud[c])
+			continue;
+		uint32_t *vue = urb_handle_to_entry(vue_handles.ud[c]) +
+			offset.ud[c] * 16;
+		uint32_t i;
+		for_each_bit(i, channel_mask.ud[c])
+			vue[i] = t->grf[grf + i].ud[c];
+	}
+}
+
+static struct sfid_urb_args *
+create_urb_args(struct kir_program *prog, struct inst *inst)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	struct urb_message_descriptor md =
+		unpack_urb_message_descriptor(send.function_control);
+	struct sfid_urb_args *args;
+
+	args = get_const_data(sizeof *args, 8);
+	args->per_slot_offset = md.per_slot_offset;
+	args->channel_mask = md.channel_mask;
+	args->global_offset = md.global_offset;
+	args->src = unpack_inst_2src_src0(inst).num;
+	args->dst = unpack_inst_2src_dst(inst).num;
+	args->len = send.mlen;
+	args->rlen = send.rlen;
+	args->scope = prog->scope;
+
+	return args;
+}
+
 void
 builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst)
 {
 	struct inst_send send = unpack_inst_send(inst);
 	struct urb_message_descriptor md =
 		unpack_urb_message_descriptor(send.function_control);
+	struct sfid_urb_args *args;
+
+	ksim_assert(send.header_present);
 
 	switch (md.opcode) {
 	case URB_WRITE_HWORD:
@@ -185,16 +292,22 @@ builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst)
 	case URB_ATOMIC_MOV:
 	case URB_ATOMIC_INC:
 	case URB_ATOMIC_ADD:
-	case URB_SIMD8_READ:
 		stub("sfid urb opcode %d", md.opcode);
 		return;
+
+	case URB_SIMD8_READ:
+		args = create_urb_args(prog, inst);
+		kir_program_const_send(prog, inst, sfid_urb_simd8_read, args);
+		return;
+
 	case URB_SIMD8_WRITE:
 		ksim_assert(send.rlen == 0);
-		if (send.header_present && !md.per_slot_offset)
-			builder_emit_sfid_urb_simd8_write(prog, inst);
-		else
-			stub("urb write: header %d, per_slot_offset %d",
-			     md.header_present, md.per_slot_offset);
+		if (!md.per_slot_offset && !md.channel_mask && prog->urb_offset > 0) {
+			emit_sfid_urb_simd8_simple_write(prog, inst);
+		} else {
+			args = create_urb_args(prog, inst);
+			kir_program_send(prog, inst, sfid_urb_simd8_write, args);
+		}
 		break;
 	default:
 		ksim_unreachable("out of range urb opcode: %d", md.opcode);
