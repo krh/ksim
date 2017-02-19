@@ -258,8 +258,8 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_store_region_mask:
-		snprintf(buf, size, "r%-3d = store_region_mask r%d, r%d, %s",
-			 insn->dst.n, insn->xfer.mask.n, insn->xfer.src.n,
+		snprintf(buf, size, "       store_region_mask r%d, r%d, %s",
+			 insn->xfer.mask.n, insn->xfer.src.n,
 			 format_region(region, sizeof(region), &insn->xfer.region));
 		break;
 	case kir_store_region:
