@@ -30,7 +30,7 @@
 static void *shader_pool, *shader_end;
 const size_t shader_pool_size = 64 * 1024;
 static void *constant_pool;
-const size_t constant_pool_size = 4096;
+const size_t constant_pool_size = 8192;
 uint32_t constant_pool_index;
 
 void
