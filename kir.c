@@ -637,6 +637,13 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 				set_region_live(&insn->xfer.region, live, region_map);
 			break;
 		case kir_store_region_mask:
+			live = region_is_live(&insn->xfer.region, region_map);
+			set_live(insn->xfer.src, live, insn, range, live_regs);
+			set_live(insn->xfer.mask, live, insn, range, live_regs);
+			if (live)
+				range[insn->dst.n] = insn->dst.n + 1;
+			set_region_live(&insn->xfer.region, false, region_map);
+			break;
 		case kir_store_region:
 			live = region_is_live(&insn->xfer.region, region_map);
 			set_live(insn->xfer.src, live, insn, range, live_regs);
