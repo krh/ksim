@@ -674,13 +674,7 @@ builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst)
 		break;
 	}
 
-	struct kir_insn *insn = kir_program_add_insn(prog, kir_const_send);
-	insn->send.src = unpack_inst_2src_src0(inst).num;
-	insn->send.mlen = send.mlen;
-	insn->send.dst = unpack_inst_2src_dst(inst).num;
-	insn->send.rlen = send.rlen;
-	insn->send.func = func;
-	insn->send.args = args;
+	kir_program_const_send(prog, inst, func, args);
 
 	args->rlen = send.rlen;
 	if (args->rlen == 0) {

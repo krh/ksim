@@ -143,6 +143,8 @@ struct eu_region {
 	uint32_t hstride;
 };
 
+typedef void (*kir_send_helper_t)(struct thread *t, void *args);
+
 struct kir_insn {
 	enum kir_opcode opcode;
 
@@ -215,7 +217,7 @@ struct kir_insn {
 			uint32_t mlen;
 			uint32_t dst;
 			uint32_t rlen;
-			void *func;
+			kir_send_helper_t func;
 			void *args;
 		} send;
 
@@ -275,6 +277,22 @@ void
 kir_program_mask_store(struct kir_program *prog,
 		       struct kir_reg base, uint32_t offset,
 		       struct kir_reg mask, struct kir_reg src);
+
+void
+__kir_program_send(struct kir_program *prog, struct inst *inst,
+		   enum kir_opcode opcode, void *func, void *args);
+
+#define kir_program_send(prog, inst, func, args)			\
+	do {								\
+		void (*__func)(struct thread *, typeof(args)) = (func);	\
+		__kir_program_send((prog), (inst), kir_send, __func, (args)); \
+	} while (0)
+
+#define kir_program_const_send(prog, inst, func, args)			\
+	do {								\
+		void (*__func)(struct thread *, typeof(args)) = (func);	\
+		__kir_program_send((prog), (inst), kir_const_send, __func, (args)); \
+	} while (0)
 
 struct kir_reg
 kir_program_call(struct kir_program *prog, void *func, uint32_t args, ...);

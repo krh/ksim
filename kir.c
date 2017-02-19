@@ -109,6 +109,21 @@ kir_program_alu(struct kir_program *prog, enum kir_opcode opcode, ...)
 	return insn->dst;
 }
 
+void
+__kir_program_send(struct kir_program *prog, struct inst *inst,
+		   enum kir_opcode opcode, void *func, void *args)
+{
+	struct inst_send send = unpack_inst_send(inst);
+	struct kir_insn *insn = kir_program_add_insn(prog, kir_send);
+
+	insn->send.src = unpack_inst_2src_src0(inst).num;
+	insn->send.mlen = send.mlen;
+	insn->send.dst = unpack_inst_2src_dst(inst).num;
+	insn->send.rlen = send.rlen;
+	insn->send.func = func;
+	insn->send.args = args;
+}
+
 struct kir_reg
 kir_program_call(struct kir_program *prog, void *func, uint32_t args, ...)
 {
