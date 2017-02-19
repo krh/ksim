@@ -339,7 +339,7 @@ emit_cmp(struct kir_program *prog, int modifier,
 		[BRW_CONDITIONAL_U]	= 0,
 	};
 
-	return kir_program_alu(prog, kir_cmp, src0, src1, eu_to_avx_cmp[modifier]);
+	return kir_program_alu(prog, kir_cmp, src1, src0, eu_to_avx_cmp[modifier]);
 }
 
 static void
