@@ -1020,9 +1020,14 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 	if (opcode != BRW_OPCODE_SEND && opcode != BRW_OPCODE_SENDC &&
 	    opcode != BRW_OPCODE_MATH &&
 	    cond_modifier != BRW_CONDITIONAL_NONE) {
-		struct kir_reg zero = kir_program_immd(prog, 0);
-		struct kir_reg flag_reg = emit_cmp(prog, cond_modifier, dst_reg, zero);
-		/* FIXME: Mask store? */
+		struct kir_reg flag_reg;
+		if (opcode == BRW_OPCODE_CMP) {
+			flag_reg = dst_reg;
+		} else {
+			struct kir_reg zero = kir_program_immd(prog, 0);
+			flag_reg = emit_cmp(prog, cond_modifier, dst_reg, zero);
+			/* FIXME: Mask store? */
+		}
 		kir_program_store_v8(prog, offsetof(struct thread, f[flag]), flag_reg);
 	}
 
