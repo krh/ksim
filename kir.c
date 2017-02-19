@@ -847,7 +847,24 @@ kir_program_copy_propagation(struct kir_program *prog)
 		load_region_done:
 			break;
 		}
-		case kir_store_region_mask:
+		case kir_store_region_mask: {
+			uint32_t grf = insn->xfer.region.offset / 32;
+
+			insn->xfer.src = remap[insn->xfer.src.n];
+			insn->xfer.mask = remap[insn->xfer.mask.n];
+
+			ksim_assert(grf < max_eu_regs);
+			region_to_mask(&insn->xfer.region, mask);
+
+			/* Invalidate registers overlapping region */
+			list_for_each_entry_safe(rr, next, &region_to_reg[grf], link) {
+				if ((mask[0] & rr->mask[0]) || (mask[1] & rr->mask[1]))
+					list_remove(&rr->link);
+			}
+
+			break;
+		}
+
 		case kir_store_region: {
 			uint32_t grf = insn->xfer.region.offset / 32;
 
