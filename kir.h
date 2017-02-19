@@ -149,6 +149,7 @@ struct kir_insn {
 	enum kir_opcode opcode;
 
 	struct kir_reg dst;
+	int scope; /* FIXME: Should be part of kir_block */
 
 	union {
 		char *comment;
