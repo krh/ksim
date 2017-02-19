@@ -26,25 +26,13 @@
 
 struct vs_thread {
 	struct thread t;
-	struct reg vue_handles;
 	struct reg vid;
 	void *index_buffer;
-	struct rectanglef clip;
-	struct { float m00, m11, m22, m30, m31, m32; } vp;
 	uint32_t iid;
 	uint32_t start_vertex;
 	uint32_t base_vertex;
 	uint32_t start_instance;
-	union {
-		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
-		struct {
-			struct reg clip_flags;
-			struct reg rt_index;
-			struct reg vp_index;
-			struct reg point_width;
-			__m256 x, y, z, w;
-		};
-	};
+	struct vue_buffer buffer;
 };
 
 struct ia_state {
@@ -55,14 +43,14 @@ struct ia_state {
 };
 
 static void
-flush_to_vues(struct vs_thread *t, uint32_t count, struct ia_state *s)
+flush_to_vues(struct vue_buffer *b, uint32_t count, struct ia_state *s)
 {
 	/* Transpose the SIMD8 vs_thread back into individual VUEs */
 	for (uint32_t c = 0; c < count; c++) {
-		__m256i *vue = urb_handle_to_entry(t->vue_handles.ud[c]);
+		__m256i *vue = urb_handle_to_entry(b->vue_handles.ud[c]);
 		__m256i offsets = (__m256i) (__v8si) { 0, 8, 16, 24, 32, 40, 48, 56 };
 		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
-			vue[i] = _mm256_i32gather_epi32(&t->data[i * 8].d[c], offsets, 4);
+			vue[i] = _mm256_i32gather_epi32(&b->data[i * 8].d[c], offsets, 4);
 
 
 		s->vue[s->head++ & 15] = (struct value *) vue;
@@ -114,17 +102,17 @@ dispatch_vs(struct vs_thread *t, uint32_t iid, uint32_t vid, struct ia_state *st
 
 	for (uint32_t c = 0; c < count; c++) {
 		void *entry = alloc_urb_entry(&gt.vs.urb);
-		t->vue_handles.ud[c] = urb_entry_to_handle(entry);
+		t->buffer.vue_handles.ud[c] = urb_entry_to_handle(entry);
 	}
 
-	grf[1].ireg = t->vue_handles.ireg;
+	grf[1].ireg = t->buffer.vue_handles.ireg;
 
 	if (gt.vs.statistics)
 		gt.vs_invocation_count++;
 
 	gt.vs.avx_shader(&t->t);
 
-	flush_to_vues(t, count, state);
+	flush_to_vues(&t->buffer, count, state);
 }
 
 static void
@@ -402,7 +390,9 @@ reset_ia_state(struct ia_state *s)
 static void
 dump_vue(struct vs_thread *t)
 {
+	struct vue_buffer *b = &t->buffer;
 	struct reg v = t->vid;
+
 	ksim_trace(TRACE_VF, "Loaded vue for idd=%d, vid=[", t->iid);
 	for (uint32_t c = 0; c < 8; c++)
 		ksim_trace(TRACE_VF, " %d", v.ud[c]);
@@ -413,9 +403,9 @@ dump_vue(struct vs_thread *t)
 	ksim_trace(TRACE_VF, " ]\n");
 
 	for (uint32_t i = 0; i < gt.vs.urb.size / 4; i++) {
-		ksim_trace(TRACE_VF, "  0x%04x:  ", (void *) &t->data[i] - (void *) t);
+		ksim_trace(TRACE_VF, "  0x%04x:  ", (void *) &b->data[i] - (void *) t);
 		for (uint32_t c = 0; c < 8; c++)
-			ksim_trace(TRACE_VF, "  %8.2f", t->data[i].f[c]);
+			ksim_trace(TRACE_VF, "  %8.2f", b->data[i].f[c]);
 		ksim_trace(TRACE_VF, "\n");
 	}
 }
@@ -601,7 +591,8 @@ emit_vertex_fetch(struct kir_program *prog)
 				ksim_unreachable("VFCOMP_STORE_PID");
 				break;
 			}
-			kir_program_store_v8(prog, offsetof(struct vs_thread, data[i * 4 + c]), src);
+			kir_program_store_v8(prog, offsetof(struct vs_thread,
+							    buffer.data[i * 4 + c]), src);
 		}
 	}
 
@@ -610,12 +601,14 @@ emit_vertex_fetch(struct kir_program *prog)
 		if (gt.vf.iid_enable) {
 			kir_program_load_uniform(prog, offsetof(struct vs_thread, iid));
 			uint32_t reg = gt.vf.iid_element * 4 + gt.vf.iid_component;
-			kir_program_store_v8(prog, offsetof(struct vs_thread, data[reg]), prog->dst);
+			kir_program_store_v8(prog, offsetof(struct vs_thread,
+							    buffer.data[reg]), prog->dst);
 		}
 		if (gt.vf.vid_enable) {
 			kir_program_load_v8(prog, offsetof(struct vs_thread, vid));
 			uint32_t reg = gt.vf.vid_element * 4 + gt.vf.vid_component;
-			kir_program_store_v8(prog, offsetof(struct vs_thread, data[reg]), prog->dst);
+			kir_program_store_v8(prog, offsetof(struct vs_thread,
+							    buffer.data[reg]), prog->dst);
 		}
 	}
 
@@ -626,7 +619,7 @@ emit_vertex_fetch(struct kir_program *prog)
 static void
 emit_load_vue(struct kir_program *prog, uint32_t grf)
 {
-	uint32_t src = offsetof(struct vs_thread, data[gt.vs.vue_read_offset * 2 * 4]);
+	uint32_t src = offsetof(struct vs_thread, buffer.data[gt.vs.vue_read_offset * 2 * 4]);
 	uint32_t dst = offsetof(struct vs_thread, t.grf[grf]);
 
 	kir_program_comment(prog, "copy vue");
@@ -636,8 +629,10 @@ emit_load_vue(struct kir_program *prog, uint32_t grf)
 	}
 }
 
+#define vue_offset(base, field) ((base) + offsetof(struct vue_buffer, field))
+
 static void
-emit_perspective_divide(struct kir_program *prog)
+emit_perspective_divide(struct kir_program *prog, uint32_t base)
 {
 	/* vrcpps doesn't have sufficient precision for perspective
 	 * divide. We can use vdivps (latency 21/throughput 13) or do
@@ -648,7 +643,7 @@ emit_perspective_divide(struct kir_program *prog)
 
 	kir_program_comment(prog, "perspective divide");
 
-	struct kir_reg w = kir_program_load_v8(prog, offsetof(struct vs_thread, w));
+	struct kir_reg w = kir_program_load_v8(prog, vue_offset(base, w));
 	struct kir_reg inv_w0 = kir_program_alu(prog, kir_rcp, w);
 
 	/* NR step: inv_w = inv_w0 * (2 - w * inv_w0) */
@@ -657,32 +652,32 @@ emit_perspective_divide(struct kir_program *prog)
 	kir_program_alu(prog, kir_nmaddf, w, inv_w0, two);
 	struct kir_reg inv_w = kir_program_alu(prog, kir_mulf, inv_w0, prog->dst);
 
-	const struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vs_thread, x));
+	const struct kir_reg x = kir_program_load_v8(prog, vue_offset(base, x));
 	kir_program_alu(prog, kir_mulf, x, inv_w);
-	kir_program_store_v8(prog, offsetof(struct vs_thread, x), prog->dst);
+	kir_program_store_v8(prog, vue_offset(base, x), prog->dst);
 
-	const struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vs_thread, y));
+	const struct kir_reg y = kir_program_load_v8(prog, vue_offset(base, y));
 	kir_program_alu(prog, kir_mulf, y, inv_w);
-	kir_program_store_v8(prog, offsetof(struct vs_thread, y), prog->dst);
+	kir_program_store_v8(prog, vue_offset(base, y), prog->dst);
 
-	const struct kir_reg z = kir_program_load_v8(prog, offsetof(struct vs_thread, z));
+	const struct kir_reg z = kir_program_load_v8(prog, vue_offset(base, z));
 	kir_program_alu(prog, kir_mulf, z, inv_w);
-	kir_program_store_v8(prog, offsetof(struct vs_thread, z), prog->dst);
+	kir_program_store_v8(prog, vue_offset(base, z), prog->dst);
 
-	kir_program_store_v8(prog, offsetof(struct vs_thread, w), inv_w);
+	kir_program_store_v8(prog, vue_offset(base, w), inv_w);
 }
 
 static void
-emit_clip_test(struct kir_program *prog)
+emit_clip_test(struct kir_program *prog, uint32_t base)
 {
 	kir_program_comment(prog, "clip tests");
 
-	struct kir_reg x0 = kir_program_load_uniform(prog, offsetof(struct vs_thread, clip.x0));
-	struct kir_reg x1 = kir_program_load_uniform(prog, offsetof(struct vs_thread, clip.x1));
-	struct kir_reg y0 = kir_program_load_uniform(prog, offsetof(struct vs_thread, clip.y0));
-	struct kir_reg y1 = kir_program_load_uniform(prog, offsetof(struct vs_thread, clip.y1));
-	struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vs_thread, x));
-	struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vs_thread, y));
+	struct kir_reg x0 = kir_program_load_uniform(prog, vue_offset(base, clip.x0));
+	struct kir_reg x1 = kir_program_load_uniform(prog, vue_offset(base, clip.x1));
+	struct kir_reg y0 = kir_program_load_uniform(prog, vue_offset(base, clip.y0));
+	struct kir_reg y1 = kir_program_load_uniform(prog, vue_offset(base, clip.y1));
+	struct kir_reg x = kir_program_load_v8(prog, vue_offset(base, x));
+	struct kir_reg y = kir_program_load_v8(prog, vue_offset(base, y));
 
 	struct kir_reg x0f = kir_program_alu(prog, kir_cmp, x0, x, _CMP_LT_OS);
 	struct kir_reg x1f = kir_program_alu(prog, kir_cmp, x1, x, _CMP_GT_OS);
@@ -693,32 +688,46 @@ emit_clip_test(struct kir_program *prog)
 	struct kir_reg yf = kir_program_alu(prog, kir_or, y0f, y1f);
 	struct kir_reg f = kir_program_alu(prog, kir_or, xf, yf);
 
-	kir_program_store_v8(prog, offsetof(struct vs_thread, clip_flags), f);
+	kir_program_store_v8(prog, vue_offset(base, clip_flags), f);
 }
 
 static void
-emit_viewport_transform(struct kir_program *prog)
+emit_viewport_transform(struct kir_program *prog, uint32_t base)
 {
 	kir_program_comment(prog, "viewport transform");
 
-	struct kir_reg m00 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m00));
-	struct kir_reg m11 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m11));
-	struct kir_reg m22 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m22));
-	struct kir_reg m30 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m30));
-	struct kir_reg m31 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m31));
-	struct kir_reg m32 = kir_program_load_uniform(prog, offsetof(struct vs_thread, vp.m32));
+	struct kir_reg m00 = kir_program_load_uniform(prog, vue_offset(base, vp.m00));
+	struct kir_reg m11 = kir_program_load_uniform(prog, vue_offset(base, vp.m11));
+	struct kir_reg m22 = kir_program_load_uniform(prog, vue_offset(base, vp.m22));
+	struct kir_reg m30 = kir_program_load_uniform(prog, vue_offset(base, vp.m30));
+	struct kir_reg m31 = kir_program_load_uniform(prog, vue_offset(base, vp.m31));
+	struct kir_reg m32 = kir_program_load_uniform(prog, vue_offset(base, vp.m32));
 
-	struct kir_reg x = kir_program_load_v8(prog, offsetof(struct vs_thread, x));
-	struct kir_reg y = kir_program_load_v8(prog, offsetof(struct vs_thread, y));
-	struct kir_reg z = kir_program_load_v8(prog, offsetof(struct vs_thread, z));
+	struct kir_reg x = kir_program_load_v8(prog, vue_offset(base, x));
+	struct kir_reg y = kir_program_load_v8(prog, vue_offset(base, y));
+	struct kir_reg z = kir_program_load_v8(prog, vue_offset(base, z));
 
 	struct kir_reg xs = kir_program_alu(prog, kir_maddf, x, m00, m30);
 	struct kir_reg ys = kir_program_alu(prog, kir_maddf, y, m11, m31);
 	struct kir_reg zs = kir_program_alu(prog, kir_maddf, z, m22, m32);
 
-	kir_program_store_v8(prog, offsetof(struct vs_thread, x), xs);
-	kir_program_store_v8(prog, offsetof(struct vs_thread, y), ys);
-	kir_program_store_v8(prog, offsetof(struct vs_thread, z), zs);
+	kir_program_store_v8(prog, vue_offset(base, x), xs);
+	kir_program_store_v8(prog, vue_offset(base, y), ys);
+	kir_program_store_v8(prog, vue_offset(base, z), zs);
+}
+
+void
+emit_vertex_post_processing(struct kir_program *prog, uint32_t base)
+{
+	if (!gt.clip.perspective_divide_disable)
+		emit_perspective_divide(prog, base);
+
+	if (gt.clip.guardband_clip_test_enable ||
+	    gt.clip.viewport_clip_test_enable)
+		emit_clip_test(prog, base);
+
+	if (gt.sf.viewport_transform_enable)
+		emit_viewport_transform(prog, base);
 }
 
 static void
@@ -732,7 +741,7 @@ compile_vs(void)
 			 gt.vs.binding_table_address,
 			 gt.vs.sampler_state_address);
 
-	prog.urb_offset = offsetof(struct vs_thread, data);
+	prog.urb_offset = offsetof(struct vs_thread, buffer.data);
 
 	uint32_t grf;
 	if (gt.vs.enable)
@@ -752,15 +761,9 @@ compile_vs(void)
 	if (trace_mask & TRACE_URB)
 		kir_program_call(&prog, dump_vue, 0);
 
-	if (!gt.clip.perspective_divide_disable)
-		emit_perspective_divide(&prog);
-
-	if (gt.clip.guardband_clip_test_enable ||
-	    gt.clip.viewport_clip_test_enable)
-		emit_clip_test(&prog);
-
-	if (gt.sf.viewport_transform_enable)
-		emit_viewport_transform(&prog);
+	if (!gt.gs.enable && !gt.hs.enable)
+		emit_vertex_post_processing(&prog,
+					    offsetof(struct vs_thread, buffer));
 
 	if (trace_mask & TRACE_URB)
 		kir_program_call(&prog, dump_vue, 0);
@@ -770,6 +773,28 @@ compile_vs(void)
 	gt.vs.avx_shader = kir_program_finish(&prog);
 }
 
+void
+init_vue_buffer(struct vue_buffer *b)
+{
+	if (gt.clip.guardband_clip_test_enable) {
+		b->clip = gt.sf.guardband;
+	} else {
+		struct rectanglef vp_clip = { -1.0f, -1.0f, 1.0f, 1.0f };
+		b->clip = vp_clip;
+	}
+
+	if (gt.sf.viewport_transform_enable) {
+		const float *vp = gt.sf.viewport;
+
+		b->vp.m00 = vp[0];
+		b->vp.m11 = vp[1];
+		b->vp.m22 = vp[2];
+		b->vp.m30 = vp[3];
+		b->vp.m31 = vp[4];
+		b->vp.m32 = vp[5];
+	}
+}
+
 static void
 init_vs_thread(struct vs_thread *t)
 {
@@ -777,23 +802,7 @@ init_vs_thread(struct vs_thread *t)
 	t->base_vertex = gt.prim.base_vertex;
 	t->start_instance = gt.prim.start_instance;
 
-	if (gt.clip.guardband_clip_test_enable) {
-		t->clip = gt.sf.guardband;
-	} else {
-		struct rectanglef vp_clip = { -1.0f, -1.0f, 1.0f, 1.0f };
-		t->clip = vp_clip;
-	}
-
-	if (gt.sf.viewport_transform_enable) {
-		const float *vp = gt.sf.viewport;
-
-		t->vp.m00 = vp[0];
-		t->vp.m11 = vp[1];
-		t->vp.m22 = vp[2];
-		t->vp.m30 = vp[3];
-		t->vp.m31 = vp[4];
-		t->vp.m32 = vp[5];
-	}
+	init_vue_buffer(&t->buffer);
 
 	load_constants(&t->t, &gt.vs.curbe);
 }

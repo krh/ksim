@@ -703,6 +703,24 @@ void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
 uint32_t emit_load_constants(struct kir_program *prog, struct curbe *c, uint32_t start);
 void load_constants(struct thread *t, struct curbe *c);
+struct vue_buffer {
+	struct rectanglef clip;
+	struct { float m00, m11, m22, m30, m31, m32; } vp;
+	struct reg vue_handles;
+	union {
+		struct reg data[4 * 33]; /* Max 33 attributes, each 4 SIMD8 regs */
+		struct {
+			struct reg clip_flags;
+			struct reg rt_index;
+			struct reg vp_index;
+			struct reg point_width;
+			__m256 x, y, z, w;
+		};
+	};
+};
+
+void init_vue_buffer(struct vue_buffer *b);
+void emit_vertex_post_processing(struct kir_program *prog, uint32_t base);
 
 void compile_ps(void);
 void reset_shader_pool(void);
