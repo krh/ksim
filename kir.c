@@ -1241,6 +1241,9 @@ kir_program_allocate_registers(struct kir_program *prog)
 			allocate_reg(&state, insn);
 			break;
 		case kir_store_region_mask:
+			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
+			insn->xfer.mask = use_reg(&state, insn, insn->xfer.mask);
+			break;
 		case kir_store_region:
 			insn->xfer.src = use_reg(&state, insn, insn->xfer.src);
 			break;
