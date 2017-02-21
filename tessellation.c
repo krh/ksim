@@ -462,25 +462,13 @@ generate_tris(struct ds_thread *t)
 	int outer = 0;
 	int inner = t->outer_level[0] + t->outer_level[1] + t->outer_level[2] + 1;
 
-	if (inner > 4) {
+	int level[3] = { t->outer_level[0], t->outer_level[1], t->outer_level[2] };
+	for (int l = t->inner_level; l > 1; l -= 2) {
 		for (int i = 0; i < 3; i++) {
-			generate_edge_tris(t, outer, t->outer_level[i],
-					   inner, t->inner_level - 2);
-			inner += t->inner_level - 2;
-			outer += t->outer_level[i];
-		}
-
-		free_vues(t, outer);
-		t->vue_tail++;
-		outer += 1;
-		inner += 1;
-	}
-
-	for (int l = t->inner_level - 2; l > 1; l -= 2) {
-		for (int i = 0; i < 3; i++) {
-			generate_edge_tris(t, outer, l, inner, l - 2);
-			outer += l;
+			generate_edge_tris(t, outer, level[i], inner, l - 2);
+			outer += level[i];
 			inner += l - 2;
+			level[i] = l - 2;
 		}
 
 		free_vues(t, outer);
