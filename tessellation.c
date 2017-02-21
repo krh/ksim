@@ -121,12 +121,44 @@ struct ds_thread {
 	struct reg *pue;
 
 	/* VUE handles for generated vertices. Tess level 63 requires
-	 * 3072 vertices. We'll need a ring buffer and rasterize as we
-	 * go instead. */
-	uint32_t all_vues[500];
-	uint32_t total_vue_count;
+	 * 3072 total vertices, but we generate triangles as we go, so
+	 * we don't need to hold that many. The most vertices we need
+	 * to hold onto at any point is the for tess level 64 for
+	 * inner all all outer. While tessellating the outer ring we
+	 * need 3 * 64 (vertices on outer edges) + 1 (for wraparound)
+	 * + 62 (vertices on inner edge) + 1 (wraparound) = 256
+	 * vertices. */
+	uint32_t vue_queue[4 * 64];
+	uint32_t vue_head, vue_tail;
 	uint32_t inner_level, outer_level[3];
 };
+
+static inline void
+add_vue(struct ds_thread *t, uint32_t handle)
+{
+	const uint32_t mask = ARRAY_LENGTH(t->vue_queue) - 1;
+	ksim_assert(t->vue_head - t->vue_tail < ARRAY_LENGTH(t->vue_queue));
+	t->vue_queue[t->vue_head++ & mask] = handle;
+}
+
+static inline uint32_t
+get_vue(struct ds_thread *t, uint32_t i)
+{
+	const uint32_t mask = ARRAY_LENGTH(t->vue_queue) - 1;
+
+	return t->vue_queue[i & mask];
+}
+
+static void
+free_vues(struct ds_thread *t, uint32_t tail)
+{
+	for (uint32_t i = t->vue_tail; i < tail; i++) {
+		uint32_t handle = get_vue(t, i);
+		free_urb_entry(&gt.ds.urb, urb_handle_to_entry(handle));
+	}
+
+	t->vue_tail = tail;
+}
 
 struct point { float x, y; };
 static const struct point svg_tri[3] = {
@@ -309,9 +341,8 @@ output_vertex(struct ds_thread *t, float u, float v)
 	t->v.f[t->count] = v;
 
 	void *entry = alloc_urb_entry(&gt.ds.urb);
-	t->buffer.vue_handles.ud[t->count] = urb_entry_to_handle(entry);
-	t->all_vues[t->total_vue_count++] = urb_entry_to_handle(entry);
-	t->count++;
+	t->buffer.vue_handles.ud[t->count++] = urb_entry_to_handle(entry);
+	add_vue(t, urb_entry_to_handle(entry));
 
 	svg_point(u, v);
 
@@ -369,16 +400,16 @@ generate_vertices(struct ds_thread *t)
 	generate_edge_vertices(t, t->outer_level[0], 0, 1.0f);
 	generate_edge_vertices(t, t->outer_level[1], 1, 1.0f);
 	generate_edge_vertices(t, t->outer_level[2], 2, 1.0f);
-	t->all_vues[t->total_vue_count++] = t->all_vues[0];
+	add_vue(t, t->vue_queue[0]);
 
 	for (int l = t->inner_level - 2; l > 0; l -= 2) {
-		int first = t->total_vue_count;
+		int first = t->vue_head;
 		float scale = (float) l / t->inner_level;
 
 		generate_edge_vertices(t, l, 0, scale);
 		generate_edge_vertices(t, l, 1, scale);
 		generate_edge_vertices(t, l, 2, scale);
-		t->all_vues[t->total_vue_count++] = t->all_vues[first];
+		add_vue(t, get_vue(t, first));
 	}
 
 	if ((t->inner_level & 1) == 0) {
@@ -391,7 +422,7 @@ generate_vertices(struct ds_thread *t)
 }
 
 static void
-generate_edge_tris(uint32_t *p,
+generate_edge_tris(struct ds_thread *t,
 		   int base0, int level0, int base1, int level1)
 {
 	struct value *vue[3];
@@ -408,17 +439,17 @@ generate_edge_tris(uint32_t *p,
 			goto advance_inner;
 
 	advance_inner:
-		vue[0] = urb_handle_to_entry(p[base1+ i1]);
-		vue[1] = urb_handle_to_entry(p[base0 + i0]);
-		vue[2] = urb_handle_to_entry(p[base1 + i1 + 1]);
+		vue[0] = urb_handle_to_entry(get_vue(t, base1+ i1));
+		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0));
+		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1 + 1));
 		setup_prim(vue, 1);
 		i1++;
 		continue;
 
 	advance_outer:
-		vue[0] = urb_handle_to_entry(p[base0 + i0]);
-		vue[1] = urb_handle_to_entry(p[base0 + i0 + 1]);
-		vue[2] = urb_handle_to_entry(p[base1 + i1]);
+		vue[0] = urb_handle_to_entry(get_vue(t, base0 + i0));
+		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0 + 1));
+		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1));
 		setup_prim(vue, 1);
 		i0++;
 		continue;
@@ -428,53 +459,50 @@ generate_edge_tris(uint32_t *p,
 static void
 generate_tris(struct ds_thread *t)
 {
-	int outer = 0, prev;
+	int outer = 0;
 	int inner = t->outer_level[0] + t->outer_level[1] + t->outer_level[2] + 1;
-	uint32_t *p = t->all_vues;
 
-	prev = outer;
 	if (inner > 4) {
 		for (int i = 0; i < 3; i++) {
-			generate_edge_tris(p, outer, t->outer_level[i],
+			generate_edge_tris(t, outer, t->outer_level[i],
 					   inner, t->inner_level - 2);
 			inner += t->inner_level - 2;
 			outer += t->outer_level[i];
 		}
 
-		for (int i = prev; i < outer; i++)
-			free_urb_entry(&gt.ds.urb, urb_handle_to_entry(p[i]));
-	
+		free_vues(t, outer);
+		t->vue_tail++;
 		outer += 1;
 		inner += 1;
 	}
 
-	prev = outer;
 	for (int l = t->inner_level - 2; l > 1; l -= 2) {
 		for (int i = 0; i < 3; i++) {
-			generate_edge_tris(p, outer, l, inner, l - 2);
+			generate_edge_tris(t, outer, l, inner, l - 2);
 			outer += l;
 			inner += l - 2;
 		}
 
-		for (int i = prev; i < outer; i++)
-			free_urb_entry(&gt.ds.urb, urb_handle_to_entry(p[i]));
-
+		free_vues(t, outer);
+		t->vue_tail++;
 		outer++;
 		inner++;
 	}
 
 	if (t->inner_level & 1) {
 		struct value *vue[3];
-		vue[0] = urb_handle_to_entry(p[outer]);
-		vue[1] = urb_handle_to_entry(p[outer + 2]);
-		vue[2] = urb_handle_to_entry(p[outer + 1]);
+		vue[0] = urb_handle_to_entry(get_vue(t, outer));
+		vue[1] = urb_handle_to_entry(get_vue(t, outer + 2));
+		vue[2] = urb_handle_to_entry(get_vue(t, outer + 1));
 
 		setup_prim(vue, 0);
-		for (int i = 0; i < 3; i++)
-			free_urb_entry(&gt.ds.urb, urb_handle_to_entry(p[outer + i]));
+		free_vues(t, outer + 3);
+		t->vue_tail++;
 	} else {
-		free_urb_entry(&gt.ds.urb, urb_handle_to_entry(p[outer]));
+		free_vues(t, outer + 1);
 	}
+
+	ksim_assert(t->vue_tail == t->vue_head);
 }
 
 void
@@ -507,7 +535,8 @@ tessellate_patch(struct value **vue)
 	struct ds_thread dt;
 
 	dt.count = 0;
-	dt.total_vue_count = 0;
+	dt.vue_head = 0;
+	dt.vue_tail = 0;
 	dt.pue = ht.pue;
 
 	dt.inner_level = ht.pue->f[4];
