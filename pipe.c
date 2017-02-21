@@ -36,11 +36,23 @@ struct vs_thread {
 };
 
 struct ia_state {
-	struct value *vue[16];
+	struct value *vue[64];
 	uint32_t head, tail;
 	int tristrip_parity;
 	struct value *trifan_first_vertex;
 };
+
+static inline void
+ia_state_add(struct ia_state *s, struct value *vue)
+{
+	s->vue[s->head++ & (ARRAY_LENGTH(s->vue) - 1)] = vue;
+}
+
+static inline struct value *
+ia_state_peek(struct ia_state *s, uint32_t i)
+{
+	return s->vue[i & (ARRAY_LENGTH(s->vue) - 1)];
+}
 
 static void
 flush_to_vues(struct vue_buffer *b, uint32_t count, struct ia_state *s)
@@ -52,11 +64,10 @@ flush_to_vues(struct vue_buffer *b, uint32_t count, struct ia_state *s)
 		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
 			vue[i] = _mm256_i32gather_epi32(&b->data[i * 8].d[c], offsets, 4);
 
-
-		s->vue[s->head++ & 15] = (struct value *) vue;
+		ia_state_add(s, (struct value *) vue);
  	}
 
-	ksim_assert(s->head - s->tail < 16);
+	ksim_assert(s->head - s->tail <= 64);
 }
 
 static void
@@ -213,7 +224,7 @@ setup_prim(struct value **vue_in, uint32_t parity)
 }
 
 static void
-assemble_primitives(struct ia_state *s)
+ia_state_flush(struct ia_state *s)
 {
 	struct value *vue[32];
 	uint32_t tail = s->tail;
@@ -222,9 +233,9 @@ assemble_primitives(struct ia_state *s)
 	switch (gt.ia.topology) {
 	case _3DPRIM_TRILIST:
 		while (s->head - tail >= 3) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
-			vue[2] = s->vue[(tail + 2) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
+			vue[2] = ia_state_peek(s, tail + 2);
 			setup_prim(vue, 0);
 			tail += 3;
 			gt.ia_primitives_count++;
@@ -233,9 +244,9 @@ assemble_primitives(struct ia_state *s)
 
 	case _3DPRIM_TRISTRIP:
 		while (s->head - tail >= 3) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
-			vue[2] = s->vue[(tail + 2) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
+			vue[2] = ia_state_peek(s, tail + 2);
 			setup_prim(vue, s->tristrip_parity);
 			tail += 1;
 			s->tristrip_parity = 1 - s->tristrip_parity;
@@ -249,7 +260,7 @@ assemble_primitives(struct ia_state *s)
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
 			ksim_assert(s->head - tail >= 1);
-			s->trifan_first_vertex = s->vue[tail & 15];
+			s->trifan_first_vertex = ia_state_peek(s, tail);
 			/* Bump the queue tail now so we don't free
 			 * the vue below */
 			s->tail++;
@@ -259,8 +270,8 @@ assemble_primitives(struct ia_state *s)
 
 		while (s->head - tail >= 2) {
 			vue[0] = s->trifan_first_vertex;
-			vue[1] = s->vue[(tail + 0) & 15];
-			vue[2] = s->vue[(tail + 1) & 15];
+			vue[1] = ia_state_peek(s, tail + 0);
+			vue[2] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, s->tristrip_parity);
 			tail += 1;
 			gt.ia_primitives_count++;
@@ -268,13 +279,13 @@ assemble_primitives(struct ia_state *s)
 		break;
 	case _3DPRIM_QUADLIST:
 		while (s->head - tail >= 4) {
-			vue[0] = s->vue[(tail + 3) & 15];
-			vue[1] = s->vue[(tail + 0) & 15];
-			vue[2] = s->vue[(tail + 1) & 15];
+			vue[0] = ia_state_peek(s, tail + 3);
+			vue[1] = ia_state_peek(s, tail + 0);
+			vue[2] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, 0);
-			vue[0] = s->vue[(tail + 3) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
-			vue[2] = s->vue[(tail + 2) & 15];
+			vue[0] = ia_state_peek(s, tail + 3);
+			vue[1] = ia_state_peek(s, tail + 1);
+			vue[2] = ia_state_peek(s, tail + 2);
 			setup_prim(vue, 0);
 			tail += 4;
 			gt.ia_primitives_count++;
@@ -282,13 +293,13 @@ assemble_primitives(struct ia_state *s)
 		break;
 	case _3DPRIM_QUADSTRIP:
 		while (s->head - tail >= 4) {
-			vue[0] = s->vue[(tail + 3) & 15];
-			vue[1] = s->vue[(tail + 0) & 15];
-			vue[2] = s->vue[(tail + 1) & 15];
+			vue[0] = ia_state_peek(s, tail + 3);
+			vue[1] = ia_state_peek(s, tail + 0);
+			vue[2] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, 0);
-			vue[0] = s->vue[(tail + 3) & 15];
-			vue[1] = s->vue[(tail + 2) & 15];
-			vue[2] = s->vue[(tail + 0) & 15];
+			vue[0] = ia_state_peek(s, tail + 3);
+			vue[1] = ia_state_peek(s, tail + 2);
+			vue[2] = ia_state_peek(s, tail + 0);
 			setup_prim(vue, 0);
 			tail += 2;
 			gt.ia_primitives_count++;
@@ -297,9 +308,9 @@ assemble_primitives(struct ia_state *s)
 
 	case _3DPRIM_RECTLIST:
 		while (s->head - tail >= 3) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
-			vue[2] = s->vue[(tail + 2) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
+			vue[2] = ia_state_peek(s, tail + 2);
 			setup_prim(vue, 0);
 			tail += 3;
 		}
@@ -307,8 +318,8 @@ assemble_primitives(struct ia_state *s)
 
 	case _3DPRIM_LINELIST:
 		while (s->head - tail >= 2) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, 0);
 			tail += 2;
 		}
@@ -316,8 +327,8 @@ assemble_primitives(struct ia_state *s)
 
 	case _3DPRIM_LINESTRIP:
 		while (s->head - tail >= 2) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, 0);
 			tail += 1;
 		}
@@ -328,27 +339,25 @@ assemble_primitives(struct ia_state *s)
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
 			ksim_assert(s->head - tail >= 1);
-			s->trifan_first_vertex = s->vue[tail & 15];
+			s->trifan_first_vertex = ia_state_peek(s, tail);
 			/* Bump the queue tail now so we don't free
 			 * the vue below */
 			s->tail++;
 		}
 
 		while (s->head - tail >= 2) {
-			vue[0] = s->vue[(tail + 0) & 15];
-			vue[1] = s->vue[(tail + 1) & 15];
+			vue[0] = ia_state_peek(s, tail + 0);
+			vue[1] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, 0);
 			tail += 1;
 		}
 		break;
 
 	case _3DPRIM_PATCHLIST_1 ... _3DPRIM_PATCHLIST_32:
-		/* FIXME: Need to bump s->vue queue size to accomodate
-		 * big patchlist primitives. */
 		count = gt.ia.topology - _3DPRIM_PATCHLIST_1 + 1;
 		while (s->head - tail >= count) {
 			for (uint32_t i = 0; i < count; i++)
-				vue[i] = s->vue[(tail + i) & 15];
+				vue[i] = ia_state_peek(s, tail + i);
 			tessellate_patch(vue);
 			tail += count;
 		}
@@ -361,13 +370,13 @@ assemble_primitives(struct ia_state *s)
 	}
 
 	while (tail - s->tail > 0) {
-		struct value *vue = s->vue[s->tail++ & 15];
+		struct value *vue = ia_state_peek(s, s->tail++);
 		free_urb_entry(&gt.vs.urb, vue);
 	}
 }
 
 void
-reset_ia_state(struct ia_state *s)
+ia_state_reset(struct ia_state *s)
 {
 	struct value *vue[3];
 	uint32_t tail = s->tail;
@@ -375,7 +384,7 @@ reset_ia_state(struct ia_state *s)
 	switch (gt.ia.topology) {
 	case _3DPRIM_LINELOOP:
 		if (s->head - tail == 1) {
-			vue[0] = s->vue[(tail + 0) & 15];
+			vue[0] = ia_state_peek(s, tail);
 			vue[1] = s->trifan_first_vertex;
 			setup_prim(vue, 0);
 			gt.ia_primitives_count++;
@@ -391,7 +400,7 @@ reset_ia_state(struct ia_state *s)
 	}
 
 	while (s->head - s->tail > 0) {
-		struct value *vue = s->vue[s->tail++ & 15];
+		struct value *vue = ia_state_peek(s, s->tail++);
 		free_urb_entry(&gt.vs.urb, vue);
 	}
 
@@ -878,10 +887,10 @@ dispatch_primitive(void)
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			dispatch_vs(&t, iid, i, &state);
-			assemble_primitives(&state);
+			ia_state_flush(&state);
 		}
 
-		reset_ia_state(&state);
+		ia_state_reset(&state);
 	}
 
 	if (gt.vf.statistics)
