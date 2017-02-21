@@ -547,7 +547,9 @@ tessellate_patch(struct value **vue)
 	dt.pue_grf = gt.hs.urb_start_grf + load_constants(&dt.t, &gt.ds.curbe);
 	init_vue_buffer(&dt.buffer);
 
-	svg_start(&dt);
+	if (TRACE_TS & trace_mask)
+		svg_start(&dt);
+
 	generate_vertices(&dt);
 
 	svg_end();
