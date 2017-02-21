@@ -39,7 +39,7 @@ struct ia_state {
 	struct value *vue[64];
 	uint32_t head, tail;
 	int tristrip_parity;
-	struct value *trifan_first_vertex;
+	struct value *first_vertex;
 };
 
 static inline void
@@ -256,11 +256,11 @@ ia_state_flush(struct ia_state *s)
 
 	case _3DPRIM_POLYGON:
 	case _3DPRIM_TRIFAN:
-		if (s->trifan_first_vertex == NULL) {
+		if (s->first_vertex == NULL) {
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
 			ksim_assert(s->head - tail >= 1);
-			s->trifan_first_vertex = ia_state_peek(s, tail);
+			s->first_vertex = ia_state_peek(s, tail);
 			/* Bump the queue tail now so we don't free
 			 * the vue below */
 			s->tail++;
@@ -269,7 +269,7 @@ ia_state_flush(struct ia_state *s)
 		}
 
 		while (s->head - tail >= 2) {
-			vue[0] = s->trifan_first_vertex;
+			vue[0] = s->first_vertex;
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
 			setup_prim(vue, s->tristrip_parity);
@@ -335,11 +335,11 @@ ia_state_flush(struct ia_state *s)
 		break;
 
 	case _3DPRIM_LINELOOP:
-		if (s->trifan_first_vertex == NULL) {
+		if (s->first_vertex == NULL) {
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
 			ksim_assert(s->head - tail >= 1);
-			s->trifan_first_vertex = ia_state_peek(s, tail);
+			s->first_vertex = ia_state_peek(s, tail);
 			/* Bump the queue tail now so we don't free
 			 * the vue below */
 			s->tail++;
@@ -385,7 +385,7 @@ ia_state_reset(struct ia_state *s)
 	case _3DPRIM_LINELOOP:
 		if (s->head - tail == 1) {
 			vue[0] = ia_state_peek(s, tail);
-			vue[1] = s->trifan_first_vertex;
+			vue[1] = s->first_vertex;
 			setup_prim(vue, 0);
 			gt.ia_primitives_count++;
 		}
@@ -394,9 +394,9 @@ ia_state_reset(struct ia_state *s)
 		break;
 	}
 
-	if (s->trifan_first_vertex) {
-		free_urb_entry(&gt.vs.urb, s->trifan_first_vertex);
-		s->trifan_first_vertex = NULL;
+	if (s->first_vertex) {
+		free_urb_entry(&gt.vs.urb, s->first_vertex);
+		s->first_vertex = NULL;
 	}
 
 	while (s->head - s->tail > 0) {
