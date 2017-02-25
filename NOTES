@@ -2,13 +2,17 @@
 
 * GEM/Stub
 
-* Stages
+* Geometry
 
-** Geometry
+All of it.
 
-** Tesselation
+* Tesselation
 
-** Compute
+** Support for output topologies and domains other than tris.
+
+* Compute
+
+Push constant support.
 
 * Fixed function
 
@@ -19,6 +23,12 @@ HiZ.
 ** Stencil
 
 ** Blending
+
+* Sampler
+
+BC1 degenerate block support
+
+Finish BC4 support.
 
 * Thread pool
 
