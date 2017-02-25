@@ -61,9 +61,8 @@ extern char *framebuffer_filename;
 extern bool use_threads;
 
 static inline void
-ksim_trace(uint32_t tag, const char *fmt, ...)
+__ksim_trace(uint32_t tag, const char *fmt, ...)
 {
-#ifndef KSIM_BUILD_RELEASE
 	va_list va;
 
 	if ((tag & trace_mask) == 0)
@@ -75,8 +74,10 @@ ksim_trace(uint32_t tag, const char *fmt, ...)
 
 	if (tag & breakpoint_mask)
 		raise(SIGTRAP);
-#endif
 }
+
+#define ksim_trace(tag, fmt, ...) \
+	do { if ((tag) & trace_mask) __ksim_trace(tag, fmt, ##__VA_ARGS__); } while (0)
 
 #define trace(tag, format, ...)			\
 	ksim_trace(tag, format, ##__VA_ARGS__)
