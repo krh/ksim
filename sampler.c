@@ -171,10 +171,18 @@ sfid_sampler_ld_simd4x2_linear(struct thread *t, const struct sfid_sampler_args 
 	}
 }
 
-void
-load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, struct reg *dst)
+static void
+load_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
+		  __m256i offsets, __m256i emask, struct reg *dst, int rlen)
 {
-	const __m256i zero = _mm256_set1_epi32(0.0f);
+	const __m256i zero = _mm256_set1_epi32(0);
+	struct reg v[4];
+
+	/* Default color for unsupported sampler formats: red. */
+	v[0].reg = _mm256_set1_ps(1.0f);
+	v[1].reg = _mm256_setzero_ps();
+	v[2].reg = _mm256_set1_ps(0.0f);
+	v[3].reg = _mm256_set1_ps(1.0f);
 
 	/* Grr, _mm256_mask_i32gather_epi32() is a macro that doesn't
 	 * properly protect its arguments and casts the base pointer
@@ -185,28 +193,22 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 	case SF_R32_FLOAT:
 	case SF_R32_SINT:
 	case SF_R32_UINT:
-		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[1].reg = _mm256_setzero_ps();
-		dst[2].reg = _mm256_setzero_ps();
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
 		break;
 
 	case SF_R32G32_FLOAT:
 	case SF_R32G32_SINT:
 	case SF_R32G32_UINT:
-		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].reg = _mm256_setzero_ps();
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		v[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
 		break;
 
 	case SF_R32G32B32_FLOAT:
 	case SF_R32G32B32_SINT:
 	case SF_R32G32B32_UINT:
-		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		v[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		v[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
 		break;
 
 	case SF_R16G16_SSCALED:
@@ -215,10 +217,8 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		const __m256i mask = _mm256_set1_epi32(0xffff);
 
 		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
-		dst[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
-		dst[2].reg = _mm256_setzero_ps();
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
+		v[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
 		break;
 	}
 
@@ -228,21 +228,20 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		const __m256i mask = _mm256_set1_epi32(0xffff);
 
 		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
-		dst[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
+		v[0].reg = _mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask));
+		v[1].reg = _mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16));
 		ba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].reg = _mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask));
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[2].reg = _mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask));
 		break;
 	}
 
 	case SF_R32G32B32A32_FLOAT:
 	case SF_R32G32B32A32_SINT:
 	case SF_R32G32B32A32_UINT:
-		dst[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
-		dst[3].ireg = _mm256_mask_i32gather_epi32(zero, (p + 12), offsets, emask, 1);
+		v[0].ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+		v[1].ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+		v[2].ireg = _mm256_mask_i32gather_epi32(zero, (p + 8), offsets, emask, 1);
+		v[3].ireg = _mm256_mask_i32gather_epi32(zero, (p + 12), offsets, emask, 1);
 		break;
 
 	case SF_R16G16B16A16_UINT: {
@@ -250,11 +249,11 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rg, ba;
 
 		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].ireg = _mm256_and_si256(rg.ireg, mask);
-		dst[1].ireg = _mm256_srli_epi32(rg.ireg, 16);
+		v[0].ireg = _mm256_and_si256(rg.ireg, mask);
+		v[1].ireg = _mm256_srli_epi32(rg.ireg, 16);
 		ba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].ireg = _mm256_and_si256(ba.ireg, mask);
-		dst[3].ireg = _mm256_srli_epi32(ba.ireg, 16);
+		v[2].ireg = _mm256_and_si256(ba.ireg, mask);
+		v[3].ireg = _mm256_srli_epi32(ba.ireg, 16);
 		break;
 	}
 
@@ -264,11 +263,11 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rg, ba;
 
 		rg.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
-		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16)), scale);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rg.ireg, mask)), scale);
+		v[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_srli_epi32(rg.ireg, 16)), scale);
 		ba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
-		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask)), scale);
-		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_srli_epi32(ba.ireg, 16)), scale);
+		v[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(ba.ireg, mask)), scale);
+		v[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_srli_epi32(ba.ireg, 16)), scale);
 		break;
 	}
 
@@ -278,12 +277,11 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgbx;
 
 		rgbx.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
 		rgbx.ireg = _mm256_srli_epi32(rgbx.ireg, 8);
-		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
+		v[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
 		rgbx.ireg = _mm256_srli_epi32(rgbx.ireg, 8);
-		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgbx.ireg, mask)), scale);
 		break;
 	}
 
@@ -293,13 +291,13 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgba;
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		v[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		v[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		v[3].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		break;
 	}
 
@@ -309,12 +307,12 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg bgrx;
 
 		bgrx.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		v[2].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
 		bgrx.ireg = _mm256_srli_epi32(bgrx.ireg, 8);
-		dst[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		v[1].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
 		bgrx.ireg = _mm256_srli_epi32(bgrx.ireg, 8);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(bgrx.ireg, mask)), scale);
+		v[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
 
@@ -323,13 +321,13 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgba;
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].ireg = _mm256_and_si256(rgba.ireg, mask);
+		v[0].ireg = _mm256_and_si256(rgba.ireg, mask);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[1].ireg = _mm256_and_si256(rgba.ireg, mask);
+		v[1].ireg = _mm256_and_si256(rgba.ireg, mask);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[2].ireg = _mm256_and_si256(rgba.ireg, mask);
+		v[2].ireg = _mm256_and_si256(rgba.ireg, mask);
 		rgba.ireg = _mm256_srli_epi32(rgba.ireg, 8);
-		dst[3].ireg = _mm256_and_si256(rgba.ireg, mask);
+		v[3].ireg = _mm256_and_si256(rgba.ireg, mask);
 		break;
 	}
 
@@ -339,10 +337,7 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgba;
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
-		dst[1].reg = _mm256_setzero_ps();
-		dst[2].reg = _mm256_setzero_ps();
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
 		break;
 	}
 
@@ -352,10 +347,9 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgba;
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, p, offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
-		dst[1].reg = dst[0].reg;
-		dst[2].reg = dst[0].reg;
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(rgba.ireg, mask)), scale);
+		v[1].reg = v[0].reg;
+		v[2].reg = v[0].reg;
 		break;
 	}
 
@@ -364,13 +358,10 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg rgba;
 
 		rgba.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[0].ireg = _mm256_and_si256(rgba.ireg, mask);
+		v[0].ireg = _mm256_and_si256(rgba.ireg, mask);
 		/* Not sure this makes sense, but the spec clearly
 		 * says 0.0 and 1.0, even though this is a UINT
 		 * format. */
-		dst[1].reg = _mm256_setzero_ps();
-		dst[2].reg = _mm256_setzero_ps();
-		dst[3].reg = _mm256_set1_ps(1.0f);
 		break;
 	}
 
@@ -380,21 +371,19 @@ load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i emask, stru
 		struct reg r;
 
 		r.ireg = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
-		dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(r.ireg, mask)), scale);
-		dst[1].reg = dst[0].reg;
-		dst[2].reg = dst[0].reg;
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		v[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(r.ireg, mask)), scale);
+		v[1].reg = v[0].reg;
+		v[2].reg = v[0].reg;
 		break;
 	}
 
 	default:
-		dst[0].reg = _mm256_set1_ps(1.0f);
-		dst[1].reg = _mm256_set1_ps(0.0f);
-		dst[2].reg = _mm256_set1_ps(0.0f);
-		dst[3].reg = _mm256_set1_ps(1.0f);
 		stub("sampler ld format %d", format);
 		break;
 	}
+
+	for (uint32_t i = 0; i < rlen; i++)
+		dst[i].ireg = v[i].ireg;
 }
 
 static void
@@ -412,7 +401,7 @@ sfid_sampler_ld_simd8_linear(struct thread *t, const struct sfid_sampler_args *a
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(p, args->tex.format,
-			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst], args->rlen);
 }
 
 static void
@@ -429,7 +418,7 @@ sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *
 				 _mm256_mullo_epi32(v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(p, args->tex.format,
-			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst], args->rlen);
 
 	u.ireg = t->grf[args->src + 2].ireg;
 	v.ireg = t->grf[args->src + 3].ireg;
@@ -439,7 +428,7 @@ sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *
 
 	uint32_t dst1 = args->dst + format_channels(args->tex.format);
 	load_format_simd8(p, args->tex.format,
-			  offsets.ireg, t->mask_q2, &t->grf[dst1]);
+			  offsets.ireg, t->mask_q2, &t->grf[dst1], args->rlen);
 }
 
 struct sample_position {
@@ -535,7 +524,7 @@ sfid_sampler_sample_simd8_linear(struct thread *t, const struct sfid_sampler_arg
 				 _mm256_mullo_epi32(pos.v.ireg, _mm256_set1_epi32(args->tex.stride)));
 
 	load_format_simd8(args->tex.pixels, args->tex.format,
-			  offsets.ireg, t->mask_q1, &t->grf[args->dst]);
+			  offsets.ireg, t->mask_q1, &t->grf[args->dst], args->rlen);
 }
 
 static void
@@ -598,7 +587,7 @@ sfid_sampler_sample_simd8_xmajor(struct thread *t, const struct sfid_sampler_arg
 					  _mm256_add_epi32(intra_column_offset, column_offset));
 
 	load_format_simd8(args->tex.pixels, args->tex.format,
-			  offset, t->mask_q1, &t->grf[args->dst]);
+			  offset, t->mask_q1, &t->grf[args->dst], args->rlen);
 }
 
 static void

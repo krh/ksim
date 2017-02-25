@@ -655,7 +655,6 @@ uint32_t format_size(uint32_t format);
 uint32_t format_channels(uint32_t format);
 uint32_t format_block_size(uint32_t format);
 uint32_t depth_format_size(uint32_t format);
-void load_format_simd8(void *p, uint32_t format, __m256i offsets, __m256i mask, struct reg *dst);
 
 struct blit {
 	int32_t raster_op;
