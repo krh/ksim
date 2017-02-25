@@ -311,6 +311,31 @@ sfid_render_cache_rt_write_simd16(struct thread *t,
 	stub("sfid_render_cache_rt_write_simd16");
 }
 
+struct unpacked_rgba_uint32 {
+	__m256i rgba04;
+	__m256i rgba15;
+	__m256i rgba26;
+	__m256i rgba37;
+};
+
+static inline struct unpacked_rgba_uint32
+unpack_rgba_uint32(const struct reg *src)
+{
+	struct unpacked_rgba_uint32 u;
+
+	__m256i rg0145 = _mm256_unpacklo_epi32(src[0].ireg, src[1].ireg);
+	__m256i rg2367 = _mm256_unpackhi_epi32(src[0].ireg, src[1].ireg);
+	__m256i ba0145 = _mm256_unpacklo_epi32(src[2].ireg, src[3].ireg);
+	__m256i ba2367 = _mm256_unpackhi_epi32(src[2].ireg, src[3].ireg);
+
+	u.rgba04 = _mm256_unpacklo_epi64(rg0145, ba0145);
+	u.rgba15 = _mm256_unpackhi_epi64(rg0145, ba0145);
+	u.rgba26 = _mm256_unpacklo_epi64(rg2367, ba2367);
+	u.rgba37 = _mm256_unpackhi_epi64(rg2367, ba2367);
+
+	return u;
+}
+
 static void
 sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 						    const struct sfid_render_cache_args *args)
@@ -318,41 +343,62 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x = t->grf[1].uw[4];
 	const int y = t->grf[1].uw[5] + slice_y;
-	const struct reg *src = &t->grf[args->src];
 
 	__m128i *base0 = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 	__m128i *base1 = (void *) base0 + args->rt.stride;
 
-	__m256i rg0145 = _mm256_unpacklo_epi32(src[0].ireg, src[1].ireg);
-	__m256i rg2367 = _mm256_unpackhi_epi32(src[0].ireg, src[1].ireg);
-	__m256i ba0145 = _mm256_unpacklo_epi32(src[2].ireg, src[3].ireg);
-	__m256i ba2367 = _mm256_unpackhi_epi32(src[2].ireg, src[3].ireg);
-
-	__m256i rgba04 = _mm256_unpacklo_epi64(rg0145, ba0145);
-	__m256i rgba15 = _mm256_unpackhi_epi64(rg0145, ba0145);
-
-	__m256i rgba26 = _mm256_unpacklo_epi64(rg2367, ba2367);
-	__m256i rgba37 = _mm256_unpackhi_epi64(rg2367, ba2367);
-
+	struct unpacked_rgba_uint32 u = unpack_rgba_uint32(&t->grf[args->src]);
 	struct reg mask = { .ireg = t->mask_q1 };
 
 	if (mask.d[0] < 0)
-		base0[0] = _mm256_extractf128_si256(rgba04, 0);
+		base0[0] = _mm256_extractf128_si256(u.rgba04, 0);
 	if (mask.d[1] < 0)
-		base0[1] = _mm256_extractf128_si256(rgba15, 0);
+		base0[1] = _mm256_extractf128_si256(u.rgba15, 0);
 	if (mask.d[2] < 0)
-		base1[0] = _mm256_extractf128_si256(rgba26, 0);
+		base1[0] = _mm256_extractf128_si256(u.rgba26, 0);
 	if (mask.d[3] < 0)
-		base1[1] = _mm256_extractf128_si256(rgba37, 0);
+		base1[1] = _mm256_extractf128_si256(u.rgba37, 0);
 
 	if (mask.d[4] < 0)
-		base0[2] = _mm256_extractf128_si256(rgba04, 1);
+		base0[2] = _mm256_extractf128_si256(u.rgba04, 1);
 	if (mask.d[5] < 0)
-		base0[3] = _mm256_extractf128_si256(rgba15, 1);
+		base0[3] = _mm256_extractf128_si256(u.rgba15, 1);
 	if (mask.d[6] < 0)
-		base1[2] = _mm256_extractf128_si256(rgba26, 1);
+		base1[2] = _mm256_extractf128_si256(u.rgba26, 1);
 	if (mask.d[7] < 0)
-		base1[3] = _mm256_extractf128_si256(rgba37, 1);
+		base1[3] = _mm256_extractf128_si256(u.rgba37, 1);
+}
+
+static void
+sfid_render_cache_rt_write_simd8_rgba_uint32_ymajor(struct thread *t,
+						    const struct sfid_render_cache_args *args)
+{
+	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
+	const int x = t->grf[1].uw[4];
+	const int y = t->grf[1].uw[5] + slice_y;
+
+	const int cpp = 16;
+	__m128i *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
+	struct unpacked_rgba_uint32 u = unpack_rgba_uint32(&t->grf[args->src]);
+	struct reg mask = { .ireg = t->mask_q1 };
+
+	if (mask.d[0] < 0)
+		base[0] = _mm256_extractf128_si256(u.rgba04, 0);
+	if (mask.d[1] < 0)
+		base[32] = _mm256_extractf128_si256(u.rgba15, 0);
+	if (mask.d[2] < 0)
+		base[1] = _mm256_extractf128_si256(u.rgba26, 0);
+	if (mask.d[3] < 0)
+		base[33] = _mm256_extractf128_si256(u.rgba37, 0);
+
+	if (mask.d[4] < 0)
+		base[64] = _mm256_extractf128_si256(u.rgba04, 1);
+	if (mask.d[5] < 0)
+		base[96] = _mm256_extractf128_si256(u.rgba15, 1);
+	if (mask.d[6] < 0)
+		base[65] = _mm256_extractf128_si256(u.rgba26, 1);
+	if (mask.d[7] < 0)
+		base[97] = _mm256_extractf128_si256(u.rgba37, 1);
 }
 
 static void
@@ -608,6 +654,9 @@ pick_render_cache_function(enum message_type type, enum message_subtype subtype,
 			else if (args->rt.format == SF_R8G8B8A8_UINT &&
 				 args->rt.tile_mode == YMAJOR)
 				return sfid_render_cache_rt_write_simd8_rgba8_ymajor;
+			else if (args->rt.format == SF_R32G32B32A32_UINT &&
+				 args->rt.tile_mode == YMAJOR)
+				return sfid_render_cache_rt_write_simd8_rgba_uint32_ymajor;
 
 			stub("simd8 rt write format/tile_mode: %d %d",
 			     args->rt.format, args->rt.tile_mode);
