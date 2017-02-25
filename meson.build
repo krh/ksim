@@ -48,7 +48,7 @@ ksim_files = files(
 	'pipe.c',
 	'render-cache.c',
 	'sampler.c',
-	'stub.c',
+	'gem.c',
 	'surface.c',
 	'tessellation.c',
 	'thread.c',
