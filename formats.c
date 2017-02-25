@@ -27,9 +27,9 @@
 #define SRGB 2
 
 static const struct format_info {
-	uint32_t size;
+	uint32_t size;		/* size in bytes of a pixel or compression block */
 	uint32_t channels;
-	uint32_t block_size;
+	uint32_t block_size;	/* width and height of a block, 1 indicates non-block format */
 	uint32_t caps;
 } formats[] = {
 	[SF_R32G32B32A32_FLOAT]			= { .size = 16, .channels = 4, .block_size = 1, .caps = V },
@@ -193,14 +193,14 @@ static const struct format_info {
 	[SF_YCRCB_SWAPUVY]			= { .size =  0, .channels = 3, .block_size = 1, .caps = 0 },
 	[SF_P2_UNORM_PALETTE0]			= { .size =  0, .channels = 1, .block_size = 1, .caps = 0 },
 	[SF_P2_UNORM_PALETTE1]			= { .size =  0, .channels = 1, .block_size = 1, .caps = 0 },
-	[SF_BC1_UNORM]				= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 },
-	[SF_BC2_UNORM]				= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 },
-	[SF_BC3_UNORM]				= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 },
-	[SF_BC4_UNORM]				= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 },
-	[SF_BC5_UNORM]				= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 },
-	[SF_BC1_UNORM_SRGB]			= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
-	[SF_BC2_UNORM_SRGB]			= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
-	[SF_BC3_UNORM_SRGB]			= { .size =  0, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
+	[SF_BC1_UNORM]				= { .size =  8, .channels = 3, .block_size = 4, .caps = 0 },
+	[SF_BC2_UNORM]				= { .size = 16, .channels = 3, .block_size = 4, .caps = 0 },
+	[SF_BC3_UNORM]				= { .size = 16, .channels = 3, .block_size = 4, .caps = 0 },
+	[SF_BC4_UNORM]				= { .size =  8, .channels = 3, .block_size = 4, .caps = 0 },
+	[SF_BC5_UNORM]				= { .size = 16, .channels = 3, .block_size = 4, .caps = 0 },
+	[SF_BC1_UNORM_SRGB]			= { .size =  8, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
+	[SF_BC2_UNORM_SRGB]			= { .size = 16, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
+	[SF_BC3_UNORM_SRGB]			= { .size = 16, .channels = 3, .block_size = 4, .caps = 0 | SRGB },
 	[SF_MONO8]				= { .size =  0, .channels = 1, .block_size = 1, .caps = 0 },
 	[SF_YCRCB_SWAPUV]			= { .size =  0, .channels = 3, .block_size = 1, .caps = 0 },
 	[SF_YCRCB_SWAPY]			= { .size =  0, .channels = 3, .block_size = 1, .caps = 0 },
