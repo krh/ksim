@@ -1047,12 +1047,45 @@ kir_program_dead_code_elimination(struct kir_program *prog)
 	}
 }
 
+struct bit_vector {
+	uint64_t bits[2];
+};
+
+static void
+bit_vector_init(struct bit_vector *v)
+{
+	v->bits[0] = ~0ul;
+	v->bits[1] = ~0ul;
+}
+
+static uint32_t
+bit_vector_alloc(struct bit_vector *v)
+{
+	for (uint32_t i = 0; i < ARRAY_LENGTH(v->bits); i++) {
+		if (v->bits[i]) {
+			uint32_t b = __builtin_ffsl(v->bits[i]) - 1;
+			v->bits[i] &= ~(1ul << b);
+			return b + i * 64;
+		}
+	}
+
+	ksim_unreachable();
+	return 0;
+}
+
+static void
+bit_vector_free(struct bit_vector *v, uint32_t b)
+{
+	ksim_assert((v->bits[b >> 6] & (1ul << (b & 63))) == 0);
+	v->bits[b >> 6] |= 1ul << (b & 63);
+}
+
 struct ra_state {
 	uint32_t *range;
 	uint32_t regs;
 	uint8_t *reg_to_avx;
 	struct kir_reg avx_to_reg[16];
-	uint64_t spill_slots;	/* Bitmask of spill slots */
+	struct bit_vector spill_slots;
 	uint32_t locked_regs;	/* Don't spill these */
 	uint32_t exclude_regs;	/* Don't allocate these */
 
@@ -1078,9 +1111,7 @@ pick_spill_reg(struct ra_state *state)
 static void
 spill_reg(struct ra_state *state, struct kir_insn *insn, int avx_reg)
 {
-	ksim_assert(state->spill_slots);
-	int slot = __builtin_ffsl(state->spill_slots) - 1;
-	state->spill_slots &= ~(1ul << slot);
+	int slot = bit_vector_alloc(&state->spill_slots);
 
 	ksim_trace(TRACE_RA, "\tspill ymm%d to slot %d\n", avx_reg, slot);
 
@@ -1136,7 +1167,7 @@ unspill_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 
 	int avx_reg = __builtin_ffs(regs) - 1;
 	uint32_t slot = state->reg_to_avx[reg.n] - 16;
-	state->spill_slots |= (1ul << slot);
+	bit_vector_free(&state->spill_slots, slot);
 
 	ksim_trace(TRACE_RA, "\tunspill slot %d to ymm%d\n", slot, avx_reg);
 
@@ -1237,7 +1268,7 @@ kir_program_allocate_registers(struct kir_program *prog)
 
 	ksim_trace(TRACE_RA, "# --- ra debug dump\n");
 
-	state.spill_slots = ~0ul;
+	bit_vector_init(&state.spill_slots);
 	state.regs = 0xffff;
 	state.reg_to_avx = malloc(count * sizeof(state.reg_to_avx[0]));
 	memset(state.reg_to_avx, 0xff, count * sizeof(state.reg_to_avx[0]));
