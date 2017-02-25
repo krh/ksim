@@ -762,8 +762,11 @@ rasterize_primitive(struct value **vue)
 void
 wm_flush(void)
 {
-	if (framebuffer_filename)
-		dump_surface(framebuffer_filename, gt.ps.binding_table_address, 0);
+	if (framebuffer_filename) {
+		struct surface s;
+		get_surface(gt.ps.binding_table_address, 0, &s);
+		dump_surface(framebuffer_filename, &s);
+	}
 }
 
 void

@@ -130,16 +130,13 @@ detile_ymajor(struct surface *s, __m256i alpha)
 }
 
 void
-dump_surface(const char *filename, uint32_t binding_table_offset, int i)
+dump_surface(const char *filename, struct surface *s)
 {
-	struct surface s;
 	char *linear;
 	__m256i alpha;
 
-	get_surface(binding_table_offset, i, &s);
-
 	int png_format;
-	switch (s.format) {
+	switch (s->format) {
 	case SF_R8G8B8X8_UNORM:
 	case SF_R8G8B8A8_UNORM:
 	case SF_R8G8B8X8_UNORM_SRGB:
@@ -157,7 +154,7 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 		return;
 	}
 
-	switch (s.format) {
+	switch (s->format) {
 	case SF_R8G8B8X8_UNORM:
 	case SF_B8G8R8X8_UNORM:
 	case SF_R8G8B8X8_UNORM_SRGB:
@@ -169,18 +166,18 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 		break;
 	}
 
-	switch (s.tile_mode) {
+	switch (s->tile_mode) {
 	case LINEAR:
-		linear = s.pixels;
+		linear = s->pixels;
 		break;
 	case XMAJOR:
-		linear = detile_xmajor(&s, alpha);
+		linear = detile_xmajor(s, alpha);
 		break;
 	case YMAJOR:
-		linear = detile_ymajor(&s, alpha);
+		linear = detile_ymajor(s, alpha);
 		break;
 	default:
-		linear = s.pixels;
+		linear = s->pixels;
 		stub("detile wmajor");
 		break;
 	}
@@ -190,15 +187,15 @@ dump_surface(const char *filename, uint32_t binding_table_offset, int i)
 
 	png_image pi = {
 		.version = PNG_IMAGE_VERSION,
-		.width = s.width,
-		.height = s.height,
+		.width = s->width,
+		.height = s->height,
 		.format = png_format
 	};
 
-	ksim_assert(png_image_write_to_stdio(&pi, f, 0, linear, s.stride, NULL));
+	ksim_assert(png_image_write_to_stdio(&pi, f, 0, linear, s->stride, NULL));
 
 	fclose(f);
 
-	if (linear != s.pixels)
+	if (linear != s->pixels)
 		free(linear);
 }
