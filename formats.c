@@ -268,7 +268,8 @@ srgb_format(uint32_t format)
 {
 	ksim_assert(format <= SF_RAW);
 
-	return formats[format].caps & SRGB;
+	//return formats[format].caps & SRGB;
+	return false;
 }
 
 uint32_t

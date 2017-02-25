@@ -171,6 +171,126 @@ sfid_sampler_ld_simd4x2_linear(struct thread *t, const struct sfid_sampler_args 
 	}
 }
 
+struct sample_position {
+	struct reg u;
+	struct reg v;
+	struct reg r;
+};
+
+static void
+decode_bc1(void *p, __m256i offsets, __m256i emask, struct reg *dst,
+	   struct sample_position *block_pos)
+{
+	const __m256i zero = _mm256_set1_epi32(0);
+
+	__m256i c0;
+
+	c0 = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+#if 0
+	__m256i c1 = _mm256_srli_epi32(c0, 16);
+	__m256i order = _mm256_cmpgt_epi32(c0, c1);
+#endif
+
+	__m256i mask5 = _mm256_set1_epi32(0x1f);
+	__m256i mask6 = _mm256_set1_epi32(0x3f);
+
+	__m256i b0 = _mm256_and_si256(c0, mask5);
+	__m256i b1 = _mm256_and_si256(_mm256_srli_epi32(c0, 16), mask5);
+
+	__m256i g0 = _mm256_and_si256(_mm256_srli_epi32(c0, 5), mask6);
+	__m256i g1 = _mm256_and_si256(_mm256_srli_epi32(c0, 21), mask6);
+
+	__m256i r0 = _mm256_and_si256(_mm256_srli_epi32(c0, 11), mask5);
+	__m256i r1 = _mm256_srli_epi32(c0, 27);
+
+	__m256i bits = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+
+	__m256i bit_position =
+		_mm256_or_si256(_mm256_slli_epi32(block_pos->u.ireg, 1),
+				_mm256_slli_epi32(block_pos->v.ireg, 3));
+
+	bits = _mm256_and_si256(_mm256_srlv_epi32(bits, bit_position),
+				_mm256_set1_epi32(0x3));
+
+	__m256 third = _mm256_set1_ps(1.0f / 3.0f);
+	__m256 scale5 = _mm256_set1_ps(1.0f / 31.0f);
+	__m256 scale6 = _mm256_set1_ps(1.0f / 63.0f);
+
+	__m256 tv = _mm256_mul_ps(_mm256_cvtepi32_ps(bits), third);
+
+	__m256 rd = _mm256_cvtepi32_ps(_mm256_sub_epi32(r1, r0));
+	dst[0].reg = _mm256_mul_ps(_mm256_fmadd_ps(tv, rd, _mm256_cvtepi32_ps(r0)), scale5);
+
+	__m256 gd = _mm256_cvtepi32_ps(_mm256_sub_epi32(g1, g0));
+	dst[1].reg = _mm256_mul_ps(_mm256_fmadd_ps(tv, gd, _mm256_cvtepi32_ps(g0)), scale6);
+
+	__m256 bd = _mm256_cvtepi32_ps(_mm256_sub_epi32(b1, b0));
+	dst[2].reg = _mm256_mul_ps(_mm256_fmadd_ps(tv, bd, _mm256_cvtepi32_ps(b0)), scale5);
+
+	dst[3].reg = _mm256_set1_ps(1.0f);
+}
+
+static void
+decode_bc4(void *p, __m256i offsets, __m256i emask, struct reg *dst,
+	   struct sample_position *block_pos)
+{
+	/* Single channel format. two bytes are endpoints, 6 bytes are
+	 * 16 unorm3 coefficients. */
+	const __m256i zero = _mm256_set1_epi32(0);
+	__m256i c0 = _mm256_mask_i32gather_epi32(zero, (p + 0), offsets, emask, 1);
+	__m256i c1 = _mm256_mask_i32gather_epi32(zero, (p + 4), offsets, emask, 1);
+
+	const __m256i mask8 = _mm256_set1_epi32(0xff);
+	__m256i a0 = _mm256_and_si256(c0, mask8);
+	__m256i a1 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask8);
+
+	__m256 scale8 = _mm256_set1_ps(1.0f / 255.0f);
+
+	/* cmp, then blendv to pick c0 or c1 */;
+
+	dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(a0), scale8);
+}
+
+void
+load_block_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
+			__m256i offsets, __m256i emask, struct reg *dst,
+			struct sample_position *block_pos)
+{
+	switch (format) {
+	case SF_BC1_UNORM:
+		decode_bc1(p, offsets, emask, &dst[0], block_pos);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	case SF_BC2_UNORM:
+		ksim_unreachable();
+		break;
+
+	case SF_BC3_UNORM:
+		decode_bc1(p + 8, offsets, emask, &dst[0], block_pos);
+		decode_bc4(p, offsets, emask, &dst[3], block_pos);
+		break;
+
+	case SF_BC4_UNORM:
+		decode_bc4(p, offsets, emask, &dst[0], block_pos);
+		dst[1].reg = _mm256_set1_ps(0.0f);
+		dst[2].reg = _mm256_set1_ps(0.0f);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	case SF_BC5_UNORM:
+		decode_bc4(p, offsets, emask, &dst[0], block_pos);
+		decode_bc4(p + 8, offsets, emask, &dst[1], block_pos);
+		dst[2].reg = _mm256_set1_ps(0.0f);
+		dst[3].reg = _mm256_set1_ps(1.0f);
+		break;
+
+	default:
+		stub("block format");
+		break;
+	}
+}
+
 static void
 load_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
 		  __m256i offsets, __m256i emask, struct reg *dst, int rlen)
@@ -377,6 +497,9 @@ load_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
 		break;
 	}
 
+	case SF_BC3_UNORM:
+		ksim_unreachable();
+
 	default:
 		stub("sampler ld format %d", format);
 		break;
@@ -430,12 +553,6 @@ sfid_sampler_ld_simd16_linear(struct thread *t, const struct sfid_sampler_args *
 	load_format_simd8(p, args->tex.format,
 			  offsets.ireg, t->mask_q2, &t->grf[dst1], args->rlen);
 }
-
-struct sample_position {
-	struct reg u;
-	struct reg v;
-	struct reg r;
-};
 
 static void
 transform_sample_position(const struct sfid_sampler_args *args, struct reg *src,
@@ -531,8 +648,20 @@ static void
 sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_args *args)
 {
 	struct sample_position pos;
+	struct sample_position block_pos;
 
 	transform_sample_position(args, &t->grf[args->src], &pos);
+
+	uint32_t bs = format_block_size(args->tex.format);
+	if (bs > 1) {
+		const int log2_bs = __builtin_ffs(bs) - 1;
+		__m256i mask = _mm256_set1_epi32(bs - 1);
+		block_pos.u.ireg = _mm256_and_si256(pos.u.ireg, mask);
+		block_pos.v.ireg = _mm256_and_si256(pos.v.ireg, mask);
+
+		pos.u.ireg = _mm256_srli_epi32(pos.u.ireg, log2_bs);
+		pos.v.ireg = _mm256_srli_epi32(pos.v.ireg, log2_bs);
+	}
 
 	ksim_assert(is_power_of_two(args->tex.cpp));
 	const int log2_cpp = __builtin_ffs(args->tex.cpp) - 1;
@@ -559,8 +688,12 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 	__m256i offset = _mm256_add_epi32(_mm256_add_epi32(tile_base, row_offset),
 					  _mm256_add_epi32(oword_offset, column_offset));
 
-	load_format_simd8(args->tex.pixels, args->tex.format,
-			  offset, t->mask_q1, &t->grf[args->dst]);
+	if (bs == 1)
+		load_format_simd8(args->tex.pixels, args->tex.format,
+				  offset, t->mask_q1, &t->grf[args->dst], args->rlen);
+	else
+		load_block_format_simd8(args->tex.pixels, args->tex.format,
+					offset, t->mask_q1, &t->grf[args->dst], &block_pos);
 }
 
 static void
