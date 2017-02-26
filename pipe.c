@@ -86,7 +86,8 @@ dispatch_vs(struct vs_thread *t, uint32_t iid, uint32_t vid, struct ia_state *st
 		count = rest;
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
-	t->t.mask_q1 = _mm256_sub_epi32(range.ireg, _mm256_set1_epi32(rest));
+	t->t.mask_q1 = _mm256_cmpgt_epi32(_mm256_set1_epi32(rest), range.ireg);
+
 	t->iid = iid;
 	t->vid.ireg = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(vid));
 
