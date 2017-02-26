@@ -771,6 +771,25 @@ handle_3dstate_gs(uint32_t *p)
 	GEN9_3DSTATE_GS_unpack(p, &v);
 
 	gt.gs.enable = v.FunctionEnable;
+	gt.gs.ksp = v.KernelStartPointer;
+	gt.gs.dispatch_mode = v.DispatchMode;
+	gt.gs.include_primitive_id = v.IncludePrimitiveID;
+	gt.gs.include_vertex_handles = v.IncludeVertexHandles;
+	gt.gs.instance_count = v.InstanceControl + 1;
+	gt.gs.urb_start_grf = v.DispatchGRFStartRegisterForURBData;
+	gt.gs.vue_read_length = v.VertexURBEntryReadLength;
+	gt.gs.vue_read_offset = v.VertexURBEntryReadOffset;
+	gt.gs.hint = v.Hint;
+	gt.gs.statistics = v.StatisticsEnable;
+
+	gt.gs.static_output = v.StaticOutput;
+	gt.gs.static_output_vertex_count = v.StaticOutputVertexCount;
+
+	gt.gs.control_data_header_size = v.ControlDataHeaderSize;
+	gt.gs.control_data_format = v.ControlDataFormat;
+
+	gt.gs.output_vertex_size = v.OutputVertexSize + 1;
+	gt.gs.output_topology = v.OutputTopology;
 }
 
 static void

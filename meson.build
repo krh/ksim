@@ -51,6 +51,7 @@ ksim_files = files(
 	'gem.c',
 	'surface.c',
 	'tessellation.c',
+	'geometry.c',
 	'thread.c',
 	'urb.c',
 	'wm.c',

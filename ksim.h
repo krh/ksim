@@ -143,6 +143,7 @@ enum {
 	TRACE_AVX = 1 << 12,		/* trace generated avx2 code */
 	TRACE_RA = 1 << 13,		/* register allocator */
 	TRACE_TS = 1 << 14,		/* tessellation shader */
+	TRACE_GS = 1 << 14,		/* geometry shader */
 };
 
 static inline uint32_t
@@ -382,6 +383,23 @@ struct gt {
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
 		bool enable;
+		uint64_t ksp;
+		shader_t avx_shader;
+		uint32_t dispatch_mode;
+		bool include_primitive_id;
+		bool include_vertex_handles;
+		uint32_t instance_count;
+		uint32_t vue_read_length;
+		uint32_t vue_read_offset;
+		uint32_t urb_start_grf;
+		uint32_t hint;
+		bool statistics;
+		bool static_output;
+		uint32_t static_output_vertex_count;
+		uint32_t control_data_header_size;
+		uint32_t control_data_format;
+		uint32_t output_vertex_size;
+		enum GEN9_3D_Prim_Topo_Type output_topology;
 	} gs;
 
 	struct {
@@ -565,6 +583,7 @@ struct gt {
 	uint32_t vs_invocation_count;
 	uint32_t hs_invocation_count;
 	uint32_t ds_invocation_count;
+	uint32_t gs_invocation_count;
 	uint32_t ia_vertices_count;
 	uint32_t ia_primitives_count;
 	uint32_t ps_invocation_count;
@@ -645,9 +664,11 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 }
 
 void tessellate_patch(struct value **vue);
+void dispatch_gs(struct value ***vue,
+		 uint32_t vertex_count, uint32_t primitive_count);
 void dispatch_primitive(void);
 void dispatch_compute(void);
-void setup_prim(struct value **vue_in, uint32_t parity);
+void setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity);
 
 bool valid_vertex_format(uint32_t format);
 bool srgb_format(uint32_t format);
@@ -669,7 +690,7 @@ struct blit {
 
 void blitter_copy(struct blit *b);
 
-void rasterize_primitive(struct value **vue);
+void rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology);
 
 struct surface {
 	void *pixels;
@@ -758,6 +779,8 @@ void emit_vertex_post_processing(struct kir_program *prog, uint32_t base);
 void compile_ps(void);
 void compile_hs(void);
 void compile_ds(void);
+void compile_gs(void);
+
 void reset_shader_pool(void);
 shader_t compile_shader(uint64_t kernel_offset,
 			uint64_t surfaces, uint64_t samplers);

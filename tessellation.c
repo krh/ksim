@@ -442,7 +442,7 @@ generate_edge_tris(struct ds_thread *t,
 		vue[0] = urb_handle_to_entry(get_vue(t, base1+ i1));
 		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0));
 		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1 + 1));
-		setup_prim(vue, 1);
+		setup_prim(vue, _3DPRIM_TRILIST, 1);
 		i1++;
 		continue;
 
@@ -450,7 +450,7 @@ generate_edge_tris(struct ds_thread *t,
 		vue[0] = urb_handle_to_entry(get_vue(t, base0 + i0));
 		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0 + 1));
 		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1));
-		setup_prim(vue, 1);
+		setup_prim(vue, _3DPRIM_TRILIST, 1);
 		i0++;
 		continue;
 	}
@@ -483,7 +483,7 @@ generate_tris(struct ds_thread *t)
 		vue[1] = urb_handle_to_entry(get_vue(t, outer + 2));
 		vue[2] = urb_handle_to_entry(get_vue(t, outer + 1));
 
-		setup_prim(vue, 0);
+		setup_prim(vue, _3DPRIM_TRILIST, 0);
 		free_vues(t, outer + 3);
 		t->vue_tail++;
 	} else {

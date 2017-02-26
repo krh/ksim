@@ -587,13 +587,13 @@ intersect_rectangle(struct rectangle *r, const struct rectangle *other)
 }
 
 void
-rasterize_primitive(struct value **vue)
+rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 {
 	struct primitive p;
 	float length, dx, dy, px, py;
 	struct vec4 v[3];
 
-	switch (gt.ia.topology) {
+	switch (topology) {
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
@@ -646,7 +646,7 @@ rasterize_primitive(struct value **vue)
 	if (p.area >= 0)
 		return;
 
-	switch (gt.ia.topology) {
+	switch (topology) {
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
@@ -658,19 +658,16 @@ rasterize_primitive(struct value **vue)
 		/* Hacky wireframe implementation: turn each triangle
 		 * edge into a line and call back into
 		 * rasterize_primitive(). */
-		uint32_t topology = gt.ia.topology;
 		struct value *wf_vue[3];
-		gt.ia.topology = _3DPRIM_LINELIST;
 		wf_vue[0] = vue[0];
 		wf_vue[1] = vue[1];
-		rasterize_primitive(wf_vue);
+		rasterize_primitive(wf_vue, _3DPRIM_LINELIST);
 		wf_vue[0] = vue[1];
 		wf_vue[1] = vue[2];
-		rasterize_primitive(wf_vue);
+		rasterize_primitive(wf_vue, _3DPRIM_LINELIST);
 		wf_vue[0] = vue[2];
 		wf_vue[1] = vue[0];
-		rasterize_primitive(wf_vue);
-		gt.ia.topology = topology;
+		rasterize_primitive(wf_vue, _3DPRIM_LINELIST);
 		return;
 	}
 
@@ -747,7 +744,7 @@ rasterize_primitive(struct value **vue)
 	p.row_w0 = eval_edge(&p.e12, min);
 	p.row_w1 = eval_edge(&p.e20, min);
 
-	switch (gt.ia.topology) {
+	switch (topology) {
 	case _3DPRIM_RECTLIST:
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:

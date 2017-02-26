@@ -172,17 +172,12 @@ dump_sf_clip_viewport(void)
 }
 
 void
-setup_prim(struct value **vue_in, uint32_t parity)
+setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity)
 {
 	struct value *vue[3];
 	uint32_t provoking;
 
-	for (int i = 0; i < 3; i++) {
-		if (vue_in[i][0].header.clip_flags)
-			return;
-	}
-
-	switch (gt.ia.topology) {
+	switch (topology) {
 	case _3DPRIM_TRILIST:
 	case _3DPRIM_TRISTRIP:
 		provoking = gt.sf.tri_strip_provoking;
@@ -220,7 +215,19 @@ setup_prim(struct value **vue_in, uint32_t parity)
 	vue[1] = vue_in[indices[provoking + 1 + parity]];
 	vue[2] = vue_in[indices[provoking + 2 - parity]];
 
-	rasterize_primitive(vue);
+	if (gt.gs.enable) {
+		struct value **vues[8];
+		vues[0] = vue;
+		dispatch_gs(vues, 3, 1);
+		return;
+	}
+
+	for (int i = 0; i < 3; i++) {
+		if (vue_in[i][0].header.clip_flags)
+			return;
+	}
+
+	rasterize_primitive(vue, topology);
 }
 
 static void
@@ -229,14 +236,15 @@ ia_state_flush(struct ia_state *s)
 	struct value *vue[32];
 	uint32_t tail = s->tail;
 	int count;
+	enum GEN9_3D_Prim_Topo_Type topology = gt.ia.topology;
 
-	switch (gt.ia.topology) {
+	switch (topology) {
 	case _3DPRIM_TRILIST:
 		while (s->head - tail >= 3) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 3;
 			gt.ia_primitives_count++;
 		}
@@ -247,7 +255,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, s->tristrip_parity);
+			setup_prim(vue, topology, s->tristrip_parity);
 			tail += 1;
 			s->tristrip_parity = 1 - s->tristrip_parity;
 			gt.ia_primitives_count++;
@@ -272,7 +280,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = s->first_vertex;
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->tristrip_parity);
+			setup_prim(vue, topology, s->tristrip_parity);
 			tail += 1;
 			gt.ia_primitives_count++;
 		}
@@ -282,11 +290,11 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 4;
 			gt.ia_primitives_count++;
 		}
@@ -296,11 +304,11 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 2);
 			vue[2] = ia_state_peek(s, tail + 0);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 2;
 			gt.ia_primitives_count++;
 		}
@@ -311,7 +319,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 3;
 		}
 		break;
@@ -320,7 +328,7 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 2;
 		}
 		break;
@@ -329,7 +337,7 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 1;
 		}
 		break;
@@ -348,7 +356,7 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, 0);
+			setup_prim(vue, topology, 0);
 			tail += 1;
 		}
 		break;
@@ -386,7 +394,7 @@ ia_state_reset(struct ia_state *s)
 		if (s->head - tail == 1) {
 			vue[0] = ia_state_peek(s, tail);
 			vue[1] = s->first_vertex;
-			setup_prim(vue, 0);
+			setup_prim(vue, gt.ia.topology, 0);
 			gt.ia_primitives_count++;
 		}
 		break;
@@ -852,6 +860,10 @@ dispatch_primitive(void)
 			    gt.te.topology == OUTPUT_TRI_CCW);
 		ksim_assert(gt.ds.dispatch_mode == DISPATCH_MODE_SIMD8_SINGLE_PATCH);
 	}
+	if (gt.gs.enable) {
+		ksim_assert(gt.gs.dispatch_mode == DISPATCH_MODE_SIMD8);
+		ksim_assert(gt.gs.instance_count == 1);
+	}
 
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;
@@ -877,6 +889,7 @@ dispatch_primitive(void)
 	compile_vs();
 	compile_hs();
 	compile_ds();
+	compile_gs();
 	compile_ps();
 
 	struct vs_thread t;
