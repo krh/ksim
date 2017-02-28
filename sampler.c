@@ -253,13 +253,21 @@ decode_bc4(void *p, __m256i offsets, __m256i emask, struct reg *dst,
 
 void
 load_block_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
-			__m256i offsets, __m256i emask, struct reg *dst,
+			__m256i offsets, __m256i emask, struct reg *dst, int rlen,
 			struct sample_position *block_pos)
 {
+	struct reg v[4];
+
+	/* Default color for unsupported sampler formats: red. */
+	v[0].reg = _mm256_set1_ps(1.0f);
+	v[1].reg = _mm256_setzero_ps();
+	v[2].reg = _mm256_set1_ps(0.0f);
+	v[3].reg = _mm256_set1_ps(1.0f);
+
 	switch (format) {
 	case SF_BC1_UNORM:
-		decode_bc1(p, offsets, emask, &dst[0], block_pos);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		decode_bc1(p, offsets, emask, &v[0], block_pos);
+		v[3].reg = _mm256_set1_ps(1.0f);
 		break;
 
 	case SF_BC2_UNORM:
@@ -267,28 +275,31 @@ load_block_format_simd8(void *p, enum GEN9_SURFACE_FORMAT format,
 		break;
 
 	case SF_BC3_UNORM:
-		decode_bc1(p + 8, offsets, emask, &dst[0], block_pos);
-		decode_bc4(p, offsets, emask, &dst[3], block_pos);
+		decode_bc1(p + 8, offsets, emask, &v[0], block_pos);
+		decode_bc4(p, offsets, emask, &v[3], block_pos);
 		break;
 
 	case SF_BC4_UNORM:
-		decode_bc4(p, offsets, emask, &dst[0], block_pos);
-		dst[1].reg = _mm256_set1_ps(0.0f);
-		dst[2].reg = _mm256_set1_ps(0.0f);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		decode_bc4(p, offsets, emask, &v[0], block_pos);
+		v[1].reg = _mm256_set1_ps(0.0f);
+		v[2].reg = _mm256_set1_ps(0.0f);
+		v[3].reg = _mm256_set1_ps(1.0f);
 		break;
 
 	case SF_BC5_UNORM:
-		decode_bc4(p, offsets, emask, &dst[0], block_pos);
-		decode_bc4(p + 8, offsets, emask, &dst[1], block_pos);
-		dst[2].reg = _mm256_set1_ps(0.0f);
-		dst[3].reg = _mm256_set1_ps(1.0f);
+		decode_bc4(p, offsets, emask, &v[0], block_pos);
+		decode_bc4(p + 8, offsets, emask, &v[1], block_pos);
+		v[2].reg = _mm256_set1_ps(0.0f);
+		v[3].reg = _mm256_set1_ps(1.0f);
 		break;
 
 	default:
 		stub("block format");
 		break;
 	}
+
+	for (uint32_t i = 0; i < rlen; i++)
+		dst[i].ireg = v[i].ireg;
 }
 
 static void
@@ -693,7 +704,8 @@ sfid_sampler_sample_simd8_ymajor(struct thread *t, const struct sfid_sampler_arg
 				  offset, t->mask_q1, &t->grf[args->dst], args->rlen);
 	else
 		load_block_format_simd8(args->tex.pixels, args->tex.format,
-					offset, t->mask_q1, &t->grf[args->dst], &block_pos);
+					offset, t->mask_q1, &t->grf[args->dst],
+					args->rlen, &block_pos);
 }
 
 static void
