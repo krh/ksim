@@ -36,6 +36,7 @@ struct vs_thread {
 };
 
 struct ia_state {
+	enum GEN9_3D_Prim_Topo_Type topology;
 	struct value *vue[64];
 	uint32_t head, tail;
 	int tristrip_parity;
@@ -237,15 +238,14 @@ ia_state_flush(struct ia_state *s)
 	struct value *vue[32];
 	uint32_t tail = s->tail;
 	int count;
-	enum GEN9_3D_Prim_Topo_Type topology = gt.ia.topology;
 
-	switch (topology) {
+	switch (s->topology) {
 	case _3DPRIM_TRILIST:
 		while (s->head - tail >= 3) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 3;
 			gt.ia_primitives_count++;
 		}
@@ -256,7 +256,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, topology, s->tristrip_parity);
+			setup_prim(vue, s->topology, s->tristrip_parity);
 			tail += 1;
 			s->tristrip_parity = 1 - s->tristrip_parity;
 			gt.ia_primitives_count++;
@@ -281,7 +281,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = s->first_vertex;
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, s->tristrip_parity);
+			setup_prim(vue, s->topology, s->tristrip_parity);
 			tail += 1;
 			gt.ia_primitives_count++;
 		}
@@ -291,11 +291,11 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 4;
 			gt.ia_primitives_count++;
 		}
@@ -305,11 +305,11 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 0);
 			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			vue[0] = ia_state_peek(s, tail + 3);
 			vue[1] = ia_state_peek(s, tail + 2);
 			vue[2] = ia_state_peek(s, tail + 0);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 2;
 			gt.ia_primitives_count++;
 		}
@@ -320,7 +320,7 @@ ia_state_flush(struct ia_state *s)
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
 			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 3;
 		}
 		break;
@@ -329,7 +329,7 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 2;
 		}
 		break;
@@ -338,7 +338,7 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 1;
 		}
 		break;
@@ -357,13 +357,13 @@ ia_state_flush(struct ia_state *s)
 		while (s->head - tail >= 2) {
 			vue[0] = ia_state_peek(s, tail + 0);
 			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, topology, 0);
+			setup_prim(vue, s->topology, 0);
 			tail += 1;
 		}
 		break;
 
 	case _3DPRIM_PATCHLIST_1 ... _3DPRIM_PATCHLIST_32:
-		count = gt.ia.topology - _3DPRIM_PATCHLIST_1 + 1;
+		count = s->topology - _3DPRIM_PATCHLIST_1 + 1;
 		while (s->head - tail >= count) {
 			for (uint32_t i = 0; i < count; i++)
 				vue[i] = ia_state_peek(s, tail + i);
@@ -373,7 +373,7 @@ ia_state_flush(struct ia_state *s)
 		break;
 
 	default:
-		stub("topology %d", gt.ia.topology);
+		stub("topology %d", s->topology);
 		tail = s->head;
 		break;
 	}
@@ -390,12 +390,12 @@ ia_state_reset(struct ia_state *s)
 	struct value *vue[3];
 	uint32_t tail = s->tail;
 
-	switch (gt.ia.topology) {
+	switch (s->topology) {
 	case _3DPRIM_LINELOOP:
 		if (s->head - tail == 1) {
 			vue[0] = ia_state_peek(s, tail);
 			vue[1] = s->first_vertex;
-			setup_prim(vue, gt.ia.topology, 0);
+			setup_prim(vue, s->topology, 0);
 			gt.ia_primitives_count++;
 		}
 		break;
@@ -416,6 +416,16 @@ ia_state_reset(struct ia_state *s)
 	s->head = 0;
 	s->tail = 0;
 	s->tristrip_parity = 0;
+}
+
+void
+ia_state_init(struct ia_state *s, enum GEN9_3D_Prim_Topo_Type topology)
+{
+	s->topology = topology;
+	s->head = 0;
+	s->tail = 0;
+	s->tristrip_parity = 0;
+	s->first_vertex = NULL;
 }
 
 static void
@@ -897,7 +907,8 @@ dispatch_primitive(void)
 
 	init_vs_thread(&t);
 
-	struct ia_state state = { 0, };
+	struct ia_state state;
+	ia_state_init(&state, gt.ia.topology);
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			dispatch_vs(&t, iid, i, &state);
