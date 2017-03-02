@@ -159,7 +159,7 @@ enum {
 static bool
 is_byte_range(int offset)
 {
-	return (offset + 128) < 256;
+	return -128 <= offset && offset <= 127;
 }
 
 static inline void
