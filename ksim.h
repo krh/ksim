@@ -782,8 +782,6 @@ void compile_ds(void);
 void compile_gs(void);
 
 void reset_shader_pool(void);
-shader_t compile_shader(uint64_t kernel_offset,
-			uint64_t surfaces, uint64_t samplers);
 
 void *get_const_data(size_t size, size_t align);
 

@@ -22,6 +22,7 @@
  */
 
 #include "ksim.h"
+#include "kir.h"
 
 static void
 dispatch_group(uint32_t x, uint32_t y, uint32_t z)
@@ -60,16 +61,28 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	gt.compute.avx_shader(&t);
 }
 
+static void
+compile_cs(void)
+{
+	struct kir_program prog;
+
+	kir_program_init(&prog, gt.compute.binding_table_address,
+			 gt.compute.sampler_state_address);
+
+	kir_program_emit_shader(&prog, gt.compute.ksp);
+
+	kir_program_add_insn(&prog, kir_eot);
+
+	gt.compute.avx_shader = kir_program_finish(&prog);
+}
+
 void
 dispatch_compute(void)
 {
 	ksim_assert(gt.compute.simd_size == SIMD8);
 
 	reset_shader_pool();
-	gt.compute.avx_shader =
-		compile_shader(gt.compute.ksp,
-			       gt.compute.binding_table_address,
-			       gt.compute.sampler_state_address);
+	compile_cs();
 
 	/* FIXME: Any compute statistics that we need to maintain? */
 
