@@ -39,7 +39,7 @@ struct edge {
 
 struct dispatch {
 	struct reg w, z;
-	struct reg w2, w0, w1;
+	struct reg w2, w1;
 	struct reg w2_pc, w1_pc;
 	struct reg mask;
 	int x, y;
@@ -330,9 +330,6 @@ fill_dispatch(struct primitive *p, struct ps_thread *t,
 	 * coordinates.*/
 	d->w2.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.bias))),
-			      _mm256_set1_ps(p->inv_area));
-	d->w0.reg =
-		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w0, _mm256_set1_epi32(p->e12.bias))),
 			      _mm256_set1_ps(p->inv_area));
 	d->w1.reg =
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
