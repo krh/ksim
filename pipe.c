@@ -173,13 +173,27 @@ dump_sf_clip_viewport(void)
 	     gt.cc.viewport[0], gt.cc.viewport[1]);
 }
 
+struct prim_queue {
+	enum GEN9_3D_Prim_Topo_Type topology;
+	struct value *prim[8][3];
+	uint32_t count;
+	uint32_t flush_free;
+};
+
 void
-setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity)
+prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology)
 {
-	struct value *vue[3];
+	q->topology = topology;
+	q->count = 0;
+	q->flush_free = 0;
+}
+
+void
+prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity)
+{
 	uint32_t provoking;
 
-	switch (topology) {
+	switch (q->topology) {
 	case _3DPRIM_TRILIST:
 	case _3DPRIM_TRISTRIP:
 		provoking = gt.sf.tri_strip_provoking;
@@ -198,12 +212,12 @@ setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t
 		 * ordering, but the hw doesn't actually care.  Our
 		 * rasterizer does though, so rotate vertices to make
 		 * sure the first to edges are axis parallel. */
-		if (vue_in[0][1].vec4.x != vue_in[1][1].vec4.x &&
-		    vue_in[0][1].vec4.y != vue_in[1][1].vec4.y) {
+		if (vue[0][1].vec4.x != vue[1][1].vec4.x &&
+		    vue[0][1].vec4.y != vue[1][1].vec4.y) {
 			ksim_warn("invalid rect list vertex order\n");
 			provoking = 1;
-		} else if (vue_in[1][1].vec4.x != vue_in[2][1].vec4.x &&
-			   vue_in[1][1].vec4.y != vue_in[2][1].vec4.y) {
+		} else if (vue[1][1].vec4.x != vue[2][1].vec4.x &&
+			   vue[1][1].vec4.y != vue[2][1].vec4.y) {
 			ksim_warn("invalid rect list vertex order\n");
 			provoking = 2;
 		} else {
@@ -213,23 +227,44 @@ setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t
 	}
 
 	static const int indices[5] = { 0, 1, 2, 0, 1 };
-	vue[0] = vue_in[indices[provoking]];
-	vue[1] = vue_in[indices[provoking + 1 + parity]];
-	vue[2] = vue_in[indices[provoking + 2 - parity]];
+	q->prim[q->count][0] = vue[indices[provoking]];
+	q->prim[q->count][1] = vue[indices[provoking + 1 + parity]];
+	q->prim[q->count][2] = vue[indices[provoking + 2 - parity]];
+	q->count++;
+}
 
+void
+prim_queue_flush(struct prim_queue *q)
+{
 	if (gt.gs.enable) {
 		struct value **vues[8];
-		vues[0] = vue;
-		dispatch_gs(vues, 3, 1);
+		for (uint32_t i = 0; i < q->count; i++)
+			vues[i] = q->prim[i];
+		dispatch_gs(vues, 3, q->count);
 		return;
 	}
 
-	for (int i = 0; i < 3; i++) {
-		if (vue_in[i][0].header.clip_flags)
-			return;
-	}
+	for (uint32_t i = 0; i < q->count; i++) {
+		struct value **vue = q->prim[i];
+		for (int j = 0; j < 3; j++) {
+			if (vue[j][0].header.clip_flags)
+				goto trivial_reject;
+		}
 
-	rasterize_primitive(vue, topology);
+		rasterize_primitive(vue, q->topology);
+	trivial_reject:
+		;
+	}
+}
+
+void
+setup_prim(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity)
+{
+	struct prim_queue q;
+
+	prim_queue_init(&q, topology);
+	prim_queue_add(&q, vue, parity);
+	prim_queue_flush(&q);
 }
 
 static void
