@@ -555,12 +555,6 @@ builder_emit_sfid_dataport_ro(struct kir_program *prog, struct inst *inst)
 			kir_program_comment(prog, "ro dp read 4 ow from bti %d",
 					    md.binding_table_index);
 
-			/* FIXME: Two problems.  This send instruction
-			 * is exec size 16 and gets emitted
-			 * twice. First one ends up as dead writes to
-			 * the dst region, but the set_load_base
-			 * doesn't get DCEd." */
-
 			/* FIXME: We need constant propagation at this
 			 * point to recognize that r72.2 (for example)
 			 * is constant and we can compute the exact
