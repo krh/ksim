@@ -595,12 +595,12 @@ builder_emit_sfid_dataport_ro(struct kir_program *prog, struct inst *inst)
 }
 
 /* Vectorized AVX2 math functions from glibc's libmvec */
-__m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
-__m256 _ZGVdN8v___logf_finite(__m256 x);
-__m256 _ZGVdN8v___expf_finite(__m256 x);
+__m256 _ZGVdN8vv_powf(__m256 x, __m256 y);
+__m256 _ZGVdN8v_logf(__m256 x);
+__m256 _ZGVdN8v_expf(__m256 x);
 __m256 _ZGVdN8v_sinf(__m256 x);
 __m256 _ZGVdN8v_cosf(__m256 x);
-__m256 _ZGVdN8vv___powf_finite(__m256 x, __m256 y);
+__m256 _ZGVdN8vv_powf(__m256 x, __m256 y);
 
 static bool
 compile_inst(struct kir_program *prog, struct inst *inst)
@@ -800,10 +800,10 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			kir_program_alu(prog, kir_rcp, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_LOG:
-			kir_program_const_call(prog, _ZGVdN8v___logf_finite, 1, src0_reg);
+			kir_program_const_call(prog, _ZGVdN8v_logf, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_EXP:
-			kir_program_const_call(prog, _ZGVdN8v___expf_finite, 1, src0_reg);
+			kir_program_const_call(prog, _ZGVdN8v_expf, 1, src0_reg);
 			break;
 		case BRW_MATH_FUNCTION_SQRT:
 			kir_program_alu(prog, kir_sqrt, src0_reg);
@@ -824,7 +824,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			kir_program_alu(prog, kir_divf, src0_reg, src1_reg);
 			break;
 		case BRW_MATH_FUNCTION_POW:
-			kir_program_const_call(prog, _ZGVdN8vv___powf_finite, 2, src0_reg, src1_reg);
+			kir_program_const_call(prog, _ZGVdN8vv_powf, 2, src0_reg, src1_reg);
 			break;
 		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
 			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER");
