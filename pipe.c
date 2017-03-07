@@ -65,6 +65,7 @@ flush_to_vues(struct vue_buffer *b, uint32_t count, struct ia_state *s)
 		for (uint32_t i = 0; i < gt.vs.urb.size / 32; i++)
 			vue[i] = _mm256_i32gather_epi32(&b->data[i * 8].d[c], offsets, 4);
 
+		/* FIXME: Cut index: ia_state_flush(), ia_state_cut(); else add... */
 		ia_state_add(s, (struct value *) vue);
  	}
 
@@ -177,15 +178,73 @@ struct prim_queue {
 	enum GEN9_3D_Prim_Topo_Type topology;
 	struct value *prim[8][3];
 	uint32_t count;
-	uint32_t flush_free;
+	uint32_t free_tail;
+	uint32_t free_head;
+	struct value *free_queue[32]; /* Need at least 24 vues and power of two. */
+	struct urb *urb;
 };
 
 void
-prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology)
+prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb)
 {
 	q->topology = topology;
 	q->count = 0;
-	q->flush_free = 0;
+	q->urb = urb;
+	q->free_tail = 0;
+	q->free_head = 0;
+}
+
+static void
+prim_queue_flush_to_gs(struct prim_queue *q)
+{
+	struct value **vues[8];
+
+	for (uint32_t i = 0; i < q->count; i++)
+		vues[i] = q->prim[i];
+
+	if (q->count > 0)
+		dispatch_gs(vues, 3, q->count);
+}
+
+static void
+prim_queue_flush_to_wm(struct prim_queue *q)
+{
+	for (uint32_t i = 0; i < q->count; i++) {
+		struct value **vue = q->prim[i];
+		for (int j = 0; j < 3; j++) {
+			if (vue[j][0].header.clip_flags)
+				goto trivial_reject;
+		}
+
+		rasterize_primitive(vue, q->topology);
+	trivial_reject:
+		;
+	}
+}
+
+void
+prim_queue_free_vues(struct prim_queue *q, struct value **vue, uint32_t count)
+{
+	for (uint32_t i = 0; i < count; i++)
+		q->free_queue[q->free_head++ & (ARRAY_LENGTH(q->free_queue) - 1)] = vue[i];
+}
+
+void
+prim_queue_flush(struct prim_queue *q)
+{
+	if (gt.gs.enable && q->urb != &gt.gs.urb)
+		prim_queue_flush_to_gs(q);
+	else
+		prim_queue_flush_to_wm(q);
+
+	q->count = 0;
+
+	for (uint32_t i = q->free_tail; i != q->free_head; i++) {
+		struct value *vue = q->free_queue[i & (ARRAY_LENGTH(q->free_queue) - 1)];
+		free_urb_entry(q->urb, vue);
+	}
+
+	q->free_tail = q->free_head;
 }
 
 void
@@ -231,30 +290,9 @@ prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity)
 	q->prim[q->count][1] = vue[indices[provoking + 1 + parity]];
 	q->prim[q->count][2] = vue[indices[provoking + 2 - parity]];
 	q->count++;
-}
 
-void
-prim_queue_flush(struct prim_queue *q)
-{
-	if (gt.gs.enable) {
-		struct value **vues[8];
-		for (uint32_t i = 0; i < q->count; i++)
-			vues[i] = q->prim[i];
-		dispatch_gs(vues, 3, q->count);
-		return;
-	}
-
-	for (uint32_t i = 0; i < q->count; i++) {
-		struct value **vue = q->prim[i];
-		for (int j = 0; j < 3; j++) {
-			if (vue[j][0].header.clip_flags)
-				goto trivial_reject;
-		}
-
-		rasterize_primitive(vue, q->topology);
-	trivial_reject:
-		;
-	}
+	if (q->count == 8)
+		prim_queue_flush(q);
 }
 
 void
@@ -262,37 +300,39 @@ setup_prim(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology, uint32_t pa
 {
 	struct prim_queue q;
 
-	prim_queue_init(&q, topology);
+	/* This doesn't use the URB freeing, so pass NULL for the urb */
+	prim_queue_init(&q, topology, NULL);
 	prim_queue_add(&q, vue, parity);
 	prim_queue_flush(&q);
 }
 
 static void
-ia_state_flush(struct ia_state *s)
+ia_state_flush(struct ia_state *s, struct prim_queue *q)
 {
 	struct value *vue[32];
-	uint32_t tail = s->tail;
 	int count;
 
 	switch (s->topology) {
 	case _3DPRIM_TRILIST:
-		while (s->head - tail >= 3) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, s->topology, 0);
-			tail += 3;
+		while (s->head - s->tail >= 3) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			vue[2] = ia_state_peek(s, s->tail + 2);
+			prim_queue_add(q, vue, 0);
+			prim_queue_free_vues(q, vue, 3);
+			s->tail += 3;
 			gt.ia_primitives_count++;
 		}
 		break;
 
 	case _3DPRIM_TRISTRIP:
-		while (s->head - tail >= 3) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, s->topology, s->tristrip_parity);
-			tail += 1;
+		while (s->head - s->tail >= 3) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			vue[2] = ia_state_peek(s, s->tail + 2);
+			prim_queue_add(q, vue, s->tristrip_parity);
+			prim_queue_free_vues(q, vue, 1);
+			s->tail += 1;
 			s->tristrip_parity = 1 - s->tristrip_parity;
 			gt.ia_primitives_count++;
 		}
@@ -303,78 +343,89 @@ ia_state_flush(struct ia_state *s)
 		if (s->first_vertex == NULL) {
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
-			ksim_assert(s->head - tail >= 1);
-			s->first_vertex = ia_state_peek(s, tail);
-			/* Bump the queue tail now so we don't free
-			 * the vue below */
+			ksim_assert(s->head - s->tail >= 1);
+			s->first_vertex = ia_state_peek(s, s->tail);
 			s->tail++;
-			tail++;
-			gt.ia_primitives_count++;
 		}
 
-		while (s->head - tail >= 2) {
+		while (s->head - s->tail >= 2) {
 			vue[0] = s->first_vertex;
-			vue[1] = ia_state_peek(s, tail + 0);
-			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, s->tristrip_parity);
-			tail += 1;
+			vue[1] = ia_state_peek(s, s->tail + 0);
+			vue[2] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			if (vue[0] != s->first_vertex)
+				prim_queue_free_vues(q, vue, 1);
+			s->tail += 1;
 			gt.ia_primitives_count++;
 		}
 		break;
 	case _3DPRIM_QUADLIST:
-		while (s->head - tail >= 4) {
-			vue[0] = ia_state_peek(s, tail + 3);
-			vue[1] = ia_state_peek(s, tail + 0);
-			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, 0);
-			vue[0] = ia_state_peek(s, tail + 3);
-			vue[1] = ia_state_peek(s, tail + 1);
-			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, s->topology, 0);
-			tail += 4;
+		while (s->head - s->tail >= 4) {
+			vue[0] = ia_state_peek(s, s->tail + 3);
+			vue[1] = ia_state_peek(s, s->tail + 0);
+			vue[2] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			vue[0] = ia_state_peek(s, s->tail + 3);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			vue[2] = ia_state_peek(s, s->tail + 2);
+			prim_queue_add(q, vue, 0);
+
+			vue[3] = ia_state_peek(s, s->tail + 0);
+
+			prim_queue_free_vues(q, vue, 4);
+
+			s->tail += 4;
 			gt.ia_primitives_count++;
 		}
 		break;
 	case _3DPRIM_QUADSTRIP:
-		while (s->head - tail >= 4) {
-			vue[0] = ia_state_peek(s, tail + 3);
-			vue[1] = ia_state_peek(s, tail + 0);
-			vue[2] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, 0);
-			vue[0] = ia_state_peek(s, tail + 3);
-			vue[1] = ia_state_peek(s, tail + 2);
-			vue[2] = ia_state_peek(s, tail + 0);
-			setup_prim(vue, s->topology, 0);
-			tail += 2;
+		while (s->head - s->tail >= 4) {
+			vue[0] = ia_state_peek(s, s->tail + 3);
+			vue[1] = ia_state_peek(s, s->tail + 0);
+			vue[2] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			vue[0] = ia_state_peek(s, s->tail + 3);
+			vue[1] = ia_state_peek(s, s->tail + 2);
+			vue[2] = ia_state_peek(s, s->tail + 0);
+			prim_queue_add(q, vue, 0);
+
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			prim_queue_free_vues(q, vue, 2);
+
+			s->tail += 2;
 			gt.ia_primitives_count++;
 		}
 		break;
 
 	case _3DPRIM_RECTLIST:
-		while (s->head - tail >= 3) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			vue[2] = ia_state_peek(s, tail + 2);
-			setup_prim(vue, s->topology, 0);
-			tail += 3;
+		while (s->head - s->tail >= 3) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			vue[2] = ia_state_peek(s, s->tail + 2);
+			prim_queue_add(q, vue, 0);
+			prim_queue_free_vues(q, vue, 3);
+			s->tail += 3;
 		}
 		break;
 
 	case _3DPRIM_LINELIST:
-		while (s->head - tail >= 2) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, 0);
-			tail += 2;
+		while (s->head - s->tail >= 2) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			prim_queue_free_vues(q, vue, 2);
+			s->tail += 2;
 		}
 		break;
 
 	case _3DPRIM_LINESTRIP:
-		while (s->head - tail >= 2) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, 0);
-			tail += 1;
+		while (s->head - s->tail >= 2) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			prim_queue_free_vues(q, vue, 1);
+			s->tail += 1;
 		}
 		break;
 
@@ -382,55 +433,52 @@ ia_state_flush(struct ia_state *s)
 		if (s->first_vertex == NULL) {
 			/* We always have at least one vertex
 			 * when we get, so this is safe. */
-			ksim_assert(s->head - tail >= 1);
-			s->first_vertex = ia_state_peek(s, tail);
-			/* Bump the queue tail now so we don't free
-			 * the vue below */
-			s->tail++;
+			ksim_assert(s->head - s->tail >= 1);
+			s->first_vertex = ia_state_peek(s, s->tail);
 		}
 
-		while (s->head - tail >= 2) {
-			vue[0] = ia_state_peek(s, tail + 0);
-			vue[1] = ia_state_peek(s, tail + 1);
-			setup_prim(vue, s->topology, 0);
-			tail += 1;
+		while (s->head - s->tail >= 2) {
+			vue[0] = ia_state_peek(s, s->tail + 0);
+			vue[1] = ia_state_peek(s, s->tail + 1);
+			prim_queue_add(q, vue, 0);
+			if (vue[0] != s->first_vertex)
+				prim_queue_free_vues(q, vue, 1);
+			s->tail += 1;
 		}
 		break;
 
 	case _3DPRIM_PATCHLIST_1 ... _3DPRIM_PATCHLIST_32:
 		count = s->topology - _3DPRIM_PATCHLIST_1 + 1;
-		while (s->head - tail >= count) {
+		while (s->head - s->tail >= count) {
 			for (uint32_t i = 0; i < count; i++)
-				vue[i] = ia_state_peek(s, tail + i);
+				vue[i] = ia_state_peek(s, s->tail + i);
 			tessellate_patch(vue);
-			tail += count;
+			for (uint32_t i = 0; i < count; i++)
+				free_urb_entry(&gt.vs.urb, vue[i]);
+			s->tail += count;
 		}
 		break;
 
 	default:
 		stub("topology %d", s->topology);
-		tail = s->head;
+		s->tail = s->head;
 		break;
-	}
-
-	while (tail - s->tail > 0) {
-		struct value *vue = ia_state_peek(s, s->tail++);
-		free_urb_entry(&gt.vs.urb, vue);
 	}
 }
 
 void
-ia_state_reset(struct ia_state *s)
+ia_state_cut(struct ia_state *s, struct prim_queue *q, uint32_t cut)
 {
-	struct value *vue[3];
-	uint32_t tail = s->tail;
+	struct value *vue[8];
 
 	switch (s->topology) {
 	case _3DPRIM_LINELOOP:
-		if (s->head - tail == 1) {
-			vue[0] = ia_state_peek(s, tail);
+		if (s->first_vertex && cut - s->tail > 0) {
+			vue[0] = ia_state_peek(s, s->tail++);
 			vue[1] = s->first_vertex;
-			setup_prim(vue, s->topology, 0);
+			prim_queue_add(q, vue, 0);
+			if (vue[0] != s->first_vertex)
+				prim_queue_free_vues(q, vue, 1);
 			gt.ia_primitives_count++;
 		}
 		break;
@@ -439,17 +487,16 @@ ia_state_reset(struct ia_state *s)
 	}
 
 	if (s->first_vertex) {
-		free_urb_entry(&gt.vs.urb, s->first_vertex);
-		s->first_vertex = NULL;
+		vue[0] = s->first_vertex;
+		prim_queue_free_vues(q, vue, 1);
 	}
 
-	while (s->head - s->tail > 0) {
-		struct value *vue = ia_state_peek(s, s->tail++);
-		free_urb_entry(&gt.vs.urb, vue);
-	}
+	for (uint32_t i = 0; s->tail + i != cut; i++)
+		vue[i] = ia_state_peek(s, s->tail + i);
+	prim_queue_free_vues(q, vue, cut - s->tail);
 
-	s->head = 0;
-	s->tail = 0;
+	s->tail = cut;
+	s->first_vertex = NULL;
 	s->tristrip_parity = 0;
 }
 
@@ -943,15 +990,22 @@ dispatch_primitive(void)
 	init_vs_thread(&t);
 
 	struct ia_state state;
+	struct prim_queue pq;
+
 	ia_state_init(&state, gt.ia.topology);
+
+	prim_queue_init(&pq, gt.ia.topology, &gt.vs.urb);
+
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			dispatch_vs(&t, iid, i, &state);
-			ia_state_flush(&state);
+			ia_state_flush(&state, &pq);
 		}
 
-		ia_state_reset(&state);
+		ia_state_cut(&state, &pq, state.head);
 	}
+
+	prim_queue_flush(&pq);
 
 	if (gt.vf.statistics)
 		gt.ia_vertices_count +=
