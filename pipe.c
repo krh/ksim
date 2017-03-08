@@ -174,16 +174,6 @@ dump_sf_clip_viewport(void)
 	     gt.cc.viewport[0], gt.cc.viewport[1]);
 }
 
-struct prim_queue {
-	enum GEN9_3D_Prim_Topo_Type topology;
-	struct value *prim[8][3];
-	uint32_t count;
-	uint32_t free_tail;
-	uint32_t free_head;
-	struct value *free_queue[32]; /* Need at least 24 vues and power of two. */
-	struct urb *urb;
-};
-
 void
 prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb)
 {

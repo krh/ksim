@@ -131,6 +131,8 @@ struct ds_thread {
 	uint32_t vue_queue[4 * 64];
 	uint32_t vue_head, vue_tail;
 	uint32_t inner_level, outer_level[3];
+
+	struct prim_queue pq;
 };
 
 static inline void
@@ -153,8 +155,9 @@ static void
 free_vues(struct ds_thread *t, uint32_t tail)
 {
 	for (uint32_t i = t->vue_tail; i < tail; i++) {
-		uint32_t handle = get_vue(t, i);
-		free_urb_entry(&gt.ds.urb, urb_handle_to_entry(handle));
+		struct value *e[0];
+		e[0] = urb_handle_to_entry(get_vue(t, i));
+		prim_queue_free_vues(&t->pq, e, 1);
 	}
 
 	t->vue_tail = tail;
@@ -442,7 +445,7 @@ generate_edge_tris(struct ds_thread *t,
 		vue[0] = urb_handle_to_entry(get_vue(t, base1+ i1));
 		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0));
 		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1 + 1));
-		setup_prim(vue, _3DPRIM_TRILIST, 1);
+		prim_queue_add(&t->pq, vue, 1);
 		i1++;
 		continue;
 
@@ -450,7 +453,7 @@ generate_edge_tris(struct ds_thread *t,
 		vue[0] = urb_handle_to_entry(get_vue(t, base0 + i0));
 		vue[1] = urb_handle_to_entry(get_vue(t, base0 + i0 + 1));
 		vue[2] = urb_handle_to_entry(get_vue(t, base1 + i1));
-		setup_prim(vue, _3DPRIM_TRILIST, 1);
+		prim_queue_add(&t->pq, vue, 1);
 		i0++;
 		continue;
 	}
@@ -480,10 +483,9 @@ generate_tris(struct ds_thread *t)
 	if (t->inner_level & 1) {
 		struct value *vue[3];
 		vue[0] = urb_handle_to_entry(get_vue(t, outer));
-		vue[1] = urb_handle_to_entry(get_vue(t, outer + 2));
-		vue[2] = urb_handle_to_entry(get_vue(t, outer + 1));
-
-		setup_prim(vue, _3DPRIM_TRILIST, 0);
+		vue[1] = urb_handle_to_entry(get_vue(t, outer + 1));
+		vue[2] = urb_handle_to_entry(get_vue(t, outer + 2));
+		prim_queue_add(&t->pq, vue, 1);
 		free_vues(t, outer + 3);
 		t->vue_tail++;
 	} else {
@@ -542,7 +544,23 @@ tessellate_patch(struct value **vue)
 
 	svg_end();
 
+	enum GEN9_3D_Prim_Topo_Type topology;
+	switch (gt.te.topology) {
+	case OUTPUT_POINT:
+		topology = _3DPRIM_POINTLIST;
+		break;
+	case OUTPUT_LINE:
+		topology = _3DPRIM_LINELIST;
+		break;
+	case OUTPUT_TRI_CW:
+	case OUTPUT_TRI_CCW:
+		topology = _3DPRIM_TRILIST;
+		break;
+	}
+
+	prim_queue_init(&dt.pq, topology, &gt.ds.urb);
 	generate_tris(&dt);
+	prim_queue_flush(&dt.pq);
 
  cull_patch:
 	free_urb_entry(&gt.hs.urb, ht.pue);

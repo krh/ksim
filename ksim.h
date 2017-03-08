@@ -663,6 +663,25 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 	return (struct value) { .uvec4 = { x, y, z, w } };
 }
 
+struct prim_queue {
+	enum GEN9_3D_Prim_Topo_Type topology;
+	struct urb *urb;
+
+	struct value *prim[8][3];
+	uint32_t count;
+
+	/* Need at least 3 * 64 for an entire tesselation level and
+	 * power of two. */
+	struct value *free_queue[256]; 
+	uint32_t free_tail;
+	uint32_t free_head;
+};
+
+void prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb);
+void prim_queue_free_vues(struct prim_queue *q, struct value **vue, uint32_t count);
+void prim_queue_flush(struct prim_queue *q);
+void prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity);
+
 void tessellate_patch(struct value **vue);
 void dispatch_gs(struct value ***vue,
 		 uint32_t vertex_count, uint32_t primitive_count);
