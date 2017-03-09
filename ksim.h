@@ -713,7 +713,6 @@ void dispatch_gs(struct value ***vue,
 		 uint32_t vertex_count, uint32_t primitive_count);
 void dispatch_primitive(void);
 void dispatch_compute(void);
-void setup_prim(struct value **vue_in, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity);
 
 bool valid_vertex_format(uint32_t format);
 bool srgb_format(uint32_t format);

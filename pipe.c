@@ -275,17 +275,6 @@ prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity)
 		prim_queue_flush(q);
 }
 
-void
-setup_prim(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology, uint32_t parity)
-{
-	struct prim_queue q;
-
-	/* This doesn't use the URB freeing, so pass NULL for the urb */
-	prim_queue_init(&q, topology, NULL);
-	prim_queue_add(&q, vue, parity);
-	prim_queue_flush(&q);
-}
-
 uint32_t
 ia_state_flush(struct ia_state *s, struct prim_queue *q)
 {
