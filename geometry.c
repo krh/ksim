@@ -28,6 +28,8 @@ struct gs_thread {
 	struct thread t;
 	struct reg gue_handles;
 	struct reg *pue;
+	struct ia_state state;
+	struct prim_queue pq;
 };
 
 void
@@ -96,7 +98,7 @@ dump_input_vues(struct value ***vue,
 
 
 static void
-process_primitives(struct reg *gue)
+process_primitives(struct gs_thread *t, struct reg *gue)
 {
 	uint32_t count;
 	struct reg *control_data;
@@ -112,43 +114,44 @@ process_primitives(struct reg *gue)
 	if (trace_mask & TRACE_GS)
 		dump_gue(gue, "pre transform gue");
 
-	struct value *v[10];
+	struct value *v;
 	struct value *first = (struct value *)
 		(control_data + gt.gs.control_data_header_size);
 	for (uint32_t i = 0; i < count; i++) {
 		const float *vp = gt.sf.viewport;
 
-		v[i] = first + gt.gs.output_vertex_size * i;
+		v = first + gt.gs.output_vertex_size * i;
 
 		/* FIXME: We should do this SIMD8. */
 		if (!gt.clip.perspective_divide_disable) {
-			v[i][1].vec4.x = v[i][1].vec4.x / v[i][1].vec4.w;
-			v[i][1].vec4.y = v[i][1].vec4.y / v[i][1].vec4.w;
-			v[i][1].vec4.z = v[i][1].vec4.z / v[i][1].vec4.w;
+			v[1].vec4.x = v[1].vec4.x / v[1].vec4.w;
+			v[1].vec4.y = v[1].vec4.y / v[1].vec4.w;
+			v[1].vec4.z = v[1].vec4.z / v[1].vec4.w;
 		}
 
 		if (gt.sf.viewport_transform_enable) {
-			v[i][1].vec4.x = v[i][1].vec4.x * vp[0] + vp[3];
-			v[i][1].vec4.y = v[i][1].vec4.y * vp[1] + vp[4];
-			v[i][1].vec4.z = v[i][1].vec4.z * vp[2] + vp[5];
+			v[1].vec4.x = v[1].vec4.x * vp[0] + vp[3];
+			v[1].vec4.y = v[1].vec4.y * vp[1] + vp[4];
+			v[1].vec4.z = v[1].vec4.z * vp[2] + vp[5];
 		}
+
+		ia_state_add(&t->state, v);
+
+		if (gt.gs.control_data_header_size > 0 &&
+		    gt.gs.control_data_format == CUT &&
+		    (control_data->ud[i / 32] & (1 << (i & 31)))) {
+			ia_state_flush(&t->state, &t->pq);
+			ia_state_cut(&t->state, &t->pq);
+		}
+
+
+		if (t->state.head - t->state.tail >= 8)
+			ia_state_flush(&t->state, &t->pq);
 	}
 
-	if (trace_mask & TRACE_GS)
-		dump_gue(gue, "post transform gue");
-
-	ksim_assert(gt.gs.output_topology == _3DPRIM_LINESTRIP);
-
-	//setup_prim(v, gt.gs.output_topology, 0);
-
-	/* FIXME: Needs to use input assembler again. */
-	for (uint32_t i = 0; i < count; i += 2) {
-		struct value *prim[2] = { v[i], v[i + 1] };
-		ksim_trace(TRACE_GS, "line %f,%f - %f,%f\n",
-			   v[i][1].vec4.x, v[i][1].vec4.y,
-			   v[i + 1][1].vec4.x, v[i + 1][1].vec4.y);
-		rasterize_primitive(prim, gt.gs.output_topology);
-	}
+	ia_state_flush(&t->state, &t->pq);
+	ia_state_cut(&t->state, &t->pq);
+	prim_queue_free_vue(&t->pq, (void *) gue);
 }
 
 void
@@ -159,8 +162,8 @@ dispatch_gs(struct value ***vue,
 
 	struct reg *grf = &t.t.grf[0];
 
-	/* FIXME: discard if gt.ia.topology vertices per primitive !=
-	 * gt.gs.expected_vertex_count */
+	if (vertex_count != gt.gs.expected_vertex_count)
+		return;
 
 	/* Not sure what we should make this. */
 	uint32_t fftid = 0;
@@ -227,11 +230,11 @@ dispatch_gs(struct value ***vue,
 
 	gt.gs.avx_shader(&t.t);
 
-	for (uint32_t i = 0; i < primitive_count; i++)
-		process_primitives(urb_handle_to_entry(t.gue_handles.ud[i]));
+	ia_state_init(&t.state, gt.gs.output_topology);
+	prim_queue_init(&t.pq, gt.gs.output_topology, &gt.gs.urb);
 
 	for (uint32_t i = 0; i < primitive_count; i++)
-		free_urb_entry(&gt.gs.urb, urb_handle_to_entry(t.gue_handles.ud[i]));
+		process_primitives(&t, urb_handle_to_entry(t.gue_handles.ud[i]));
 
-	/* TODO: vertex post processing, process 8 primitives at a time. */
+	prim_queue_flush(&t.pq);
 }

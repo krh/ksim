@@ -385,6 +385,7 @@ struct gt {
 		bool enable;
 		uint64_t ksp;
 		shader_t avx_shader;
+		uint32_t expected_vertex_count;
 		uint32_t dispatch_mode;
 		bool include_primitive_id;
 		bool include_vertex_handles;
@@ -665,6 +666,7 @@ uvec4(uint32_t x, uint32_t y, uint32_t z, uint32_t w)
 
 struct prim_queue {
 	enum GEN9_3D_Prim_Topo_Type topology;
+	uint32_t prim_size;
 	struct urb *urb;
 
 	struct value *prim[8][3];
@@ -687,6 +689,24 @@ prim_queue_free_vue(struct prim_queue *q, struct value *vue)
 void prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb);
 void prim_queue_flush(struct prim_queue *q);
 void prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity);
+
+struct ia_state {
+	enum GEN9_3D_Prim_Topo_Type topology;
+	struct value *vue[64];
+	uint32_t head, tail;
+	int tristrip_parity;
+	struct value *first_vertex;
+};
+
+static inline void
+ia_state_add(struct ia_state *s, struct value *vue)
+{
+	s->vue[s->head++ & (ARRAY_LENGTH(s->vue) - 1)] = vue;
+}
+
+void ia_state_init(struct ia_state *s, enum GEN9_3D_Prim_Topo_Type topology);
+uint32_t ia_state_flush(struct ia_state *s, struct prim_queue *q);
+uint32_t ia_state_cut(struct ia_state *s, struct prim_queue *q);
 
 void tessellate_patch(struct value **vue);
 void dispatch_gs(struct value ***vue,

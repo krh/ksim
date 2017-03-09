@@ -67,6 +67,9 @@ free_urb_entry(struct urb* urb, void *entry)
 {
 	struct free_urb *f = entry;
 
+	ksim_assert(entry >= urb->data &&
+		    entry < urb->data + urb->total * urb->size);
+
 	f->next = urb->free_list;
 	urb->free_list = entry - urb->data;
 }

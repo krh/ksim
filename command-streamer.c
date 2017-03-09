@@ -781,6 +781,7 @@ handle_3dstate_gs(uint32_t *p)
 	gt.gs.vue_read_offset = v.VertexURBEntryReadOffset;
 	gt.gs.hint = v.Hint;
 	gt.gs.statistics = v.StatisticsEnable;
+	gt.gs.expected_vertex_count = v.ExpectedVertexCount;
 
 	gt.gs.static_output = v.StaticOutput;
 	gt.gs.static_output_vertex_count = v.StaticOutputVertexCount;

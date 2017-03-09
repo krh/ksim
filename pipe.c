@@ -35,20 +35,6 @@ struct vs_thread {
 	struct vue_buffer buffer;
 };
 
-struct ia_state {
-	enum GEN9_3D_Prim_Topo_Type topology;
-	struct value *vue[64];
-	uint32_t head, tail;
-	int tristrip_parity;
-	struct value *first_vertex;
-};
-
-static inline void
-ia_state_add(struct ia_state *s, struct value *vue)
-{
-	s->vue[s->head++ & (ARRAY_LENGTH(s->vue) - 1)] = vue;
-}
-
 static inline struct value *
 ia_state_peek(struct ia_state *s, uint32_t i)
 {
@@ -177,6 +163,17 @@ dump_sf_clip_viewport(void)
 void
 prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb)
 {
+	switch (topology) {
+	case _3DPRIM_LINELIST:
+	case _3DPRIM_LINESTRIP:
+	case _3DPRIM_LINELOOP:
+		q->prim_size = 2;
+		break;
+	default:
+		q->prim_size = 3;
+		break;
+	}
+
 	q->topology = topology;
 	q->count = 0;
 	q->urb = urb;
@@ -193,7 +190,7 @@ prim_queue_flush_to_gs(struct prim_queue *q)
 		vues[i] = q->prim[i];
 
 	if (q->count > 0)
-		dispatch_gs(vues, 3, q->count);
+		dispatch_gs(vues, q->prim_size, q->count);
 }
 
 static void
@@ -201,7 +198,7 @@ prim_queue_flush_to_wm(struct prim_queue *q)
 {
 	for (uint32_t i = 0; i < q->count; i++) {
 		struct value **vue = q->prim[i];
-		for (int j = 0; j < 3; j++) {
+		for (int j = 0; j < q->prim_size; j++) {
 			if (vue[j][0].header.clip_flags)
 				goto trivial_reject;
 		}
@@ -289,7 +286,7 @@ setup_prim(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology, uint32_t pa
 	prim_queue_flush(&q);
 }
 
-static uint32_t
+uint32_t
 ia_state_flush(struct ia_state *s, struct prim_queue *q)
 {
 	struct value *vue[32];
@@ -442,19 +439,18 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 	return free_tail;
 }
 
-void
-ia_state_cut(struct ia_state *s, struct prim_queue *q, uint32_t cut)
+uint32_t
+ia_state_cut(struct ia_state *s, struct prim_queue *q)
 {
 	struct value *vue[8];
+	uint32_t free_tail = s->tail;
 
 	switch (s->topology) {
 	case _3DPRIM_LINELOOP:
-		if (s->first_vertex && cut - s->tail > 0) {
+		if (s->first_vertex && s->head - s->tail > 0) {
 			vue[0] = ia_state_peek(s, s->tail++);
 			vue[1] = s->first_vertex;
 			prim_queue_add(q, vue, 0);
-			if (vue[0] != s->first_vertex)
-				prim_queue_free_vue(q, vue[0]);
 			gt.ia_primitives_count++;
 		}
 		break;
@@ -462,15 +458,16 @@ ia_state_cut(struct ia_state *s, struct prim_queue *q, uint32_t cut)
 		break;
 	}
 
+	/* Add first_vertex back to queue so it'll get freed if caller
+	 * needs to free it. */
 	if (s->first_vertex)
-		prim_queue_free_vue(q, s->first_vertex);
+		ia_state_add(s, s->first_vertex);
 
-	for (uint32_t i = s->tail; i != cut; i++)
-		prim_queue_free_vue(q, ia_state_peek(s, i));
-
-	s->tail = cut;
+	s->tail = s->head;
 	s->first_vertex = NULL;
 	s->tristrip_parity = 0;
+
+	return free_tail;
 }
 
 void
@@ -964,6 +961,7 @@ dispatch_primitive(void)
 
 	struct ia_state state;
 	struct prim_queue pq;
+	uint32_t tail;
 
 	ia_state_init(&state, gt.ia.topology);
 
@@ -973,12 +971,14 @@ dispatch_primitive(void)
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			dispatch_vs(&t, iid, i, &state);
 
-			uint32_t free_tail = ia_state_flush(&state, &pq);
-			for (uint32_t i = free_tail; i < state.tail; i++)
+			tail = ia_state_flush(&state, &pq);
+			for (uint32_t i = tail; i < state.tail; i++)
 				prim_queue_free_vue(&pq, ia_state_peek(&state, i));
 		}
 
-		ia_state_cut(&state, &pq, state.head);
+		tail = ia_state_cut(&state, &pq);
+		for (uint32_t i = tail; i < state.tail; i++)
+			prim_queue_free_vue(&pq, ia_state_peek(&state, i));
 	}
 
 	prim_queue_flush(&pq);
