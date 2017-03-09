@@ -289,7 +289,7 @@ setup_prim(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology, uint32_t pa
 	prim_queue_flush(&q);
 }
 
-static void
+static uint32_t
 ia_state_flush(struct ia_state *s, struct prim_queue *q)
 {
 	struct value *vue[32];
@@ -439,8 +439,7 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 		break;
 	}
 
-	for (uint32_t i = free_tail; i < s->tail; i++)
-		prim_queue_free_vue(q, ia_state_peek(s, i));
+	return free_tail;
 }
 
 void
@@ -973,7 +972,10 @@ dispatch_primitive(void)
 	for (uint32_t iid = 0; iid < gt.prim.instance_count; iid++) {
 		for (uint32_t i = 0; i < gt.prim.vertex_count; i += 8) {
 			dispatch_vs(&t, iid, i, &state);
-			ia_state_flush(&state, &pq);
+
+			uint32_t free_tail = ia_state_flush(&state, &pq);
+			for (uint32_t i = free_tail; i < state.tail; i++)
+				prim_queue_free_vue(&pq, ia_state_peek(&state, i));
 		}
 
 		ia_state_cut(&state, &pq, state.head);
