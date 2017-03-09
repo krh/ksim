@@ -154,11 +154,8 @@ get_vue(struct ds_thread *t, uint32_t i)
 static void
 free_vues(struct ds_thread *t, uint32_t tail)
 {
-	for (uint32_t i = t->vue_tail; i < tail; i++) {
-		struct value *e[0];
-		e[0] = urb_handle_to_entry(get_vue(t, i));
-		prim_queue_free_vues(&t->pq, e, 1);
-	}
+	for (uint32_t i = t->vue_tail; i < tail; i++)
+		prim_queue_free_vue(&t->pq, urb_handle_to_entry(get_vue(t, i)));
 
 	t->vue_tail = tail;
 }

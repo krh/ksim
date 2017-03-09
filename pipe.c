@@ -213,13 +213,6 @@ prim_queue_flush_to_wm(struct prim_queue *q)
 }
 
 void
-prim_queue_free_vues(struct prim_queue *q, struct value **vue, uint32_t count)
-{
-	for (uint32_t i = 0; i < count; i++)
-		q->free_queue[q->free_head++ & (ARRAY_LENGTH(q->free_queue) - 1)] = vue[i];
-}
-
-void
 prim_queue_flush(struct prim_queue *q)
 {
 	if (gt.gs.enable && q->urb != &gt.gs.urb)
@@ -301,6 +294,7 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 {
 	struct value *vue[32];
 	int count;
+	uint32_t free_tail = s->tail;
 
 	switch (s->topology) {
 	case _3DPRIM_TRILIST:
@@ -309,7 +303,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			vue[2] = ia_state_peek(s, s->tail + 2);
 			prim_queue_add(q, vue, 0);
-			prim_queue_free_vues(q, vue, 3);
 			s->tail += 3;
 			gt.ia_primitives_count++;
 		}
@@ -321,7 +314,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			vue[2] = ia_state_peek(s, s->tail + 2);
 			prim_queue_add(q, vue, s->tristrip_parity);
-			prim_queue_free_vues(q, vue, 1);
 			s->tail += 1;
 			s->tristrip_parity = 1 - s->tristrip_parity;
 			gt.ia_primitives_count++;
@@ -336,6 +328,7 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			ksim_assert(s->head - s->tail >= 1);
 			s->first_vertex = ia_state_peek(s, s->tail);
 			s->tail++;
+			free_tail++;
 		}
 
 		while (s->head - s->tail >= 2) {
@@ -343,8 +336,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[1] = ia_state_peek(s, s->tail + 0);
 			vue[2] = ia_state_peek(s, s->tail + 1);
 			prim_queue_add(q, vue, 0);
-			if (vue[0] != s->first_vertex)
-				prim_queue_free_vues(q, vue, 1);
 			s->tail += 1;
 			gt.ia_primitives_count++;
 		}
@@ -359,10 +350,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			vue[2] = ia_state_peek(s, s->tail + 2);
 			prim_queue_add(q, vue, 0);
-
-			vue[3] = ia_state_peek(s, s->tail + 0);
-
-			prim_queue_free_vues(q, vue, 4);
 
 			s->tail += 4;
 			gt.ia_primitives_count++;
@@ -379,10 +366,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[2] = ia_state_peek(s, s->tail + 0);
 			prim_queue_add(q, vue, 0);
 
-			vue[0] = ia_state_peek(s, s->tail + 0);
-			vue[1] = ia_state_peek(s, s->tail + 1);
-			prim_queue_free_vues(q, vue, 2);
-
 			s->tail += 2;
 			gt.ia_primitives_count++;
 		}
@@ -394,7 +377,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			vue[2] = ia_state_peek(s, s->tail + 2);
 			prim_queue_add(q, vue, 0);
-			prim_queue_free_vues(q, vue, 3);
 			s->tail += 3;
 		}
 		break;
@@ -404,7 +386,6 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[0] = ia_state_peek(s, s->tail + 0);
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			prim_queue_add(q, vue, 0);
-			prim_queue_free_vues(q, vue, 2);
 			s->tail += 2;
 		}
 		break;
@@ -414,25 +395,28 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 			vue[0] = ia_state_peek(s, s->tail + 0);
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			prim_queue_add(q, vue, 0);
-			prim_queue_free_vues(q, vue, 1);
 			s->tail += 1;
 		}
 		break;
 
 	case _3DPRIM_LINELOOP:
-		if (s->first_vertex == NULL) {
-			/* We always have at least one vertex
-			 * when we get, so this is safe. */
+		if (s->first_vertex == NULL && s->head - s->tail >= 2) {
+			/* Only set first_vertex if we can draw at
+			 * least one line and advance s->tail.
+			 * Otherwise, when we get the next 3DPRIM_LINELOOP,
+			 * we'll have first_vertex == s->tail, but we
+			 * won't get in here and advance free_tail.
+			 * Result would be double freeing
+			 * first_vertex. */
 			ksim_assert(s->head - s->tail >= 1);
 			s->first_vertex = ia_state_peek(s, s->tail);
+			free_tail++;
 		}
 
 		while (s->head - s->tail >= 2) {
 			vue[0] = ia_state_peek(s, s->tail + 0);
 			vue[1] = ia_state_peek(s, s->tail + 1);
 			prim_queue_add(q, vue, 0);
-			if (vue[0] != s->first_vertex)
-				prim_queue_free_vues(q, vue, 1);
 			s->tail += 1;
 		}
 		break;
@@ -454,6 +438,9 @@ ia_state_flush(struct ia_state *s, struct prim_queue *q)
 		s->tail = s->head;
 		break;
 	}
+
+	for (uint32_t i = free_tail; i < s->tail; i++)
+		prim_queue_free_vue(q, ia_state_peek(s, i));
 }
 
 void
@@ -468,7 +455,7 @@ ia_state_cut(struct ia_state *s, struct prim_queue *q, uint32_t cut)
 			vue[1] = s->first_vertex;
 			prim_queue_add(q, vue, 0);
 			if (vue[0] != s->first_vertex)
-				prim_queue_free_vues(q, vue, 1);
+				prim_queue_free_vue(q, vue[0]);
 			gt.ia_primitives_count++;
 		}
 		break;
@@ -476,14 +463,11 @@ ia_state_cut(struct ia_state *s, struct prim_queue *q, uint32_t cut)
 		break;
 	}
 
-	if (s->first_vertex) {
-		vue[0] = s->first_vertex;
-		prim_queue_free_vues(q, vue, 1);
-	}
+	if (s->first_vertex)
+		prim_queue_free_vue(q, s->first_vertex);
 
-	for (uint32_t i = 0; s->tail + i != cut; i++)
-		vue[i] = ia_state_peek(s, s->tail + i);
-	prim_queue_free_vues(q, vue, cut - s->tail);
+	for (uint32_t i = s->tail; i != cut; i++)
+		prim_queue_free_vue(q, ia_state_peek(s, i));
 
 	s->tail = cut;
 	s->first_vertex = NULL;

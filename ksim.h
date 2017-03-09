@@ -677,8 +677,14 @@ struct prim_queue {
 	uint32_t free_head;
 };
 
+static inline void
+prim_queue_free_vue(struct prim_queue *q, struct value *vue)
+{
+	q->free_queue[q->free_head++ & (ARRAY_LENGTH(q->free_queue) - 1)] = vue;
+}
+
+
 void prim_queue_init(struct prim_queue *q, enum GEN9_3D_Prim_Topo_Type topology, struct urb *urb);
-void prim_queue_free_vues(struct prim_queue *q, struct value **vue, uint32_t count);
 void prim_queue_flush(struct prim_queue *q);
 void prim_queue_add(struct prim_queue *q, struct value **vue, uint32_t parity);
 
