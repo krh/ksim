@@ -246,7 +246,9 @@ decode_bc4(void *p, __m256i offsets, __m256i emask, struct reg *dst,
 
 	__m256 scale8 = _mm256_set1_ps(1.0f / 255.0f);
 
-	/* cmp, then blendv to pick c0 or c1 */;
+	/* FIXME: cmp, then blendv to pick c0 or c1 */;
+	(void) a1;
+	(void) c1;
 
 	dst[0].reg = _mm256_mul_ps(_mm256_cvtepi32_ps(a0), scale8);
 }
