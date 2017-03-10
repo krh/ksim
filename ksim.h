@@ -104,7 +104,7 @@ __ksim_assert(bool cond, const char *file, int line, const char *msg)
 }
 
 #ifdef KSIM_BUILD_RELEASE
-#define ksim_assert(cond) do { (void) (cond); } while (0)
+#define ksim_assert(cond) do { if (!(cond)) __builtin_unreachable(); } while (0)
 #else
 #define ksim_assert(cond) __ksim_assert((cond), __FILE__, __LINE__, #cond)
 #endif
