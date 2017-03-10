@@ -574,6 +574,8 @@ struct gt {
 		uint32_t end_y;
 		uint32_t start_z;
 		uint32_t end_z;
+		void *curbe_data;
+		uint32_t curbe_data_length;
 		shader_t avx_shader;
 	} compute;
 
