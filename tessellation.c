@@ -553,6 +553,8 @@ tessellate_patch(struct value **vue)
 	case OUTPUT_TRI_CCW:
 		topology = _3DPRIM_TRILIST;
 		break;
+	default:
+		ksim_unreachable();
 	}
 
 	prim_queue_init(&dt.pq, topology, &gt.ds.urb);
