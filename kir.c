@@ -1748,16 +1748,16 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			builder_emit_vpsrld(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_shr:
-			builder_emit_vpsrlvd(bld, insn->dst.n, insn->alu.src1.n, insn->alu.src0.n);
+			builder_emit_vpsrlvd(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_shli:
 			builder_emit_vpslld(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_shl:
-			builder_emit_vpsllvd(bld, insn->dst.n, insn->alu.src1.n, insn->alu.src0.n);
+			builder_emit_vpsllvd(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_asr:
-			builder_emit_vpsravd(bld, insn->dst.n, insn->alu.src1.n, insn->alu.src0.n);
+			builder_emit_vpsravd(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_maxd:
 			ksim_unreachable("maxd");
