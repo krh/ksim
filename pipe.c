@@ -826,18 +826,19 @@ compile_vs(void)
 	prog.urb_offset = offsetof(struct vs_thread, buffer.data);
 
 	uint32_t grf;
-	if (gt.vs.enable)
+	if (gt.vs.enable) {
 		grf = emit_load_constants(&prog, &gt.vs.curbe,
 					  gt.vs.urb_start_grf);
 
-	/* Always need to fetch, even if we don't have a VS. */
-	emit_vertex_fetch(&prog);
+		emit_vertex_fetch(&prog);
 
-	if (gt.vs.enable) {
 		emit_load_vue(&prog, grf);
 
 		kir_program_comment(&prog, "eu vs");
 		kir_program_emit_shader(&prog, gt.vs.ksp);
+	} else {
+		/* Always need to fetch, even if we don't have a VS. */
+		emit_vertex_fetch(&prog);
 	}
 
 	if (trace_mask & TRACE_URB)
