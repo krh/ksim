@@ -50,6 +50,13 @@ handle_mi_batch_buffer_end(uint32_t *p)
 }
 
 static void
+handle_mi_predicate(uint32_t *p)
+{
+	ksim_trace(TRACE_CS, "MI_PREDICATE\n");
+	stub("MI_PREDICATE\n");
+}
+
+static void
 handle_mi_math(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "MI_MATH\n");
@@ -155,6 +162,7 @@ typedef void (*command_handler_t)(uint32_t *);
 static const command_handler_t mi_commands[] = {
 	[ 0] = handle_mi_noop,
 	[10] = handle_mi_batch_buffer_end,
+	[12] = handle_mi_predicate,
 	[26] = handle_mi_math,
 	[34] = handle_mi_load_register_imm,
 	[38] = handle_mi_flush_dw,
