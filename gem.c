@@ -449,11 +449,11 @@ dispatch_execbuffer2(int fd, unsigned long request,
 {
 	struct drm_i915_gem_exec_object2 *buffers =
 		(void *) (uintptr_t) execbuffer2->buffers_ptr;
-	struct stub_bo *bo;
+	const uint32_t count = execbuffer2->buffer_count;
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_EXECBUFFER2:\n");
 
-	ksim_assert(execbuffer2->buffer_count > 0);
+	ksim_assert(count > 0);
 	ksim_assert((execbuffer2->batch_len & 7) == 0);
 	ksim_assert(execbuffer2->num_cliprects == 0);
 	ksim_assert(execbuffer2->DR1 == 0);
@@ -462,8 +462,8 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	flush_dirty_maps();
 
 	bool all_matches = true, all_bound = true;
-	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
-		bo = get_bo(buffers[i].handle);
+	for (uint32_t i = 0; i < count; i++) {
+		struct stub_bo *bo = get_bo(buffers[i].handle);
 		trace(TRACE_GEM, "    bo %d, size %ld, ",
 		      buffers[i].handle, bo->size);
 
@@ -474,7 +474,6 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		} else if (bo->gtt_offset == NOT_BOUND &&
 		    next_offset + bo->size <= gtt_size) {
 			uint64_t alignment = max_u64(buffers[i].alignment, 4096);
-
 			bo->gtt_offset = align_u64(next_offset, alignment);
 			next_offset = bo->gtt_offset + bo->size;
 
@@ -500,11 +499,10 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	if (all_matches && (execbuffer2->flags & I915_EXEC_NO_RELOC))
 		/* can skip relocs */;
 
-	for (uint32_t i = 0; i < execbuffer2->buffer_count; i++) {
-		struct drm_i915_gem_relocation_entry *relocs;
-
-		bo = get_bo(buffers[i].handle);
-		relocs = (void *) (uintptr_t) buffers[i].relocs_ptr;
+	for (uint32_t i = 0; i < count; i++) {
+		struct stub_bo *bo = get_bo(buffers[i].handle);
+		struct drm_i915_gem_relocation_entry *relocs =
+			(void *) (uintptr_t) buffers[i].relocs_ptr;
 
 		for (uint32_t j = 0; j < buffers[i].relocation_count; j++) {
 			uint32_t handle;
@@ -537,6 +535,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 		ksim_unreachable("unhandled ring");
 	}
 
+	struct stub_bo *bo = get_bo(buffers[count - 1].handle);
 	uint64_t offset = bo->gtt_offset + execbuffer2->batch_start_offset;
 	start_batch_buffer(offset, ring);
 
