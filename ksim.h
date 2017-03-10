@@ -714,8 +714,26 @@ void dispatch_gs(struct value ***vue,
 void dispatch_primitive(void);
 void dispatch_compute(void);
 
+struct format_info {
+	uint32_t size;		/* size in bytes of a pixel or compression block */
+	uint32_t channels;
+	uint32_t block_size;	/* width and height of a block, 1 indicates non-block format */
+	uint32_t caps;
+};
+
+extern const struct format_info gen_formats[];
+
 bool valid_vertex_format(uint32_t format);
-bool srgb_format(uint32_t format);
+
+static inline bool
+srgb_format(uint32_t format)
+{
+	ksim_assert(format <= SF_RAW);
+
+	//return gen_formats[format].caps & SRGB;
+	return false;
+}
+
 uint32_t format_size(uint32_t format);
 uint32_t format_channels(uint32_t format);
 uint32_t format_block_size(uint32_t format);

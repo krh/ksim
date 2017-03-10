@@ -26,12 +26,7 @@
 #define V 1
 #define SRGB 2
 
-static const struct format_info {
-	uint32_t size;		/* size in bytes of a pixel or compression block */
-	uint32_t channels;
-	uint32_t block_size;	/* width and height of a block, 1 indicates non-block format */
-	uint32_t caps;
-} formats[] = {
+const struct format_info gen_formats[] = {
 	[SF_R32G32B32A32_FLOAT]			= { .size = 16, .channels = 4, .block_size = 1, .caps = V },
 	[SF_R32G32B32A32_SINT]			= { .size = 16, .channels = 4, .block_size = 1, .caps = V },
 	[SF_R32G32B32A32_UINT]			= { .size = 16, .channels = 4, .block_size = 1, .caps = V },
@@ -260,16 +255,7 @@ valid_vertex_format(uint32_t format)
 {
 	ksim_assert(format <= SF_RAW);
 
-	return formats[format].caps & V;
-}
-
-bool
-srgb_format(uint32_t format)
-{
-	ksim_assert(format <= SF_RAW);
-
-	//return formats[format].caps & SRGB;
-	return false;
+	return gen_formats[format].caps & V;
 }
 
 uint32_t
@@ -277,7 +263,7 @@ format_size(uint32_t format)
 {
 	ksim_assert(format <= SF_RAW);
 
-	return formats[format].size;
+	return gen_formats[format].size;
 }
 
 uint32_t
@@ -285,7 +271,7 @@ format_channels(uint32_t format)
 {
 	ksim_assert(format <= SF_RAW);
 
-	return formats[format].channels;
+	return gen_formats[format].channels;
 }
 
 uint32_t
@@ -293,7 +279,7 @@ format_block_size(uint32_t format)
 {
 	ksim_assert(format <= SF_RAW);
 
-	return formats[format].block_size;
+	return gen_formats[format].block_size;
 }
 
 static const struct format_info depth_formats[] = {
