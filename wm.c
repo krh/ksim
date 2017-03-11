@@ -39,6 +39,7 @@ struct edge {
 
 struct dispatch {
 	struct reg w, z;
+	struct reg int_w2, int_w1;
 	struct reg w2, w1;
 	struct reg w2_pc, w1_pc;
 	struct reg mask;
@@ -70,6 +71,34 @@ struct ps_thread {
 
 	float inv_z1, inv_z2;
 };
+
+static void
+emit_barycentric_conversion(struct kir_program *prog)
+{
+	kir_program_comment(prog, "compute barycentric coordinates");
+	struct kir_reg inv_area =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, inv_area));
+	struct kir_reg e01_bias =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, e01.bias));
+	struct kir_reg e20_bias =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, e20.bias));
+	struct kir_reg w2 =
+		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].int_w2));
+	struct kir_reg w1 =
+		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].int_w1));
+
+	w2 = kir_program_alu(prog, kir_addd, w2, e01_bias);
+	w1 = kir_program_alu(prog, kir_addd, w1, e20_bias);
+	w2 = kir_program_alu(prog, kir_d2ps, w2);
+	w1 = kir_program_alu(prog, kir_d2ps, w1);
+	w2 = kir_program_alu(prog, kir_mulf, w2, inv_area);
+	w1 = kir_program_alu(prog, kir_mulf, w1, inv_area);
+
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w1), w1);
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w1_pc), w1);
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2), w2);
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2_pc), w2);
+}
 
 static void
 emit_depth_test(struct kir_program *prog)
@@ -317,21 +346,14 @@ fill_dispatch(struct ps_thread *pt,
 	 * barycentric coordinates. We add back the tie-breaker
 	 * adjustment so as to not distort the barycentric
 	 * coordinates.*/
-	d->w2.reg =
-		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(pt->e01.bias))),
-			      _mm256_set1_ps(pt->inv_area));
-	d->w1.reg =
-		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(pt->e20.bias))),
-			      _mm256_set1_ps(pt->inv_area));
+	d->int_w2.ireg = iter->w2;
+	d->int_w1.ireg = iter->w1;
 
 #if 0
 	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
 				     _mm256_set1_ps(pt->inv_z1));
 	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
 				     _mm256_set1_ps(pt->inv_z2));
-#else
-	d->w1_pc.reg = d->w1.reg;
-	d->w2_pc.reg = d->w2.reg;
 #endif
 	
 	d->mask = mask;
@@ -859,6 +881,8 @@ compile_ps_for_width(uint64_t kernel_offset, int width)
 
 	kir_program_init(&prog, gt.ps.binding_table_address,
 			 gt.ps.sampler_state_address);
+
+	emit_barycentric_conversion(&prog);
 
 	emit_depth_test(&prog);
 
