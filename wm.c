@@ -238,9 +238,10 @@ const int tile_height = 8;
 
 struct tile_iterator {
 	int x, y;
-	__m256i row_w2, w2;
-	__m256i row_w0, w0;
-	__m256i row_w1, w1;
+	__m256i w2, w0, w1;
+	__m256i w2_step, w0_step, w1_step;
+	__m256i w2_row_step, w0_row_step, w1_row_step;
+
 };
 
 static void
@@ -263,18 +264,25 @@ tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.a), sx.ireg) +
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.b), sy.ireg);
 
-	iter->row_w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
-				       w2_offsets);
+	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
+				    w2_offsets);
 
-	iter->row_w0 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w0),
-				       w0_offsets);
+	iter->w0 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w0),
+				    w0_offsets);
 
-	iter->row_w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
-				       w1_offsets);
+	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
+				    w1_offsets);
 
-	iter->w2 = iter->row_w2;
-	iter->w0 = iter->row_w0;
-	iter->w1 = iter->row_w1;
+	const uint32_t dx = 4;
+	const uint32_t dy = 2;
+
+	iter->w2_step = _mm256_set1_epi32(pt->e01.a * dx);
+	iter->w0_step = _mm256_set1_epi32(pt->e12.a * dx);
+	iter->w1_step = _mm256_set1_epi32(pt->e20.a * dx);
+
+	iter->w2_row_step = _mm256_set1_epi32(pt->e01.b * dy - pt->e01.a * (tile_width - dx));
+	iter->w0_row_step = _mm256_set1_epi32(pt->e12.b * dy - pt->e12.a * (tile_width - dx));
+	iter->w1_row_step = _mm256_set1_epi32(pt->e20.b * dy - pt->e20.a * (tile_width - dx));
 }
 
 static bool
@@ -291,18 +299,13 @@ tile_iterator_next(struct tile_iterator *iter, struct ps_thread *pt)
 		iter->x = 0;
 		iter->y += 2;
 
-		iter->row_w2 = _mm256_add_epi32(iter->row_w2, _mm256_set1_epi32(pt->e01.b * 2));
-		iter->row_w0 = _mm256_add_epi32(iter->row_w0, _mm256_set1_epi32(pt->e12.b * 2));
-		iter->row_w1 = _mm256_add_epi32(iter->row_w1, _mm256_set1_epi32(pt->e20.b * 2));
-
-		iter->w2 = iter->row_w2;
-		iter->w0 = iter->row_w0;
-		iter->w1 = iter->row_w1;
-
+		iter->w2 = _mm256_add_epi32(iter->w2, iter->w2_row_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, iter->w0_row_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, iter->w1_row_step);
 	} else {
-		iter->w2 = _mm256_add_epi32(iter->w2, _mm256_set1_epi32(pt->e01.a * 4));
-		iter->w0 = _mm256_add_epi32(iter->w0, _mm256_set1_epi32(pt->e12.a * 4));
-		iter->w1 = _mm256_add_epi32(iter->w1, _mm256_set1_epi32(pt->e20.a * 4));
+		iter->w2 = _mm256_add_epi32(iter->w2, iter->w2_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, iter->w0_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, iter->w1_step);
 	}
 
 }
