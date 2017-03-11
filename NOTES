@@ -65,6 +65,13 @@ it into the shader as a regular load.
 
 ** Lines, points
 
+** Make tile iterator evaluate min w for 8 4x2 blocks at a time.
+
+We don't need to compute exact barycentrics for each pixel, just
+determine min bary and see if we need to dispatch for the block. The
+shader will compute per-pixel barycentrics by adding a per-edge vector
+that's the delta for each pixel between min bary and the pixels bary.
+
 * EU
 
 ** Use immediate AVX2 shift when EU operand is an immediate
