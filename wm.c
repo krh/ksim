@@ -568,35 +568,42 @@ intersect_rectangle(struct rectangle *r, const struct rectangle *other)
 		r->y1 = other->y1;
 }
 
+static void
+rewrite_to_rectlist(struct value **vue, struct vec4 *v)
+{
+	float length, dx, dy, px, py;
+
+	vue[2] = vue[1];
+	v[0] = vue[0][1].vec4;
+	v[1] = vue[1][1].vec4;
+	v[2] = vue[2][1].vec4;
+
+	dx = v[1].x - v[0].x;
+	dy = v[1].y - v[0].y;
+	length = gt.sf.line_width / 2.0f / hypot(dx, dy);
+	dx *= length;
+	dy *= length;
+	px = -dy;
+	py = dx;
+	v[0].x = v[0].x - dx - px;
+	v[0].y = v[0].y - dy - py;
+	v[1].x = v[1].x + dx - px;
+	v[1].y = v[1].y + dy - py;
+	v[2].x = v[2].x + dx + px;
+	v[2].y = v[2].y + dy + py;
+}
+
 void
 rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 {
 	struct ps_thread pt;
-	float length, dx, dy, px, py;
 	struct vec4 v[3];
 
 	switch (topology) {
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
-		vue[2] = vue[1];
-		v[0] = vue[0][1].vec4;
-		v[1] = vue[1][1].vec4;
-		v[2] = vue[2][1].vec4;
-
-		dx = v[1].x - v[0].x;
-		dy = v[1].y - v[0].y;
-		length = gt.sf.line_width / 2.0f / hypot(dx, dy);
-		dx *= length;
-		dy *= length;
-		px = -dy;
-		py = dx;
-		v[0].x = v[0].x - dx - px;
-		v[0].y = v[0].y - dy - py;
-		v[1].x = v[1].x + dx - px;
-		v[1].y = v[1].y + dy - py;
-		v[2].x = v[2].x + dx + px;
-		v[2].y = v[2].y + dy + py;
+		rewrite_to_rectlist(vue, v);
 		break;
 	default:
 		v[0] = vue[0][1].vec4;
