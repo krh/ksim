@@ -64,6 +64,7 @@ struct ps_thread {
 	struct rectangle rect;
 	int32_t row_w2, row_w0, row_w1;
 
+	__m256i w2_offsets, w0_offsets, w1_offsets;
 	__m256i w2_step, w0_step, w1_step;
 	__m256i w2_row_step, w0_row_step, w1_row_step;
 
@@ -247,31 +248,17 @@ struct tile_iterator {
 static void
 tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 {
-	__m256i w2_offsets, w0_offsets, w1_offsets;
-	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
-	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
-
 	iter->x = 0;
 	iter->y = 0;
 
-	w2_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e01.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e01.b), sy.ireg);
-	w0_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e12.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e12.b), sy.ireg);
-	w1_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.b), sy.ireg);
-
 	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
-				    w2_offsets);
+				    pt->w2_offsets);
 
 	iter->w0 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w0),
-				    w0_offsets);
+				    pt->w0_offsets);
 
 	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
-				    w1_offsets);
+				    pt->w1_offsets);
 }
 
 static bool
@@ -720,6 +707,18 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 
 	const uint32_t dx = 4;
 	const uint32_t dy = 2;
+	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
+	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
+
+	pt.w2_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e01.b), sy.ireg);
+	pt.w0_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e12.b), sy.ireg);
+	pt.w1_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e20.b), sy.ireg);
 
 	pt.w2_step = _mm256_set1_epi32(pt.e01.a * dx);
 	pt.w0_step = _mm256_set1_epi32(pt.e12.a * dx);
