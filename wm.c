@@ -64,6 +64,9 @@ struct ps_thread {
 	struct rectangle rect;
 	int32_t row_w2, row_w0, row_w1;
 
+	__m256i w2_step, w0_step, w1_step;
+	__m256i w2_row_step, w0_row_step, w1_row_step;
+
 	float inv_z1, inv_z2;
 };
 
@@ -239,9 +242,6 @@ const int tile_height = 8;
 struct tile_iterator {
 	int x, y;
 	__m256i w2, w0, w1;
-	__m256i w2_step, w0_step, w1_step;
-	__m256i w2_row_step, w0_row_step, w1_row_step;
-
 };
 
 static void
@@ -272,17 +272,6 @@ tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 
 	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
 				    w1_offsets);
-
-	const uint32_t dx = 4;
-	const uint32_t dy = 2;
-
-	iter->w2_step = _mm256_set1_epi32(pt->e01.a * dx);
-	iter->w0_step = _mm256_set1_epi32(pt->e12.a * dx);
-	iter->w1_step = _mm256_set1_epi32(pt->e20.a * dx);
-
-	iter->w2_row_step = _mm256_set1_epi32(pt->e01.b * dy - pt->e01.a * (tile_width - dx));
-	iter->w0_row_step = _mm256_set1_epi32(pt->e12.b * dy - pt->e12.a * (tile_width - dx));
-	iter->w1_row_step = _mm256_set1_epi32(pt->e20.b * dy - pt->e20.a * (tile_width - dx));
 }
 
 static bool
@@ -299,13 +288,13 @@ tile_iterator_next(struct tile_iterator *iter, struct ps_thread *pt)
 		iter->x = 0;
 		iter->y += 2;
 
-		iter->w2 = _mm256_add_epi32(iter->w2, iter->w2_row_step);
-		iter->w0 = _mm256_add_epi32(iter->w0, iter->w0_row_step);
-		iter->w1 = _mm256_add_epi32(iter->w1, iter->w1_row_step);
+		iter->w2 = _mm256_add_epi32(iter->w2, pt->w2_row_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, pt->w0_row_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, pt->w1_row_step);
 	} else {
-		iter->w2 = _mm256_add_epi32(iter->w2, iter->w2_step);
-		iter->w0 = _mm256_add_epi32(iter->w0, iter->w0_step);
-		iter->w1 = _mm256_add_epi32(iter->w1, iter->w1_step);
+		iter->w2 = _mm256_add_epi32(iter->w2, pt->w2_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, pt->w0_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, pt->w1_step);
 	}
 
 }
@@ -728,6 +717,17 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	pt.row_w1 = eval_edge(&pt.e20, min);
 
 	pt.queue_length = 0;
+
+	const uint32_t dx = 4;
+	const uint32_t dy = 2;
+
+	pt.w2_step = _mm256_set1_epi32(pt.e01.a * dx);
+	pt.w0_step = _mm256_set1_epi32(pt.e12.a * dx);
+	pt.w1_step = _mm256_set1_epi32(pt.e20.a * dx);
+
+	pt.w2_row_step = _mm256_set1_epi32(pt.e01.b * dy - pt.e01.a * (tile_width - dx));
+	pt.w0_row_step = _mm256_set1_epi32(pt.e12.b * dy - pt.e12.a * (tile_width - dx));
+	pt.w1_row_step = _mm256_set1_epi32(pt.e20.b * dy - pt.e20.a * (tile_width - dx));
 
 	switch (topology) {
 	case _3DPRIM_RECTLIST:
