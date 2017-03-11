@@ -824,6 +824,7 @@ compile_vs(void)
 			 gt.vs.sampler_state_address);
 
 	prog.urb_offset = offsetof(struct vs_thread, buffer.data);
+	prog.urb_length = sizeof(((struct vue_buffer *)0)->data);
 
 	uint32_t grf;
 	if (gt.vs.enable) {

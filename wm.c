@@ -76,6 +76,25 @@ emit_depth_test(struct kir_program *prog)
 {
 	struct kir_reg base, depth;
 
+	kir_program_comment(prog, "compute depth");
+	struct kir_reg b =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[1]));
+	struct kir_reg c =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[3]));
+	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w2));
+	struct kir_reg d = kir_program_alu(prog, kir_maddf, b, prog->dst, c);
+
+	struct kir_reg a =
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[0]));
+	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w1));
+	struct kir_reg w =
+		kir_program_alu(prog, kir_maddf, a, prog->dst, d);
+
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w), w);
+
+	struct kir_reg z = kir_program_alu(prog, kir_rcp, w);
+	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].z), z);
+
 	if (!gt.depth.test_enable && !gt.depth.write_enable)
 		return;
 
@@ -101,8 +120,7 @@ emit_depth_test(struct kir_program *prog)
 	 * match the shader dispatch subspan ordering. */
 	// d_f.ireg = _mm256_permute4x64_epi64(d_f.ireg, SWIZZLE(0, 2, 1, 3));
 
-	struct kir_reg computed_depth =
-		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w));
+	struct kir_reg computed_depth = w;
 	struct kir_reg mask =
 		kir_program_load_v8(prog, offsetof(struct ps_thread, t.mask_q1));
 
@@ -306,11 +324,6 @@ fill_dispatch(struct ps_thread *pt,
 		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(pt->e20.bias))),
 			      _mm256_set1_ps(pt->inv_area));
 
-	d->w.reg = _mm256_fmadd_ps(_mm256_set1_ps(pt->w_deltas[0]), d->w1.reg,
-				   _mm256_fmadd_ps(_mm256_set1_ps(pt->w_deltas[1]), d->w2.reg,
-						   _mm256_set1_ps(pt->w_deltas[3])));
-
-	d->z.reg = _mm256_rcp_ps(d->w.reg);
 #if 0
 	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
 				     _mm256_set1_ps(pt->inv_z1));

@@ -621,9 +621,12 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 	memset(live_regs, 0, count * sizeof(live_regs[0]));
 	range = malloc(count * sizeof(range[0]));
 	memset(range, 0, count * sizeof(range[0]));
-	memset(region_map, 0, 128 * sizeof(region_map[0]));
-	/* Initialize regions past the eu registers to live. */
-	memset(region_map + 128, ~0, 384 * sizeof(region_map[0]));
+	memset(region_map, 0, 512 * sizeof(region_map[0]));
+
+	/* Initialize URB buffer live if we have one. URB offset
+	 * and size are in bytes. */
+	memset(region_map + prog->urb_offset / 32, ~0,
+	       prog->urb_length / 32 * sizeof(region_map[0]));
 
 	insn = container_of(prog->insns.prev, insn, link);
 	while (&insn->link != &prog->insns) {
@@ -1901,6 +1904,7 @@ kir_program_init(struct kir_program *prog, uint64_t surfaces, uint64_t samplers)
 	prog->next_reg = kir_reg(0);
 	prog->scope = 0;
 	prog->urb_offset = 0;
+	prog->urb_length = 0;
 	prog->binding_table_address = surfaces;
 	prog->sampler_state_address = samplers;
 }

@@ -41,6 +41,7 @@ struct kir_program {
 	int scope;
 	uint32_t *live_ranges;
 	uint32_t urb_offset;
+	uint32_t urb_length;
 
 	uint64_t binding_table_address;
 	uint64_t sampler_state_address;
