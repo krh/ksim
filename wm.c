@@ -54,25 +54,17 @@ struct ps_thread {
 
 	float w_deltas[4];
 	int queue_length;
-};
 
-struct primitive {
 	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
 	int32_t area;
 	float inv_area;
 	struct edge e01, e12, e20;
 
-	struct {
-		void *buffer;
-	} depth;
-
 	struct rectangle rect;
 	int32_t row_w2, row_w0, row_w1;
 
 	float inv_z1, inv_z2;
-	float w_deltas[4];
-	struct reg attribute_deltas[64];
 };
 
 static void
@@ -252,7 +244,7 @@ struct tile_iterator {
 };
 
 static void
-tile_iterator_init(struct tile_iterator *iter, struct primitive *p)
+tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 {
 	__m256i w2_offsets, w0_offsets, w1_offsets;
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
@@ -262,22 +254,22 @@ tile_iterator_init(struct tile_iterator *iter, struct primitive *p)
 	iter->y = 0;
 
 	w2_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e01.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e01.b), sy.ireg);
 	w0_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e12.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e12.b), sy.ireg);
 	w1_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(p->e20.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt->e20.b), sy.ireg);
 
-	iter->row_w2 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w2),
+	iter->row_w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
 				       w2_offsets);
 
-	iter->row_w0 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w0),
+	iter->row_w0 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w0),
 				       w0_offsets);
 
-	iter->row_w1 = _mm256_add_epi32(_mm256_set1_epi32(p->start_w1),
+	iter->row_w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
 				       w1_offsets);
 
 	iter->w2 = iter->row_w2;
@@ -292,34 +284,34 @@ tile_iterator_done(struct tile_iterator *iter)
 }
 
 static void
-tile_iterator_next(struct tile_iterator *iter, struct primitive *p)
+tile_iterator_next(struct tile_iterator *iter, struct ps_thread *pt)
 {
 	iter->x += 4;
 	if (iter->x == tile_width) {
 		iter->x = 0;
 		iter->y += 2;
 
-		iter->row_w2 = _mm256_add_epi32(iter->row_w2, _mm256_set1_epi32(p->e01.b * 2));
-		iter->row_w0 = _mm256_add_epi32(iter->row_w0, _mm256_set1_epi32(p->e12.b * 2));
-		iter->row_w1 = _mm256_add_epi32(iter->row_w1, _mm256_set1_epi32(p->e20.b * 2));
+		iter->row_w2 = _mm256_add_epi32(iter->row_w2, _mm256_set1_epi32(pt->e01.b * 2));
+		iter->row_w0 = _mm256_add_epi32(iter->row_w0, _mm256_set1_epi32(pt->e12.b * 2));
+		iter->row_w1 = _mm256_add_epi32(iter->row_w1, _mm256_set1_epi32(pt->e20.b * 2));
 
 		iter->w2 = iter->row_w2;
 		iter->w0 = iter->row_w0;
 		iter->w1 = iter->row_w1;
 
 	} else {
-		iter->w2 = _mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.a * 4));
-		iter->w0 = _mm256_add_epi32(iter->w0, _mm256_set1_epi32(p->e12.a * 4));
-		iter->w1 = _mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.a * 4));
+		iter->w2 = _mm256_add_epi32(iter->w2, _mm256_set1_epi32(pt->e01.a * 4));
+		iter->w0 = _mm256_add_epi32(iter->w0, _mm256_set1_epi32(pt->e12.a * 4));
+		iter->w1 = _mm256_add_epi32(iter->w1, _mm256_set1_epi32(pt->e20.a * 4));
 	}
 
 }
 
 static void
-fill_dispatch(struct primitive *p, struct ps_thread *t,
+fill_dispatch(struct ps_thread *pt,
 	      struct tile_iterator *iter, struct reg mask)
 {
-	struct dispatch *d = &t->queue[t->queue_length];
+	struct dispatch *d = &pt->queue[pt->queue_length];
 
 	if (_mm256_movemask_ps(mask.reg) == 0)
 		return;
@@ -329,60 +321,53 @@ fill_dispatch(struct primitive *p, struct ps_thread *t,
 	 * adjustment so as to not distort the barycentric
 	 * coordinates.*/
 	d->w2.reg =
-		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(p->e01.bias))),
-			      _mm256_set1_ps(p->inv_area));
+		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w2, _mm256_set1_epi32(pt->e01.bias))),
+			      _mm256_set1_ps(pt->inv_area));
 	d->w1.reg =
-		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(p->e20.bias))),
-			      _mm256_set1_ps(p->inv_area));
+		_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(iter->w1, _mm256_set1_epi32(pt->e20.bias))),
+			      _mm256_set1_ps(pt->inv_area));
 
-	d->w.reg = _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[0]), d->w1.reg,
-				   _mm256_fmadd_ps(_mm256_set1_ps(p->w_deltas[1]), d->w2.reg,
-						   _mm256_set1_ps(p->w_deltas[3])));
+	d->w.reg = _mm256_fmadd_ps(_mm256_set1_ps(pt->w_deltas[0]), d->w1.reg,
+				   _mm256_fmadd_ps(_mm256_set1_ps(pt->w_deltas[1]), d->w2.reg,
+						   _mm256_set1_ps(pt->w_deltas[3])));
 
 	d->z.reg = _mm256_rcp_ps(d->w.reg);
 #if 0
 	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
-				     _mm256_set1_ps(p->inv_z1));
+				     _mm256_set1_ps(pt->inv_z1));
 	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
-				     _mm256_set1_ps(p->inv_z2));
+				     _mm256_set1_ps(pt->inv_z2));
 #else
 	d->w1_pc.reg = d->w1.reg;
 	d->w2_pc.reg = d->w2.reg;
 #endif
 	
 	d->mask = mask;
-	d->x = p->x0 + iter->x;
-	d->y = p->y0 + iter->y;
+	d->x = pt->x0 + iter->x;
+	d->y = pt->y0 + iter->y;
 
-	uint32_t cpp = depth_format_size(gt.depth.format);
-	t->depth = ymajor_offset(p->depth.buffer, d->x, d->y, gt.depth.stride, cpp);
+	if (gt.depth.write_enable || gt.depth.test_enable) {
+		uint64_t range;
+		void *buffer = map_gtt_offset(gt.depth.address, &range);
+		uint32_t cpp = depth_format_size(gt.depth.format);
+		pt->depth = ymajor_offset(buffer, d->x, d->y, gt.depth.stride, cpp);
+	}
 
-	t->queue_length++;
-	if (gt.ps.enable_simd8 || t->queue_length == 2) {
-		dispatch_ps(t);
-		t->queue_length = 0;
+	pt->queue_length++;
+	if (gt.ps.enable_simd8 || pt->queue_length == 2) {
+		dispatch_ps(pt);
+		pt->queue_length = 0;
 	}
 }
 
 static void
-init_ps_thread(struct ps_thread *t, struct primitive *p)
-{
-	memcpy(t->attribute_deltas, p->attribute_deltas,
-		gt.sbe.num_attributes * 2 * sizeof(t->t.grf[0]));
-	t->queue_length = 0;
-}
-
-static void
-rasterize_rectlist_tile(struct primitive *p)
+rasterize_rectlist_tile(struct ps_thread *pt)
 {
 	struct tile_iterator iter;
-	struct ps_thread t;
 
-	init_ps_thread(&t, p);
-
-	for (tile_iterator_init(&iter, p);
+	for (tile_iterator_init(&iter, pt);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, p)) {
+	     tile_iterator_next(&iter, pt)) {
 		__m256i w2, w3, c;
 
 		/* To determine coverage, we compute the edge function
@@ -392,7 +377,7 @@ rasterize_rectlist_tile(struct primitive *p)
 		 * the area. We also subtract 1 to either cancel out
 		 * the bias on the original edge, or to add it to the
 		 * opposite edge if the original doesn't have bias. */
-		c = _mm256_set1_epi32(p->area - 1);
+		c = _mm256_set1_epi32(pt->area - 1);
 		w2 = _mm256_sub_epi32(c, iter.w2);
 		w3 = _mm256_sub_epi32(c, iter.w0);
 
@@ -400,37 +385,34 @@ rasterize_rectlist_tile(struct primitive *p)
 		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w2, iter.w0),
 					     _mm256_and_si256(w2, w3));
 
-		fill_dispatch(p, &t, &iter, mask);
+		fill_dispatch(pt, &iter, mask);
 	}
 
-	if (t.queue_length > 0) {
-		dispatch_ps(&t);
-		t.queue_length = 0;
+	if (pt->queue_length > 0) {
+		dispatch_ps(pt);
+		pt->queue_length = 0;
 	}
 }
 
 static void
-rasterize_triangle_tile(struct primitive *p)
+rasterize_triangle_tile(struct ps_thread *pt)
 {
 	struct tile_iterator iter;
-	struct ps_thread t;
 
-	init_ps_thread(&t, p);
-
-	for (tile_iterator_init(&iter, p);
+	for (tile_iterator_init(&iter, pt);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, p)) {
+	     tile_iterator_next(&iter, pt)) {
 		struct reg mask;
 		mask.ireg =
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
 							  iter.w0), iter.w2);
 
-		fill_dispatch(p, &t, &iter, mask);
+		fill_dispatch(pt, &iter, mask);
 	}
 
-	if (t.queue_length > 0) {
-		dispatch_ps(&t);
-		t.queue_length = 0;
+	if (pt->queue_length > 0) {
+		dispatch_ps(pt);
+		pt->queue_length = 0;
 	}
 }
 
@@ -476,52 +458,52 @@ eval_edge(struct edge *e, struct point p)
 }
 
 static void
-bbox_iter_init(struct primitive *p)
+bbox_iter_init(struct ps_thread *pt)
 {
-	p->x0 = p->rect.x0;
-	p->y0 = p->rect.y0;
+	pt->x0 = pt->rect.x0;
+	pt->y0 = pt->rect.y0;
 
-	p->start_w2 = p->row_w2;
-	p->start_w0 = p->row_w0;
-	p->start_w1 = p->row_w1;
+	pt->start_w2 = pt->row_w2;
+	pt->start_w0 = pt->row_w0;
+	pt->start_w1 = pt->row_w1;
 }
 
 static bool
-bbox_iter_done(struct primitive *p)
+bbox_iter_done(struct ps_thread *pt)
 {
-	return p->y0 == p->rect.y1;
+	return pt->y0 == pt->rect.y1;
 }
 
 static void
-bbox_iter_next(struct primitive *p)
+bbox_iter_next(struct ps_thread *pt)
 {
-	p->x0 += tile_width;
-	if (p->x0 == p->rect.x1) {
-		p->x0 = p->rect.x0;
-		p->y0 += tile_height;
-		p->row_w2 += tile_height * p->e01.b;
-		p->row_w0 += tile_height * p->e12.b;
-		p->row_w1 += tile_height * p->e20.b;
-		p->start_w2 = p->row_w2;
-		p->start_w0 = p->row_w0;
-		p->start_w1 = p->row_w1;
+	pt->x0 += tile_width;
+	if (pt->x0 == pt->rect.x1) {
+		pt->x0 = pt->rect.x0;
+		pt->y0 += tile_height;
+		pt->row_w2 += tile_height * pt->e01.b;
+		pt->row_w0 += tile_height * pt->e12.b;
+		pt->row_w1 += tile_height * pt->e20.b;
+		pt->start_w2 = pt->row_w2;
+		pt->start_w0 = pt->row_w0;
+		pt->start_w1 = pt->row_w1;
 	} else {
-		p->start_w2 += tile_width * p->e01.a;
-		p->start_w0 += tile_width * p->e12.a;
-		p->start_w1 += tile_width * p->e20.a;
+		pt->start_w2 += tile_width * pt->e01.a;
+		pt->start_w0 += tile_width * pt->e12.a;
+		pt->start_w1 += tile_width * pt->e20.a;
 	}
 }
 
 void
-rasterize_rectlist(struct primitive *p)
+rasterize_rectlist(struct ps_thread *pt)
 {
-	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p))
-		rasterize_rectlist_tile(p);
+	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt))
+		rasterize_rectlist_tile(pt);
 }
 
 
 void
-rasterize_triangle(struct primitive *p)
+rasterize_triangle(struct ps_thread *pt)
 {
 	int min_w0_delta, min_w1_delta, min_w2_delta;
 
@@ -529,17 +511,17 @@ rasterize_triangle(struct primitive *p)
 	const int tile_max_y = tile_height - 1;
 
 	/* delta from w in top-left corner to minimum w in tile */
-	min_w2_delta = p->e01.a * p->e01.min_x * tile_max_x + p->e01.b * p->e01.min_y * tile_max_y;
-	min_w0_delta = p->e12.a * p->e12.min_x * tile_max_x + p->e12.b * p->e12.min_y * tile_max_y;
-	min_w1_delta = p->e20.a * p->e20.min_x * tile_max_x + p->e20.b * p->e20.min_y * tile_max_y;
+	min_w2_delta = pt->e01.a * pt->e01.min_x * tile_max_x + pt->e01.b * pt->e01.min_y * tile_max_y;
+	min_w0_delta = pt->e12.a * pt->e12.min_x * tile_max_x + pt->e12.b * pt->e12.min_y * tile_max_y;
+	min_w1_delta = pt->e20.a * pt->e20.min_x * tile_max_x + pt->e20.b * pt->e20.min_y * tile_max_y;
 
-	for (bbox_iter_init(p); !bbox_iter_done(p); bbox_iter_next(p)) {
-		int32_t min_w2 = p->start_w2 + min_w2_delta;
-		int32_t min_w0 = p->start_w0 + min_w0_delta;
-		int32_t min_w1 = p->start_w1 + min_w1_delta;
+	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt)) {
+		int32_t min_w2 = pt->start_w2 + min_w2_delta;
+		int32_t min_w0 = pt->start_w0 + min_w0_delta;
+		int32_t min_w1 = pt->start_w1 + min_w1_delta;
 
 		if ((min_w2 & min_w0 & min_w1) < 0)
-			rasterize_triangle_tile(p);
+			rasterize_triangle_tile(pt);
 	}
 }
 
@@ -586,7 +568,7 @@ intersect_rectangle(struct rectangle *r, const struct rectangle *other)
 void
 rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 {
-	struct primitive p;
+	struct ps_thread pt;
 	float length, dx, dy, px, py;
 	struct vec4 v[3];
 
@@ -624,23 +606,23 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	struct point p1 = snap_point(v[1].x, v[1].y);
 	struct point p2 = snap_point(v[2].x, v[2].y);
 
-	init_edge(&p.e01, p0, p1);
-	init_edge(&p.e12, p1, p2);
-	init_edge(&p.e20, p2, p0);
-	p.area = eval_edge(&p.e01, p2);
+	init_edge(&pt.e01, p0, p1);
+	init_edge(&pt.e12, p1, p2);
+	init_edge(&pt.e20, p2, p0);
+	pt.area = eval_edge(&pt.e01, p2);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
 	    (gt.wm.front_winding == Clockwise &&
 	     gt.wm.cull_mode == CULLMODE_BACK) ||
-	    (gt.wm.cull_mode == CULLMODE_NONE && p.area > 0)) {
-		invert_edge(&p.e01);
-		invert_edge(&p.e12);
-		invert_edge(&p.e20);
-		p.area = -p.area;
+	    (gt.wm.cull_mode == CULLMODE_NONE && pt.area > 0)) {
+		invert_edge(&pt.e01);
+		invert_edge(&pt.e12);
+		invert_edge(&pt.e20);
+		pt.area = -pt.area;
 	}
 
-	if (p.area >= 0)
+	if (pt.area >= 0)
 		return;
 
 	switch (topology) {
@@ -668,27 +650,27 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 		return;
 	}
 
-	p.inv_area = 1.0f / p.area;
+	pt.inv_area = 1.0f / pt.area;
 
 	float w[3] = {
 		1.0f / v[0].z,
 		1.0f / v[1].z,
 		1.0f / v[2].z
 	};
-	p.inv_z1 = 1.0 / v[1].z;
-	p.inv_z2 = 1.0 / v[2].z;
+	pt.inv_z1 = 1.0 / v[1].z;
+	pt.inv_z2 = 1.0 / v[2].z;
 
-	p.w_deltas[0] = w[1] - w[0];
-	p.w_deltas[1] = w[2] - w[0];
-	p.w_deltas[2] = 0.0f;
-	p.w_deltas[3] = w[0];
+	pt.w_deltas[0] = w[1] - w[0];
+	pt.w_deltas[1] = w[2] - w[0];
+	pt.w_deltas[2] = 0.0f;
+	pt.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
 		const struct value a0 = vue[0][i + 2];
 		const struct value a1 = vue[1][i + 2];
 		const struct value a2 = vue[2][i + 2];
 
-		p.attribute_deltas[i * 2] = (struct reg) {
+		pt.attribute_deltas[i * 2] = (struct reg) {
 			.f = {
 				a1.vec4.x - a0.vec4.x,
 				a2.vec4.x - a0.vec4.x,
@@ -700,7 +682,7 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 				a0.vec4.y,
 			}
 		};
-		p.attribute_deltas[i * 2 + 1] = (struct reg) {
+		pt.attribute_deltas[i * 2 + 1] = (struct reg) {
 			.f = {
 				a1.vec4.z - a0.vec4.z,
 				a2.vec4.z - a0.vec4.z,
@@ -714,42 +696,38 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 		};
 	}
 
-	if (gt.depth.write_enable || gt.depth.test_enable) {
-		uint64_t range;
-
-		p.depth.buffer = map_gtt_offset(gt.depth.address, &range);
-	}
-
-	compute_bounding_box(&p.rect, v, 3);
-	intersect_rectangle(&p.rect, &gt.drawing_rectangle.rect);
+	compute_bounding_box(&pt.rect, v, 3);
+	intersect_rectangle(&pt.rect, &gt.drawing_rectangle.rect);
 
 	if (gt.wm.scissor_rectangle_enable)
-		intersect_rectangle(&p.rect, &gt.wm.scissor_rect);
+		intersect_rectangle(&pt.rect, &gt.wm.scissor_rect);
 
-	p.rect.x0 = p.rect.x0 & ~(tile_width - 1);
-	p.rect.y0 = p.rect.y0 & ~(tile_height - 1);
-	p.rect.x1 = (p.rect.x1 + tile_width - 1) & ~(tile_width - 1);
-	p.rect.y1 = (p.rect.y1 + tile_height - 1) & ~(tile_height - 1);
+	pt.rect.x0 = pt.rect.x0 & ~(tile_width - 1);
+	pt.rect.y0 = pt.rect.y0 & ~(tile_height - 1);
+	pt.rect.x1 = (pt.rect.x1 + tile_width - 1) & ~(tile_width - 1);
+	pt.rect.y1 = (pt.rect.y1 + tile_height - 1) & ~(tile_height - 1);
 
-	if (p.rect.x1 <= p.rect.x0 || p.rect.y1 < p.rect.y0)
+	if (pt.rect.x1 <= pt.rect.x0 || pt.rect.y1 < pt.rect.y0)
 		return;
 
-	struct point min = snap_point(p.rect.x0, p.rect.y0);
+	struct point min = snap_point(pt.rect.x0, pt.rect.y0);
 	min.x += 128;
 	min.y += 128;
-	p.row_w2 = eval_edge(&p.e01, min);
-	p.row_w0 = eval_edge(&p.e12, min);
-	p.row_w1 = eval_edge(&p.e20, min);
+	pt.row_w2 = eval_edge(&pt.e01, min);
+	pt.row_w0 = eval_edge(&pt.e12, min);
+	pt.row_w1 = eval_edge(&pt.e20, min);
+
+	pt.queue_length = 0;
 
 	switch (topology) {
 	case _3DPRIM_RECTLIST:
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
-		rasterize_rectlist(&p);
+		rasterize_rectlist(&pt);
 		break;
 	default:
-		rasterize_triangle(&p);
+		rasterize_triangle(&pt);
 	}
 }
 
