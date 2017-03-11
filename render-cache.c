@@ -83,7 +83,7 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 	const __m128 half =  _mm_set1_ps(0.5f);
 	struct reg src[1];
 
-	memcpy(src, &t->grf[args->src], sizeof(src));
+	src[0] = t->grf[args->src];
 
 	if (srgb_format(args->rt.format)) {
 		const __m256 inv_gamma = _mm256_set1_ps(1.0f / 2.4f);
@@ -133,7 +133,7 @@ sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
 	const __m128 half =  _mm_set1_ps(0.5f);
 	struct reg src[1];
 
-	memcpy(src, &t->grf[args->src], sizeof(src));
+	src[0] = t->grf[args->src];
 
 	if (srgb_format(args->rt.format)) {
 		const __m256 inv_gamma = _mm256_set1_ps(1.0f / 2.4f);
@@ -194,7 +194,10 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 	const float scale = 255.0f;
 	struct reg src[4];
 
-	memcpy(src, &t->grf[args->src], sizeof(src));
+	src[0] = t->grf[args->src + 0];
+	src[1] = t->grf[args->src + 1];
+	src[2] = t->grf[args->src + 2];
+	src[3] = t->grf[args->src + 3];
 
 	const int cpp = 4;
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
