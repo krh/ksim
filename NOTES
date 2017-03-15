@@ -55,6 +55,12 @@ we JIT, so if we see a constant offset load through sampler or constant
 cache (both read only cached) we can just look up the constant and compile
 it into the shader as a regular load.
 
+** JIT to GL/Vulkan compute shaders
+
+Lets us offload to GPU for better performance.
+
+** Use ebx for thread point to avoid push/pop of rdi
+
 * WM
 
 ** SIMD16 dispatch
@@ -71,6 +77,10 @@ We don't need to compute exact barycentrics for each pixel, just
 determine min bary and see if we need to dispatch for the block. The
 shader will compute per-pixel barycentrics by adding a per-edge vector
 that's the delta for each pixel between min bary and the pixels bary.
+
+** Instrument rasterizer to get stats
+
+How many empty 4x2 groups per-tile, for example.
 
 * EU
 
