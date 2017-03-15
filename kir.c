@@ -1205,6 +1205,9 @@ lock_reg(struct ra_state *state, struct kir_reg reg)
 static inline struct kir_reg
 use_reg(struct ra_state *state, struct kir_insn *insn, struct kir_reg reg)
 {
+	/* Don't use a register that hasn't been assigned anything yet. */
+	ksim_assert(state->reg_to_avx[reg.n] != 0xff);
+
 	if (state->reg_to_avx[reg.n] >= 16)
 		unspill_reg(state, insn, reg);
 
