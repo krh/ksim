@@ -284,8 +284,8 @@ dispatch_ps(struct ps_thread *t)
 	}
 }
 
-const int tile_width = 512 / 4;
-const int tile_height = 8;
+const int tile_width = 128 / 4;
+const int tile_height = 32;
 
 struct tile_iterator {
 	int x, y;
