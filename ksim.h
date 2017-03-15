@@ -827,6 +827,9 @@ void builder_emit_sfid_render_cache_helper(struct kir_program *prog,
 void builder_emit_sfid_render_cache(struct kir_program *prog, struct inst *inst);
 
 void builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst);
+void builder_emit_sfid_dataport_ro(struct kir_program *prog, struct inst *inst);
+void builder_emit_sfid_dataport1(struct kir_program *prog, struct inst *inst);
+
 void builder_emit_shader(struct builder *bld, uint64_t kernel_offset);
 
 uint32_t emit_load_constants(struct kir_program *prog, struct curbe *c, uint32_t start);
