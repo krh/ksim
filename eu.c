@@ -602,6 +602,56 @@ __m256 _ZGVdN8v_sinf(__m256 x);
 __m256 _ZGVdN8v_cosf(__m256 x);
 __m256 _ZGVdN8vv_powf(__m256 x, __m256 y);
 
+static __m256i
+int_div_quotient(__m256i _n, __m256i _d)
+{
+	struct reg n, d, q, r;
+
+	n.ireg = _n;
+	d.ireg = _d;
+
+#define div_channel(c)						\
+	do {							\
+		q.ud[c] = n.ud[c] / d.ud[c];			\
+		r.ud[c] = n.ud[c] % d.ud[c];			\
+	} while (0)
+
+	div_channel(0);
+	div_channel(1);
+	div_channel(2);
+	div_channel(3);
+	div_channel(4);
+	div_channel(5);
+	div_channel(6);
+	div_channel(7);
+
+	(void) r;
+
+	return q.ireg;
+}
+
+static __m256i
+int_div_remainder(__m256i _n, __m256i _d)
+{
+	struct reg n, d, q, r;
+
+	n.ireg = _n;
+	d.ireg = _d;
+
+	div_channel(0);
+	div_channel(1);
+	div_channel(2);
+	div_channel(3);
+	div_channel(4);
+	div_channel(5);
+	div_channel(6);
+	div_channel(7);
+
+	(void) q;
+
+	return r.ireg;
+}
+
 static bool
 compile_inst(struct kir_program *prog, struct inst *inst)
 {
@@ -826,15 +876,23 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		case BRW_MATH_FUNCTION_POW:
 			kir_program_const_call(prog, _ZGVdN8vv_powf, 2, src0_reg, src1_reg);
 			break;
-		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER:
-			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER");
+		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT_AND_REMAINDER: {
+			struct inst_dst dst2 = dst;
+			kir_program_const_call(prog, int_div_remainder, 2, src0_reg, src1_reg);
+			dst2.num++;
+			kir_program_emit_dst_store(prog, prog->dst, inst, &dst2);
+
+			kir_program_const_call(prog, int_div_quotient, 2, src0_reg, src1_reg);
 			break;
-		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT:
-			stub("BRW_MATH_FUNCTION_INT_DIV_QUOTIENT");
+		}
+		case BRW_MATH_FUNCTION_INT_DIV_QUOTIENT: {
+			kir_program_const_call(prog, int_div_quotient, 2, src0_reg, src1_reg);
 			break;
-		case BRW_MATH_FUNCTION_INT_DIV_REMAINDER:
-			stub("BRW_MATH_FUNCTION_INT_DIV_REMAINDER");
+		}
+		case BRW_MATH_FUNCTION_INT_DIV_REMAINDER: {
+			kir_program_const_call(prog, int_div_remainder, 2, src0_reg, src1_reg);
 			break;
+		}
 		case GEN8_MATH_FUNCTION_INVM:
 			stub("GEN8_MATH_FUNCTION_INVM");
 			break;
