@@ -34,8 +34,6 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	const uint32_t stack_size = 0;
 	struct thread t;
 
-	t.mask_q1 = _mm256_set1_epi32(-1);
-
 	t.grf[0] = (struct reg) {
 		.ud = {
 			/* R0.0: URB handle and SLM index */
@@ -58,7 +56,35 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 		}
 	};
 
-	gt.compute.avx_shader(&t);
+	ksim_assert(gt.compute.depth == 1);
+	ksim_assert(gt.compute.height == 1);
+
+	static const struct reg shift = { .d = {  23, 22, 21, 20, 19, 18, 17, 16 } };
+	__m256i right_mask = _mm256_set1_epi32(gt.compute.right_mask);
+	right_mask = _mm256_sllv_epi32(right_mask, shift.ireg);
+	__m256i right_mask_q1 = _mm256_srai_epi32(right_mask, 31);
+	right_mask = _mm256_slli_epi32(right_mask, 8);
+	__m256i right_mask_q0 = _mm256_srai_epi32(right_mask, 31);
+
+	struct reg *src = gt.compute.curbe_data;
+	uint32_t size_in_regs = gt.compute.curbe_data_length / 32;
+	for (uint32_t i = 0; i < gt.compute.width; i++) {
+		struct reg *dst = &t.grf[1];
+		for (uint32_t j = 0; j < size_in_regs; j++)
+			dst[i].ireg = src[i].ireg;
+
+		if (i < gt.compute.width - 1) {
+			t.mask_q1 = _mm256_set1_epi32(-1);
+			t.mask_q2 = _mm256_set1_epi32(-1);
+		} else {
+			t.mask_q1 = right_mask_q0;
+			t.mask_q2 = right_mask_q1;
+		}
+
+		gt.compute.avx_shader(&t);
+
+		src += size_in_regs;
+	}
 }
 
 static void
@@ -79,8 +105,6 @@ compile_cs(void)
 void
 dispatch_compute(void)
 {
-	ksim_assert(gt.compute.simd_size == SIMD8);
-
 	reset_shader_pool();
 	compile_cs();
 

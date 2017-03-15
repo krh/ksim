@@ -517,6 +517,8 @@ handle_media_interface_descriptor_load(uint32_t *p)
 	gt.compute.ksp = d.KernelStartPointer;
 	gt.compute.binding_table_address = d.BindingTablePointer;
 	gt.compute.sampler_state_address = d.SamplerStatePointer;
+	gt.compute.curbe_read_length = d.ConstantURBEntryReadLength;
+	gt.compute.curbe_read_offset = d.ConstantURBEntryReadOffset;
 }
 
 static void
@@ -549,12 +551,20 @@ handle_gpgpu_walker(uint32_t *p)
 	GEN9_GPGPU_WALKER_unpack(p, &v);
 
 	gt.compute.simd_size = v.SIMDSize;
+
+	gt.compute.depth = v.ThreadDepthCounterMaximum + 1;
+	gt.compute.height = v.ThreadHeightCounterMaximum + 1;
+	gt.compute.width = v.ThreadWidthCounterMaximum + 1;
+
 	gt.compute.start_x = v.ThreadGroupIDStartingX;
 	gt.compute.end_x = v.ThreadGroupIDXDimension;
 	gt.compute.start_y = v.ThreadGroupIDStartingY;
 	gt.compute.end_y = v.ThreadGroupIDYDimension;
 	gt.compute.start_z = v.ThreadGroupIDStartingResumeZ;
 	gt.compute.end_z = v.ThreadGroupIDZDimension;
+
+	gt.compute.right_mask = v.RightExecutionMask;
+	gt.compute.bottom_mask = v.BottomExecutionMask;
 
 	dispatch_compute();
 }

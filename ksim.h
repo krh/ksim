@@ -568,6 +568,11 @@ struct gt {
 		uint32_t scratch_size;
 		uint32_t binding_table_address;
 		uint32_t sampler_state_address;
+
+		uint32_t width;
+		uint32_t height;
+		uint32_t depth;
+
 		uint32_t start_x;
 		uint32_t end_x;
 		uint32_t start_y;
@@ -577,6 +582,12 @@ struct gt {
 		void *curbe_data;
 		uint32_t curbe_data_length;
 		shader_t avx_shader;
+		uint32_t curbe_read_length;
+		uint32_t curbe_read_offset;
+
+		uint32_t right_mask;
+		uint32_t bottom_mask;
+
 	} compute;
 
 	struct {
