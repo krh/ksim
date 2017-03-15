@@ -1670,7 +1670,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		case kir_send:
 		case kir_const_send:
 			if (insn->send.func == NULL) {
-				stub("send func is NULL\n");
+				stub("send func is NULL");
 				break;
 			}
 			builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, insn->send.args));
