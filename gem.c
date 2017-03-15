@@ -346,6 +346,9 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_HAS_EXEC_ASYNC:
 		*getparam->value = 1;
 		return 0;
+	case I915_PARAM_MMAP_GTT_VERSION:
+		*getparam->value = 1;
+		return 0;
 	default:
 		trace(TRACE_WARN, "unhandled getparam %d\n",
 		      getparam->param);
