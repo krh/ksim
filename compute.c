@@ -66,7 +66,8 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	right_mask = _mm256_slli_epi32(right_mask, 8);
 	__m256i right_mask_q0 = _mm256_srai_epi32(right_mask, 31);
 
-	struct reg *src = gt.compute.curbe_data;
+	struct reg *src = (struct reg *) gt.compute.curbe_data +
+		gt.compute.curbe_read_offset;
 	uint32_t length = gt.compute.curbe_read_length;
 	for (uint32_t i = 0; i < gt.compute.width; i++) {
 		struct reg *dst = &t.grf[1];
