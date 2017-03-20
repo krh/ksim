@@ -34,7 +34,7 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	const uint32_t stack_size = 0;
 	struct thread t;
 
-	t.grf[0] = (struct reg) {
+	struct reg grf0 = {
 		.ud = {
 			/* R0.0: URB handle and SLM index */
 			urb_handle,
@@ -72,6 +72,7 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 		struct reg *dst = &t.grf[1];
 		for (uint32_t j = 0; j < size_in_regs; j++)
 			dst[i].ireg = src[i].ireg;
+		t.grf[0] = grf0;
 
 		if (i < gt.compute.width - 1) {
 			t.mask_q1 = _mm256_set1_epi32(-1);
