@@ -67,12 +67,12 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 	__m256i right_mask_q0 = _mm256_srai_epi32(right_mask, 31);
 
 	struct reg *src = gt.compute.curbe_data;
-	uint32_t size_in_regs = gt.compute.curbe_data_length / 32;
+	uint32_t length = gt.compute.curbe_read_length;
 	for (uint32_t i = 0; i < gt.compute.width; i++) {
 		struct reg *dst = &t.grf[1];
-		for (uint32_t j = 0; j < size_in_regs; j++)
-			dst[i].ireg = src[i].ireg;
 		t.grf[0] = grf0;
+		for (uint32_t j = 0; j < length; j++)
+			dst[j].ireg = src[j].ireg;
 
 		if (i < gt.compute.width - 1) {
 			t.mask_q1 = _mm256_set1_epi32(-1);
@@ -84,7 +84,7 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 
 		gt.compute.avx_shader(&t);
 
-		src += size_in_regs;
+		src += length;
 	}
 }
 
