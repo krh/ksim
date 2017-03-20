@@ -820,6 +820,7 @@ struct builder;
 struct inst;
 void builder_emit_sfid_urb(struct kir_program *prog, struct inst *inst);
 void builder_emit_sfid_render_cache_helper(struct kir_program *prog,
+					   uint32_t exec_size,
 					   uint32_t type, uint32_t subtype,
 					   uint32_t src, uint32_t mlen,
 					   uint32_t surface);

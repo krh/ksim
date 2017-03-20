@@ -118,6 +118,7 @@ __kir_program_send(struct kir_program *prog, struct inst *inst,
 	struct inst_send send = unpack_inst_send(inst);
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_send);
 
+	insn->send.exec_size = 1 << unpack_inst_common(inst).exec_size;
 	insn->send.src = unpack_inst_2src_src0(inst).num;
 	insn->send.mlen = send.mlen;
 	insn->send.dst = unpack_inst_2src_dst(inst).num;
@@ -724,15 +725,17 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 			{
 				/* The send helper typically need to
 				 * read the mask register. */
-				struct eu_region region = {
-					.offset = offsetof(struct thread, mask[insn->scope].q[0]),
-					.type_size = 4,
-					.exec_size = 8,
-					.vstride = 8,
-					.width = 8,
-					.hstride = 1
-				};
-				set_region_live(&region, live, region_map);
+				for (uint32_t q = 0; q < insn->send.exec_size / 8; q++) {
+					struct eu_region region = {
+						.offset = offsetof(struct thread, mask[insn->scope].q[q]),
+						.type_size = 4,
+						.exec_size = 8,
+						.vstride = 8,
+						.width = 8,
+						.hstride = 1
+					};
+					set_region_live(&region, live, region_map);
+				}
 			}
 
 			break;

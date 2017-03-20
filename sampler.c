@@ -817,12 +817,14 @@ builder_emit_sfid_sampler(struct kir_program *prog, struct inst *inst)
 		const uint32_t bti = 0; /* Should be M0.2 from header */
 		const uint32_t opcode = 12;
 		const uint32_t type = 4;
+		uint32_t exec_size = 1 << unpack_inst_common(inst).exec_size;
+
 		/* dst is the null reg for rlen 0 messages, and so
 		 * we'll end up overwriting grf0 - grf3.  We need the
 		 * fragment x and y from grf1. so move it up. */
 		args->dst = 2;
 
-		builder_emit_sfid_render_cache_helper(prog, opcode,
+		builder_emit_sfid_render_cache_helper(prog, exec_size, opcode,
 						      type, args->dst, 4, bti);
 	}
 }

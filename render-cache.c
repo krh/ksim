@@ -676,6 +676,7 @@ pick_render_cache_function(enum message_type type, enum message_subtype subtype,
 
 void
 builder_emit_sfid_render_cache_helper(struct kir_program *prog,
+				      uint32_t exec_size,
 				      uint32_t type, uint32_t subtype,
 				      uint32_t src, uint32_t mlen,
 				      uint32_t surface)
@@ -692,6 +693,7 @@ builder_emit_sfid_render_cache_helper(struct kir_program *prog,
 		return;
 
 	struct kir_insn *insn = kir_program_add_insn(prog, kir_send);
+	insn->send.exec_size = exec_size;
 	insn->send.src = src;
 	insn->send.mlen = mlen;
 	insn->send.dst = 0;
@@ -724,8 +726,9 @@ builder_emit_sfid_render_cache(struct kir_program *prog, struct inst *inst)
 	struct message_descriptor d =
 		unpack_message_descriptor(send.function_control);
 	uint32_t src = unpack_inst_2src_src0(inst).num;
+	uint32_t exec_size = 1 << unpack_inst_common(inst).exec_size;
 
-	builder_emit_sfid_render_cache_helper(prog, d.message_type,
+	builder_emit_sfid_render_cache_helper(prog, exec_size, d.message_type,
 					      d.message_subtype,
 					      src, send.mlen,
 					      d.binding_table_index);

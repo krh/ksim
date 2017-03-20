@@ -226,6 +226,7 @@ struct kir_insn {
 			uint32_t rlen;
 			kir_send_helper_t func;
 			void *args;
+			uint32_t exec_size;
 		} send;
 
 		/* A call instruction follows C calling conventions
