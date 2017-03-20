@@ -246,6 +246,18 @@ struct kir_insn {
 	struct list link;
 };
 
+static inline struct kir_insn *
+kir_insn_next(struct kir_insn *insn)
+{
+	return container_of(insn->link.next, insn, link);
+}
+
+static inline struct kir_insn *
+kir_insn_prev(struct kir_insn *insn)
+{
+	return container_of(insn->link.prev, insn, link);
+}
+
 struct kir_insn *
 kir_program_add_insn(struct kir_program *prog, uint32_t opcode);
 

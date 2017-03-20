@@ -1729,7 +1729,7 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 				break;
 			}
 			builder_emit_load_rsi_rip_relative(bld, builder_offset(bld, insn->send.args));
-			if (insn->link.next == &prog->insns) {
+			if (kir_insn_next(insn)->opcode == kir_eot) {
 				int32_t offset = (uint8_t *) insn->send.func - bld->p;
 				builder_emit_jmp_relative(bld, offset);
 			} else {
