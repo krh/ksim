@@ -163,21 +163,6 @@ is_byte_range(int offset)
 }
 
 static inline void
-builder_emit_vmovdqa_to_rax(struct builder *bld, int src, int offset)
-{
-	/* vmovdqa %ymm0,offset(%rax) */
-	if (offset == 0)
-		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f, (src & 7) * 8 | RAX);
-	else if (is_byte_range(offset))
-		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f,
-		     (src & 7) * 8 | RAX | IMM_BYTE_OFFSET, offset);
-	else
-		emit(bld, 0xc5, 0xfd - (src & 8) * 16, 0x7f,
-		     (src & 7) * 8 | RAX | IMM_DWORD_OFFSET,
-		     emit_uint32(offset));
-}
-
-static inline void
 builder_emit_vmovdqa_from_rax(struct builder *bld, int dst, int offset)
 {
 	/* vmovdqa offset(%rax),%ymm0 */
@@ -203,6 +188,10 @@ builder_emit_vpmaskmovd_to_rax(struct builder *bld, int src, int mask, int offse
 	else if (is_byte_range(offset))
 		emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e,
 		     (src & 7) * 8 | RAX | IMM_BYTE_OFFSET,
+		     offset);
+	else
+		emit(bld, 0xc4, 0xe2 - (src & 8) * 16, 0x7d - mask * 8, 0x8e,
+		     (src & 7) * 8 | RAX | IMM_DWORD_OFFSET,
 		     emit_uint32(offset));
 }
 

@@ -190,7 +190,7 @@ check_reg_imm_emit_function(const char *fmt,
 		func(&bld, reg, imm);
 		builder_disasm(&bld);
 
-		count = sscanf(bld.disasm_output, fmt, &actual_reg, &actual_imm);
+		count = sscanf(bld.disasm_output + 10, fmt, &actual_reg, &actual_imm);
 
 		if (count != 2 || reg != actual_reg || imm - delta != actual_imm)
 			test_fail(&bld, "fmt='%s' reg=%d imm=%d:\n    ", fmt, reg, imm);
@@ -212,7 +212,7 @@ check_unop_emit_function(const char *fmt,
 		func(&bld, dst);
 		builder_disasm(&bld);
 
-		count = sscanf(bld.disasm_output, fmt, &actual_dst);
+		count = sscanf(bld.disasm_output + 10, fmt, &actual_dst);
 
 		if (count != 1 || dst != actual_dst)
 			test_fail(&bld, "fmt='%s' dst=%d:\n    ", fmt, dst);
@@ -237,7 +237,7 @@ check_binop_emit_function(const char *fmt,
 			func(&bld, dst, src);
 			builder_disasm(&bld);
 
-			count = sscanf(bld.disasm_output, fmt,
+			count = sscanf(bld.disasm_output + 10, fmt,
 				       &actual_src, &actual_dst);
 
 			if (count != 2 ||
@@ -264,7 +264,7 @@ check_triop_emit_function(const char *fmt,
 				func(&bld, dst, src0, src1);
 				builder_disasm(&bld);
 
-				count = sscanf(bld.disasm_output,
+				count = sscanf(bld.disasm_output + 10,
 					       fmt, &actual_src0, &actual_src1, &actual_dst);
 
 				if (count != 3 ||
@@ -293,7 +293,7 @@ check_quadop_emit_function(const char *fmt,
 					func(&bld, dst, mask, src0, src1);
 					builder_disasm(&bld);
 
-					count = sscanf(bld.disasm_output,
+					count = sscanf(bld.disasm_output + 10,
 						       fmt, &actual_mask,
 						       &actual_src0, &actual_src1, &actual_dst);
 
@@ -434,7 +434,6 @@ int main(int argc, char *argv[])
 				   builder_emit_vpblendvb);
 
 	check_unop_emit_function("vmovdqa (%%rax),%%ymm%d", emit_vmovdqa_from_rax);
-	check_unop_emit_function("vmovdqa %%ymm%d,(%%rax)", emit_vmovdqa_to_rax);
 
 #if 0
 	/* xmm regs */
