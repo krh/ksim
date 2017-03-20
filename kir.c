@@ -49,6 +49,7 @@ kir_program_add_insn(struct kir_program *prog, uint32_t opcode)
 
 	prog->dst = dst;
 	insn->scope = prog->scope;
+	insn->quarter = prog->quarter;
 
 	return insn;
 }
@@ -724,7 +725,7 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 				/* The send helper typically need to
 				 * read the mask register. */
 				struct eu_region region = {
-					.offset = offsetof(struct thread, mask_stack[insn->scope]),
+					.offset = offsetof(struct thread, mask[insn->scope].q[0]),
 					.type_size = 4,
 					.exec_size = 8,
 					.vstride = 8,

@@ -82,7 +82,7 @@ dispatch_hs(struct hs_thread *t, uint32_t instance)
 	uint32_t primitive_id = 0;
 	uint32_t barrier = 0;
 
-	t->t.mask_q1 = _mm256_set1_epi32(-1);
+	t->t.mask[0].q[0] = _mm256_set1_epi32(-1);
 
 	/* Fixed function header */
 	grf[0] = (struct reg) {
@@ -289,7 +289,7 @@ dispatch_ds(struct ds_thread *t)
 	uint32_t primitive_id = 0;
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
-	t->t.mask_q1 = _mm256_cmpgt_epi32(_mm256_set1_epi32(t->count), range.ireg);
+	t->t.mask[0].q[0] = _mm256_cmpgt_epi32(_mm256_set1_epi32(t->count), range.ireg);
 
 	/* Fixed function header */
 	grf[0] = (struct reg) {

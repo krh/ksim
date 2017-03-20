@@ -408,8 +408,9 @@ kir_program_emit_dst_store(struct kir_program *prog,
 	fill_region_for_dst(&region, dst, subnum, prog);
 
 	if (prog->scope > 0 && !common.mask_control) {
+		uint32_t q = prog->quarter;
 		struct kir_reg mask =
-			kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
+			kir_program_load_v8(prog, offsetof(struct thread, mask[prog->scope].q[q]));
 		kir_program_store_region_mask(prog, &region, reg, mask);
 	} else {
 		kir_program_store_region(prog, &region, reg);
@@ -524,12 +525,15 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 	else
 		dst = unpack_inst_2src_dst(inst);
 
+	prog->quarter |= unpack_inst_common(inst).qtr_control;
 	prog->new_scope = prog->scope;
+
 	switch (opcode) {
 	case BRW_OPCODE_MOV:
 		kir_program_emit_dst_store(prog, src0_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_SEL: {
+		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
 		int modifier = unpack_inst_common(inst).cond_modifier;
 		if (modifier == BRW_CONDITIONAL_GE) {
 			kir_program_alu(prog, kir_maxf, src0_reg, src1_reg);
@@ -602,13 +606,14 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		break;
 	case BRW_OPCODE_IF: {
 		int flag_nr = unpack_inst_common(inst).flag_nr;
-		struct kir_reg f = kir_program_load_v8(prog, offsetof(struct thread, f[flag_nr]));
-		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
+		uint32_t q = prog->quarter;
+		struct kir_reg f = kir_program_load_v8(prog, offsetof(struct thread, f[flag_nr].q[q]));
+		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask[prog->scope].q[q]));
 		if (unpack_inst_common(inst).pred_inv)
 			mask = kir_program_alu(prog, kir_andn, mask, f);
 		else
 			mask = kir_program_alu(prog, kir_and, mask, f);
-		kir_program_store_v8(prog, offsetof(struct thread, mask_stack[prog->scope + 1]), mask);
+		kir_program_store_v8(prog, offsetof(struct thread, mask[prog->scope + 1].q[q]), mask);
 		prog->new_scope = prog->scope + 1;
 		break;
 	}
@@ -617,10 +622,11 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		break;
 	case BRW_OPCODE_ELSE: {
 		ksim_assert(prog->scope > 0);
-		struct kir_reg prev_mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope - 1]));
-		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask_stack[prog->scope]));
+		uint32_t q = prog->quarter;
+		struct kir_reg prev_mask = kir_program_load_v8(prog, offsetof(struct thread, mask[prog->scope - 1].q[q]));
+		struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct thread, mask[prog->scope].q[q]));
 		mask = kir_program_alu(prog, kir_xor, prev_mask, mask);
-		kir_program_store_v8(prog, offsetof(struct thread, mask_stack[prog->scope]), mask);
+		kir_program_store_v8(prog, offsetof(struct thread, mask[prog->scope].q[q]), mask);
 		break;
 	}
 	case BRW_OPCODE_ENDIF:
@@ -922,7 +928,8 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			flag_reg = emit_cmp(prog, src0.file, src0.type, cond_modifier, dst_reg, zero);
 			/* FIXME: Mask store? */
 		}
-		kir_program_store_v8(prog, offsetof(struct thread, f[flag]), flag_reg);
+		uint32_t q = prog->quarter;
+		kir_program_store_v8(prog, offsetof(struct thread, f[flag].q[q]), flag_reg);
 	}
 
 	if (opcode_info[opcode].store_dst)
@@ -948,12 +955,15 @@ do_compile_inst(struct kir_program *prog, struct inst *inst)
 	    opcode == BRW_OPCODE_SEND || opcode == BRW_OPCODE_SENDC) {
 		prog->exec_size = exec_size;
 		prog->exec_offset = 0;
+		prog->quarter = 0;
 		eot = compile_inst(prog, inst);
 	} else {
 		prog->exec_size = exec_size / 2;
 		prog->exec_offset = 0;
+		prog->quarter = 0;
 		eot = compile_inst(prog, inst);
 		prog->exec_offset = exec_size / 2;
+		prog->quarter = 1;
 		compile_inst(prog, inst);
 	}
 

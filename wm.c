@@ -151,7 +151,7 @@ emit_depth_test(struct kir_program *prog)
 
 	struct kir_reg computed_depth = w;
 	struct kir_reg mask =
-		kir_program_load_v8(prog, offsetof(struct ps_thread, t.mask_q1));
+		kir_program_load_v8(prog, offsetof(struct ps_thread, t.mask[0].q[0]));
 
 	if (gt.depth.test_enable) {
 		kir_program_comment(prog, "depth test");
@@ -170,7 +170,7 @@ emit_depth_test(struct kir_program *prog)
 		kir_program_alu(prog, kir_cmpf, computed_depth, depth,
 				gen_function_to_avx2[gt.depth.test_function]);
 		mask = kir_program_alu(prog, kir_and, mask, prog->dst);
-		kir_program_store_v8(prog, offsetof(struct ps_thread, t.mask_q1), mask);
+		kir_program_store_v8(prog, offsetof(struct ps_thread, t.mask[0].q[0]), mask);
 	}
 
 	if (gt.depth.write_enable) {
@@ -221,11 +221,9 @@ dispatch_ps(struct ps_thread *t)
 	uint32_t fftid = 0;
 	struct reg *grf = &t->t.grf[0];
 
-	t->t.mask_q1 = d[0].mask.ireg;
+	t->t.mask[0].q[0] = d[0].mask.ireg;
 	if (count == 2)
-		t->t.mask_q2 = d[1].mask.ireg;
-	else
-		t->t.mask_q2 = _mm256_set1_epi32(0);
+		t->t.mask[0].q[1] = d[1].mask.ireg;
 
 	/* Fixed function header */
 	grf[0] = (struct reg) {
@@ -251,7 +249,7 @@ dispatch_ps(struct ps_thread *t)
 		}
 	};
 
-	uint32_t mask = _mm256_movemask_ps((__m256) t->t.mask_q1);
+	uint32_t mask = _mm256_movemask_ps((__m256) t->t.mask[0].q[0]);
 	grf[1] = (struct reg) {
 		.ud = {
 			/* R1.0-1: MBZ */

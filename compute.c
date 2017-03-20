@@ -76,11 +76,11 @@ dispatch_group(uint32_t x, uint32_t y, uint32_t z)
 			dst[j].ireg = src[j].ireg;
 
 		if (i < gt.compute.width - 1) {
-			t.mask_q1 = _mm256_set1_epi32(-1);
-			t.mask_q2 = _mm256_set1_epi32(-1);
+			t.mask[0].q[0] = _mm256_set1_epi32(-1);
+			t.mask[0].q[1] = _mm256_set1_epi32(-1);
 		} else {
-			t.mask_q1 = right_mask_q0;
-			t.mask_q2 = right_mask_q1;
+			t.mask[0].q[0] = right_mask_q0;
+			t.mask[0].q[1] = right_mask_q1;
 		}
 
 		gt.compute.avx_shader(&t);

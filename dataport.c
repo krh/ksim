@@ -82,7 +82,7 @@ sfid_dataport1_untyped_write(struct thread *t, struct sfid_dataport1_args *args)
 {
 	uint32_t c;
 	const uint32_t mask =
-		_mm256_movemask_ps((__m256) t->mask_q1) &
+		_mm256_movemask_ps((__m256) t->mask[0].q[0]) &
 		t->grf[args->src].ud[7];
 
 	for_each_bit (c, mask) {
@@ -137,7 +137,7 @@ sfid_dataport1_integer_atomic_inc(struct thread *t, struct sfid_dataport1_args *
 	uint32_t c;
 
 	uint32_t mask =
-		_mm256_movemask_ps((__m256) t->mask_q1) &
+		_mm256_movemask_ps((__m256) t->mask[0].q[0]) &
 		t->grf[args->src].ud[7];
 	uint32_t *u = t->grf[args->src + 1].ud;
 	for_each_bit (c, mask) {
@@ -149,7 +149,7 @@ sfid_dataport1_integer_atomic_inc(struct thread *t, struct sfid_dataport1_args *
 		return;
 
 	mask =
-		_mm256_movemask_ps((__m256) t->mask_q2) &
+		_mm256_movemask_ps((__m256) t->mask[0].q[1]) &
 		(t->grf[args->src].ud[7] >> 8);
 	u = t->grf[args->src + 2].ud;
 	for_each_bit (c, mask) {
@@ -168,7 +168,7 @@ sfid_dataport1_integer_atomic_predec(struct thread *t, struct sfid_dataport1_arg
 	uint32_t c;
 
 	uint32_t mask =
-		_mm256_movemask_ps((__m256) t->mask_q1) &
+		_mm256_movemask_ps((__m256) t->mask[0].q[0]) &
 		t->grf[args->src].ud[7];
 	uint32_t *u = t->grf[args->src + 1].ud;
 	for_each_bit (c, mask) {
@@ -180,7 +180,7 @@ sfid_dataport1_integer_atomic_predec(struct thread *t, struct sfid_dataport1_arg
 		return;
 
 	mask =
-		_mm256_movemask_ps((__m256) t->mask_q2) &
+		_mm256_movemask_ps((__m256) t->mask[0].q[1]) &
 		(t->grf[args->src].ud[7] >> 8);
 	u = t->grf[args->src + 2].ud;
 	for_each_bit (c, mask) {

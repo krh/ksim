@@ -105,7 +105,7 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 
 	/* Swizzle two middle mask pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask[0].q[0], SWIZZLE(0, 2, 1, 3));
 
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
 	const int x0 = t->grf[1].uw[4];
@@ -120,7 +120,7 @@ sfid_render_cache_rt_write_rep16_bgra_unorm8_xmajor(struct thread *t,
 	const int y1 = t->grf[1].uw[9] + slice_y;
 	void *base1 = xmajor_offset(args->rt.pixels, x1,  y1, args->rt.stride, 4);
 
-	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
+	__m256i mask1 = _mm256_permute4x64_epi64(t->mask[0].q[1], SWIZZLE(0, 2, 1, 3));
 	_mm_maskstore_epi32(base1, _mm256_extractf128_si256(mask1, 0), bgra_i);
 	_mm_maskstore_epi32(base1 + 512, _mm256_extractf128_si256(mask1, 1), bgra_i);
 }
@@ -153,7 +153,7 @@ sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
 
 	/* Swizzle two middle mask pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
-	__m256i mask0 = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+	__m256i mask0 = _mm256_permute4x64_epi64(t->mask[0].q[0], SWIZZLE(0, 2, 1, 3));
 
 	const int cpp = 4;
 	const int slice_y = args->rt.minimum_array_element * args->rt.qpitch;
@@ -167,7 +167,7 @@ sfid_render_cache_rt_write_rep16_rgba_unorm8_ymajor(struct thread *t,
 	const int x1 = t->grf[1].uw[8];
 	const int y1 = t->grf[1].uw[9] + slice_y;
 	void *base1 = ymajor_offset(args->rt.pixels, x1, y1, args->rt.stride, cpp);
-	__m256i mask1 = _mm256_permute4x64_epi64(t->mask_q2, SWIZZLE(0, 2, 1, 3));
+	__m256i mask1 = _mm256_permute4x64_epi64(t->mask[0].q[1], SWIZZLE(0, 2, 1, 3));
 
 	_mm_maskstore_epi32(base1, _mm256_extractf128_si256(mask1, 0), rgba_i);
 	_mm_maskstore_epi32(base1 + 16, _mm256_extractf128_si256(mask1, 1), rgba_i);
@@ -232,7 +232,7 @@ sfid_render_cache_rt_write_simd8_bgra_unorm8_xmajor(struct thread *t,
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
 	argb = _mm256_permute4x64_epi64(argb, SWIZZLE(0, 2, 1, 3));
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask[0].q[0], SWIZZLE(0, 2, 1, 3));
 
 	_mm_maskstore_epi32(base,
 			    _mm256_extractf128_si256(mask, 0),
@@ -265,7 +265,7 @@ write_uint8_linear(struct thread *t,
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
 	rgba = _mm256_permute4x64_epi64(rgba, SWIZZLE(0, 2, 1, 3));
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask[0].q[0], SWIZZLE(0, 2, 1, 3));
 
 	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 
@@ -351,7 +351,7 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_linear(struct thread *t,
 	__m128i *base1 = (void *) base0 + args->rt.stride;
 
 	struct unpacked_rgba_uint32 u = unpack_rgba_uint32(&t->grf[args->src]);
-	struct reg mask = { .ireg = t->mask_q1 };
+	struct reg mask = { .ireg = t->mask[0].q[0] };
 
 	if (mask.d[0] < 0)
 		base0[0] = _mm256_extractf128_si256(u.rgba04, 0);
@@ -383,7 +383,7 @@ sfid_render_cache_rt_write_simd8_rgba_uint32_ymajor(struct thread *t,
 	const int cpp = 16;
 	__m128i *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
 	struct unpacked_rgba_uint32 u = unpack_rgba_uint32(&t->grf[args->src]);
-	struct reg mask = { .ireg = t->mask_q1 };
+	struct reg mask = { .ireg = t->mask[0].q[0] };
 
 	if (mask.d[0] < 0)
 		base[0] = _mm256_extractf128_si256(u.rgba04, 0);
@@ -420,10 +420,10 @@ write_uint16_linear(struct thread *t,
 	ba = _mm256_or_si256(ba, b);
 
 	__m256i p0 = _mm256_unpacklo_epi32(rg, ba);
-	__m256i m0 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_q1, 0));
+	__m256i m0 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask[0].q[0], 0));
 
 	__m256i p1 = _mm256_unpackhi_epi32(rg, ba);
-	__m256i m1 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask_q1, 1));
+	__m256i m1 = _mm256_cvtepi32_epi64(_mm256_extractf128_si256(t->mask[0].q[0], 1));
 
 	void *base = args->rt.pixels + x * args->rt.cpp + y * args->rt.stride;
 
@@ -547,7 +547,7 @@ sfid_render_cache_rt_write_simd8_rgba8_ymajor(struct thread *t,
 	/* Swizzle two middle pixel pairs so that dword 0-3 and 4-7
 	 * form linear owords of pixels. */
 	rgba = _mm256_permute4x64_epi64(rgba, SWIZZLE(0, 2, 1, 3));
-	__m256i mask = _mm256_permute4x64_epi64(t->mask_q1, SWIZZLE(0, 2, 1, 3));
+	__m256i mask = _mm256_permute4x64_epi64(t->mask[0].q[0], SWIZZLE(0, 2, 1, 3));
 
 	void *base = ymajor_offset(args->rt.pixels, x, y, args->rt.stride, cpp);
 

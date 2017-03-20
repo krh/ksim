@@ -204,7 +204,7 @@ sfid_urb_simd8_read(struct thread *t, struct sfid_urb_args *args)
 	}
 
 	struct reg mask;
-	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask_stack[args->scope]);
+	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask[args->scope].q[0]);
 	for (uint32_t c = 0; c < 8; c++) {
 		if (!mask.ud[c])
 			continue;
@@ -244,7 +244,7 @@ sfid_urb_simd8_write(struct thread *t, struct sfid_urb_args *args)
 	}
 
 	struct reg mask;
-	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask_stack[args->scope]);
+	mask.ireg = _mm256_and_si256(channel_mask.ireg, t->mask[args->scope].q[0]);
 	for (uint32_t c = 0; c < 8; c++) {
 		if (!mask.ud[c])
 			continue;

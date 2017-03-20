@@ -74,7 +74,7 @@ dispatch_vs(struct vs_thread *t, uint32_t iid, uint32_t vid, struct ia_state *st
 		count = rest;
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
-	t->t.mask_q1 = _mm256_cmpgt_epi32(_mm256_set1_epi32(rest), range.ireg);
+	t->t.mask[0].q[0] = _mm256_cmpgt_epi32(_mm256_set1_epi32(rest), range.ireg);
 
 	t->iid = iid;
 	t->vid.ireg = _mm256_add_epi32(range.ireg, _mm256_set1_epi32(vid));
@@ -479,7 +479,7 @@ dump_vue(struct vs_thread *t)
 	for (uint32_t c = 0; c < 8; c++)
 		ksim_trace(TRACE_VF, " %d", v.ud[c]);
 	ksim_trace(TRACE_VF, " ], mask=[");
-	v.ireg = t->t.mask_q1;
+	v.ireg = t->t.mask[0].q[0];
 	for (uint32_t c = 0; c < 8; c++)
 		ksim_trace(TRACE_VF, " %d", v.ud[c]);
 	ksim_trace(TRACE_VF, " ]\n");
@@ -503,7 +503,7 @@ emit_gather(struct kir_program *prog,
 	 * each gather and make sure we don't reuse the mask
 	 * register. */
 
-	struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct vs_thread, t.mask_q1));
+	struct kir_reg mask = kir_program_load_v8(prog, offsetof(struct vs_thread, t.mask[0].q[0]));
 
 	return kir_program_gather(prog, base, offset, mask, scale, base_offset);
 }

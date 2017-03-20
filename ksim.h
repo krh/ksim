@@ -254,14 +254,14 @@ struct reg {
 	};
 };
 
+struct reg32 {
+	__m256i q[4];
+};
+
 struct thread {
 	struct reg grf[128];
-	__m256i f[2];
-	union {
-		__m256i mask_stack[8];
-		__m256i mask_q1;
-	};
-	__m256i mask_q2;
+	struct reg32 f[2];
+	struct reg32 mask[2];
 	__m256i constants[32];
 	__m256i spill[64]; /* Needs to be dynamically determined */
 };

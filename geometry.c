@@ -169,7 +169,7 @@ dispatch_gs(struct value ***vue,
 	uint32_t fftid = 0;
 
 	static const struct reg range = { .d = {  0, 1, 2, 3, 4, 5, 6, 7 } };
-	t.t.mask_q1 = _mm256_cmpgt_epi32(_mm256_set1_epi32(primitive_count), range.ireg);
+	t.t.mask[0].q[0] = _mm256_cmpgt_epi32(_mm256_set1_epi32(primitive_count), range.ireg);
 
 	/* Fixed function header */
 	grf[0] = (struct reg) {

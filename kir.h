@@ -40,6 +40,7 @@ struct kir_program {
 	struct kir_reg dst;
 	int scope;
 	int new_scope;
+	int quarter;
 	uint32_t *live_ranges;
 	uint32_t urb_offset;
 	uint32_t urb_length;
@@ -154,6 +155,7 @@ struct kir_insn {
 
 	struct kir_reg dst;
 	int scope; /* FIXME: Should be part of kir_block */
+	int quarter;
 
 	union {
 		char *comment;
