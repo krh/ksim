@@ -61,8 +61,6 @@ Lets us offload to GPU for better performance.
 
 ** Use ebx for thread point to avoid push/pop of rdi
 
-** xor r, r for loading 0, cmpeq r, r for loading -1
-
 ** Constant propagation to eliminate redundant imm loads
 
 Each immediate src results in an imm kir instruction. Look for

@@ -1679,16 +1679,30 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 			break;
 
 		case kir_immd: {
-			uint32_t *p = get_const_data(sizeof(*p), sizeof(*p));
-			*p = insn->imm.d;
-			builder_emit_vpbroadcastd_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
+			if (insn->imm.d == 0) {
+				builder_emit_vpxor(bld, insn->dst.n, insn->dst.n, insn->dst.n);
+			} else if (insn->imm.d == -1) {
+				builder_emit_vpcmpeqd(bld, insn->dst.n,
+						      insn->dst.n, insn->dst.n);
+			} else {
+				uint32_t *p = get_const_data(sizeof(*p), sizeof(*p));
+				*p = insn->imm.d;
+				builder_emit_vpbroadcastd_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
+			}
 			break;
 		}
 
 		case kir_immw: {
-			uint16_t *p = get_const_data(sizeof(*p), sizeof(*p));
-			*p = insn->imm.d;
-			builder_emit_vpbroadcastw_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
+			if (insn->imm.d == 0) {
+				builder_emit_vpxor(bld, insn->dst.n, insn->dst.n, insn->dst.n);
+			} else if (insn->imm.d == -1) {
+				builder_emit_vpcmpeqd(bld, insn->dst.n,
+						      insn->dst.n, insn->dst.n);
+			} else {
+				uint16_t *p = get_const_data(sizeof(*p), sizeof(*p));
+				*p = insn->imm.d;
+				builder_emit_vpbroadcastw_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
+			}
 			break;
 		}
 
