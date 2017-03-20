@@ -235,6 +235,13 @@ builder_emit_vpbroadcastw(struct builder *bld, int dst, int32_t offset)
 }
 
 static inline void
+builder_emit_vpbroadcastw_rip_relative(struct builder *bld, int dst, int32_t offset)
+{
+	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x7d, 0x79, 0x05 + (dst & 7) * 8,
+	     emit_uint32(offset - 9));
+}
+
+static inline void
 builder_emit_vpbroadcastw_xmm(struct builder *bld, int dst, int32_t offset)
 {
 	emit(bld, 0xc4, 0xe2 - (dst & 8) * 16, 0x79, 0x79, 0x87 + (dst & 7) * 8,

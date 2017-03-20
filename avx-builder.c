@@ -430,6 +430,9 @@ int main(int argc, char *argv[])
 	check_triop_emit_function("vmaxps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vmaxps);
 	check_triop_emit_function("vminps %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vminps);
 
+	check_triop_emit_function("vpcmpgtd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpcmpgtd);
+	check_triop_emit_function("vpcmpeqd %%ymm%d,%%ymm%d,%%ymm%d", builder_emit_vpcmpeqd);
+
 	check_quadop_emit_function("vpblendvb %%ymm%d,%%ymm%d,%%ymm%d,%%ymm%d",
 				   builder_emit_vpblendvb);
 

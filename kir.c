@@ -1643,11 +1643,17 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 						       insn->store.mask.n, insn->store.offset);
 			break;
 
-		case kir_immd:
-		case kir_immw: {
+		case kir_immd: {
 			uint32_t *p = get_const_data(sizeof(*p), sizeof(*p));
 			*p = insn->imm.d;
 			builder_emit_vpbroadcastd_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
+			break;
+		}
+
+		case kir_immw: {
+			uint16_t *p = get_const_data(sizeof(*p), sizeof(*p));
+			*p = insn->imm.d;
+			builder_emit_vpbroadcastw_rip_relative(bld, insn->dst.n, builder_offset(bld, p));
 			break;
 		}
 

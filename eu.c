@@ -263,7 +263,7 @@ kir_program_emit_src_load(struct kir_program *prog,
 		case BRW_HW_REG_TYPE_UW:
 		case BRW_HW_REG_TYPE_W:
 			insn = kir_program_add_insn(prog, kir_immw);
-			insn->imm.d = unpack_inst_imm(inst).d;
+			insn->imm.d = unpack_inst_imm(inst).d & 0xffff;
 			break;
 
 		case BRW_HW_REG_IMM_TYPE_UV:
