@@ -39,6 +39,7 @@ struct kir_program {
 	uint32_t exec_offset;
 	struct kir_reg dst;
 	int scope;
+	int new_scope;
 	uint32_t *live_ranges;
 	uint32_t urb_offset;
 	uint32_t urb_length;

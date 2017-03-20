@@ -524,6 +524,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 	else
 		dst = unpack_inst_2src_dst(inst);
 
+	prog->new_scope = prog->scope;
 	switch (opcode) {
 	case BRW_OPCODE_MOV:
 		kir_program_emit_dst_store(prog, src0_reg, inst, &dst);
@@ -608,7 +609,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		else
 			mask = kir_program_alu(prog, kir_and, mask, f);
 		kir_program_store_v8(prog, offsetof(struct thread, mask_stack[prog->scope + 1]), mask);
-		prog->scope++;
+		prog->new_scope = prog->scope + 1;
 		break;
 	}
 	case BRW_OPCODE_IFF:
@@ -623,7 +624,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		break;
 	}
 	case BRW_OPCODE_ENDIF:
-		prog->scope--;
+		prog->new_scope = prog->scope - 1;
 		break;
 	case BRW_OPCODE_DO:
 		stub("BRW_OPCODE_DO");
@@ -955,6 +956,8 @@ do_compile_inst(struct kir_program *prog, struct inst *inst)
 		prog->exec_offset = exec_size / 2;
 		compile_inst(prog, inst);
 	}
+
+	prog->scope = prog->new_scope;
 
 	return eot;
 }
