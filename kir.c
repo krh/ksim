@@ -244,6 +244,23 @@ format_region(char *buf, int len, struct eu_region *region)
 }
 
 static const char *
+cmpf_op_name(uint32_t op)
+{
+	static const char *op_names[] = {
+		"EQ_OQ",  "LT_OS",  "LE_OS",  "UNORD_Q",
+		"NEQ_UQ", "NLT_US", "NLE_US", "ORD_Q",
+		"EQ_UQ",  "NGE_US", "NGT_US", "FALSE_OQ",
+		"NEQ_OQ", "GE_OS",  "GT_OS",  "TRUE_UQ",
+		"EQ_OS",  "LT_OQ",  "LE_OQ",  "UNORD_S",
+		"NEQ_US", "NLT_UQ", "NLE_UQ", "ORD_S",
+		"EQ_US",  "NGE_UQ", "NGT_UQ", "FALSE_OS",
+		"NEQ_OS", "GE_OQ",  "GT_OQ",  "TRUE_US"
+	};
+
+	return op_names[op];
+}
+
+static const char *
 kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 {
 	char region[32];
@@ -495,9 +512,17 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "r%-3d = nmaddf r%d, r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.src2.n);
 		break;
-	case kir_cmp:
-		snprintf(buf, size, "r%-3d = cmp r%d, r%d, op %d", insn->dst.n,
-			 insn->alu.src0.n, insn->alu.src1.n, insn->alu.imm2);
+	case kir_cmpf:
+		snprintf(buf, size, "r%-3d = cmpf r%d r%d %s", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n, cmpf_op_name(insn->alu.imm2));
+		break;
+	case kir_cmpeqd:
+		snprintf(buf, size, "r%-3d = cmpeqd r%d r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
+		break;
+	case kir_cmpgtd:
+		snprintf(buf, size, "r%-3d = cmpgtd r%d r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_blend:
 		snprintf(buf, size, "r%-3d = blend r%d, r%d, r%d", insn->dst.n,
@@ -767,7 +792,9 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_muld:
 		case kir_mulw:
 		case kir_mulf:
-		case kir_cmp:
+		case kir_cmpf:
+		case kir_cmpeqd:
+		case kir_cmpgtd:
 			live = live_regs[insn->dst.n];
 			set_live(insn->alu.src0, live, insn, range, live_regs);
 			set_live(insn->alu.src1, live, insn, range, live_regs);
@@ -993,7 +1020,9 @@ kir_program_copy_propagation(struct kir_program *prog)
 		case kir_muld:
 		case kir_mulw:
 		case kir_mulf:
-		case kir_cmp:
+		case kir_cmpf:
+		case kir_cmpeqd:
+		case kir_cmpgtd:
 			insn->alu.src0 = remap[insn->alu.src0.n];
 			insn->alu.src1 = remap[insn->alu.src1.n];
 			break;
@@ -1370,7 +1399,9 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_muld:
 		case kir_mulw:
 		case kir_mulf:
-		case kir_cmp:
+		case kir_cmpf:
+		case kir_cmpeqd:
+		case kir_cmpgtd:
 			lock_reg(&state, insn->alu.src0);
 			lock_reg(&state, insn->alu.src1);
 			insn->alu.src0 = use_reg(&state, insn, insn->alu.src0);
@@ -1855,9 +1886,17 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 				builder_emit_vfnmadd231ps(bld, insn->dst.n,
 							  insn->alu.src0.n, insn->alu.src1.n);
 			break;
-		case kir_cmp:
+		case kir_cmpf:
 			builder_emit_vcmpps(bld, insn->alu.imm2, insn->dst.n,
 					    insn->alu.src0.n, insn->alu.src1.n);
+			break;
+		case kir_cmpeqd:
+			builder_emit_vpcmpeqd(bld, insn->dst.n,
+					      insn->alu.src0.n, insn->alu.src1.n);
+			break;
+		case kir_cmpgtd:
+			builder_emit_vpcmpgtd(bld, insn->dst.n,
+					      insn->alu.src0.n, insn->alu.src1.n);
 			break;
 		case kir_blend:
 			/* FIXME: should use vpblendvb */

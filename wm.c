@@ -167,7 +167,7 @@ emit_depth_test(struct kir_program *prog)
 			[COMPAREFUNCTION_GEQUAL]	= _CMP_GE_OS,
 		};
 
-		kir_program_alu(prog, kir_cmp, computed_depth, depth,
+		kir_program_alu(prog, kir_cmpf, computed_depth, depth,
 				gen_function_to_avx2[gt.depth.test_function]);
 		mask = kir_program_alu(prog, kir_and, mask, prog->dst);
 		kir_program_store_v8(prog, offsetof(struct ps_thread, t.mask_q1), mask);

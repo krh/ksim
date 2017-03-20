@@ -576,6 +576,18 @@ builder_emit_vcmpps(struct builder *bld, int op, int dst, int src0, int src1)
 }
 
 static inline void
+builder_emit_vpcmpeqd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0x76, dst, src0, src1);
+}
+
+static inline void
+builder_emit_vpcmpgtd(struct builder *bld, int dst, int src0, int src1)
+{
+	builder_emit_long_alu(bld, 0x0d, 0x66, dst, src0, src1);
+}
+
+static inline void
 builder_emit_vmaxps(struct builder *bld, int dst, int src0, int src1)
 {
 	builder_emit_long_alu(bld, 0x0c, 0x5f, dst, src0, src1);

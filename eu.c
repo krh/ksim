@@ -323,7 +323,14 @@ kir_program_emit_src_load(struct kir_program *prog,
 }
 
 static struct kir_reg
-emit_cmp(struct kir_program *prog, int modifier,
+emit_not(struct kir_program *prog, struct kir_reg reg)
+{
+	kir_program_immd(prog, -1);
+	return kir_program_alu(prog, kir_xor, reg, prog->dst);
+}
+
+static struct kir_reg
+emit_cmp(struct kir_program *prog, int file, int type, int modifier,
 	 struct kir_reg src0, struct kir_reg src1)
 {
 	static uint32_t eu_to_avx_cmp[] = {
@@ -339,7 +346,27 @@ emit_cmp(struct kir_program *prog, int modifier,
 		[BRW_CONDITIONAL_U]	= 0,
 	};
 
-	return kir_program_alu(prog, kir_cmp, src1, src0, eu_to_avx_cmp[modifier]);
+	if (is_integer(file, type)) {
+		switch (modifier) {
+		case BRW_CONDITIONAL_Z:
+			return kir_program_alu(prog, kir_cmpeqd, src0, src1);
+		case BRW_CONDITIONAL_NZ:
+			return emit_not(prog, kir_program_alu(prog, kir_cmpeqd, src0, src1));
+		case BRW_CONDITIONAL_G:
+			return kir_program_alu(prog, kir_cmpgtd, src1, src0);
+		case BRW_CONDITIONAL_GE:
+			return emit_not(prog, kir_program_alu(prog, kir_cmpgtd, src0, src1));
+		case BRW_CONDITIONAL_L:
+			return kir_program_alu(prog, kir_cmpgtd, src0, src1);
+		case BRW_CONDITIONAL_LE:
+			return emit_not(prog, kir_program_alu(prog, kir_cmpgtd, src1, src0));
+		default:
+			stub("integer cmp op");
+			return src0;
+		}
+	} else {
+		return kir_program_alu(prog, kir_cmpf, src1, src0, eu_to_avx_cmp[modifier]);
+	}
 }
 
 static void
@@ -511,7 +538,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			kir_program_alu(prog, kir_minf, src0_reg, src1_reg);
 			break;
 		}
-		emit_cmp(prog, modifier, src0_reg, src1_reg);
+		emit_cmp(prog, src0.file, src0.type, modifier, src0_reg, src1_reg);
 		/* AVX2 blendv is opposite of the EU sel order, so we
 		 * swap src0 and src1 operands. */
 		kir_program_alu(prog, kir_blend, src0_reg, src1_reg, prog->dst);
@@ -542,7 +569,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		break;
 	case BRW_OPCODE_CMP: {
 		int modifier = unpack_inst_common(inst).cond_modifier;
-		emit_cmp(prog, modifier, src0_reg, src1_reg);
+		emit_cmp(prog, src0.file, src0.type, modifier, src0_reg, src1_reg);
 		break;
 	}
 	case BRW_OPCODE_CMPN:
@@ -891,7 +918,7 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 			flag_reg = dst_reg;
 		} else {
 			struct kir_reg zero = kir_program_immd(prog, 0);
-			flag_reg = emit_cmp(prog, cond_modifier, dst_reg, zero);
+			flag_reg = emit_cmp(prog, src0.file, src0.type, cond_modifier, dst_reg, zero);
 			/* FIXME: Mask store? */
 		}
 		kir_program_store_v8(prog, offsetof(struct thread, f[flag]), flag_reg);

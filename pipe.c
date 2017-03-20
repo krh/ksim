@@ -761,10 +761,10 @@ emit_clip_test(struct kir_program *prog, uint32_t base)
 	struct kir_reg x = kir_program_load_v8(prog, vue_offset(base, x));
 	struct kir_reg y = kir_program_load_v8(prog, vue_offset(base, y));
 
-	struct kir_reg x0f = kir_program_alu(prog, kir_cmp, x0, x, _CMP_LT_OS);
-	struct kir_reg x1f = kir_program_alu(prog, kir_cmp, x1, x, _CMP_GT_OS);
-	struct kir_reg y0f = kir_program_alu(prog, kir_cmp, y0, y, _CMP_LT_OS);
-	struct kir_reg y1f = kir_program_alu(prog, kir_cmp, y1, y, _CMP_GT_OS);
+	struct kir_reg x0f = kir_program_alu(prog, kir_cmpf, x0, x, _CMP_LT_OS);
+	struct kir_reg x1f = kir_program_alu(prog, kir_cmpf, x1, x, _CMP_GT_OS);
+	struct kir_reg y0f = kir_program_alu(prog, kir_cmpf, y0, y, _CMP_LT_OS);
+	struct kir_reg y1f = kir_program_alu(prog, kir_cmpf, y1, y, _CMP_GT_OS);
 
 	struct kir_reg xf = kir_program_alu(prog, kir_or, x0f, x1f);
 	struct kir_reg yf = kir_program_alu(prog, kir_or, y0f, y1f);

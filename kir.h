@@ -124,7 +124,9 @@ enum kir_opcode {
 	kir_mulw,
 	kir_mulf,
 
-	kir_cmp,	/* src2 is an cmp op immediate, not register */
+	kir_cmpf,	/* src2 is an cmp op immediate, not register */
+	kir_cmpeqd,
+	kir_cmpgtd,
 
 	/* alu triops */
 	kir_nmaddf,
