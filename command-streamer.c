@@ -488,13 +488,13 @@ handle_media_curbe_load(uint32_t *p)
 
 	struct GEN9_MEDIA_CURBE_LOAD v;
 	GEN9_MEDIA_CURBE_LOAD_unpack(p, &v);
-	gt.compute.curbe_data_length = v.CURBETotalDataLength;
 
 	const uint64_t offset = v.CURBEDataStartAddress +
 		gt.dynamic_state_base_address;
 
 	uint64_t range;
 	gt.compute.curbe_data = map_gtt_offset(offset, &range);
+	ksim_assert(v.CURBETotalDataLength <= range);
 }
 
 static void
