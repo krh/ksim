@@ -498,6 +498,7 @@ struct gt {
 
 	struct {
 		uint64_t address;
+		void *buffer;
 		uint32_t width;
 		uint32_t height;
 		uint32_t stride;
@@ -510,6 +511,7 @@ struct gt {
 		bool hiz_enable;
 		uint64_t hiz_address;
 		uint32_t hiz_stride;
+		void *hiz_buffer;
 		float clear_value;
 	} depth;
 

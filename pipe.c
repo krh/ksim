@@ -922,6 +922,10 @@ dispatch_primitive(void)
 	gt.depth.write_enable =
 		gt.depth.write_enable0 && gt.depth.write_enable1;
 
+	uint64_t range;
+	gt.depth.hiz_buffer = map_gtt_offset(gt.depth.hiz_address, &range);
+	gt.depth.buffer = map_gtt_offset(gt.depth.address, &range);
+
 	/* Configure csr to round toward zero to make vcvtps2dq match
 	 * the GEN EU behavior when converting from float to int. This
 	 * may disagree with the rounding mode programmed in

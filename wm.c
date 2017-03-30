@@ -291,10 +291,45 @@ struct tile_iterator {
 };
 
 static void
+clear_depth_tile(struct ps_thread *pt)
+{
+	uint32_t tile_stride = DIV_ROUND_UP(gt.depth.width, 32);
+	uint8_t *hiz_tile = gt.depth.hiz_buffer + pt->x0 / 32 + tile_stride * (pt->y0 / 32);
+
+	if (*hiz_tile)
+		return;
+	*hiz_tile = 1;
+
+	struct reg clear_value;
+	uint32_t cpp = depth_format_size(gt.depth.format);
+	void *depth = ymajor_offset(gt.depth.buffer, pt->x0, pt->y0, gt.depth.stride, cpp);
+
+	switch (gt.depth.format) {
+	case D32_FLOAT:
+		clear_value.reg = _mm256_set1_ps(gt.depth.clear_value);
+		break;
+	case D24_UNORM_X8_UINT:
+		clear_value.ireg = _mm256_set1_epi32(gt.depth.clear_value * 16777215.0f);
+		break;
+	case D16_UNORM:
+		stub("D16_UNORM clear");
+	default:
+		ksim_unreachable("invalid depth format");
+	}
+
+	for (uint32_t i = 0; i < 4096; i += 32)
+		_mm256_store_si256((depth + i), clear_value.ireg);
+}
+
+static void
 tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 {
 	iter->x = 0;
 	iter->y = 0;
+
+	if (gt.depth.write_enable || gt.depth.test_enable)
+		if (gt.depth.hiz_enable)
+			clear_depth_tile(pt);
 
 	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
 				    pt->w2_offsets);
@@ -359,10 +394,8 @@ fill_dispatch(struct ps_thread *pt,
 	d->y = pt->y0 + iter->y;
 
 	if (gt.depth.write_enable || gt.depth.test_enable) {
-		uint64_t range;
-		void *buffer = map_gtt_offset(gt.depth.address, &range);
 		uint32_t cpp = depth_format_size(gt.depth.format);
-		pt->depth = ymajor_offset(buffer, d->x, d->y, gt.depth.stride, cpp);
+		pt->depth = ymajor_offset(gt.depth.buffer, d->x, d->y, gt.depth.stride, cpp);
 	}
 
 	pt->queue_length++;
@@ -790,6 +823,16 @@ depth_clear(void)
 	void *depth;
 	struct reg clear_value;
 	int i;
+
+	if (gt.depth.hiz_enable) {
+		uint32_t tile_stride = DIV_ROUND_UP(gt.depth.width, 32);
+		uint32_t tile_height = DIV_ROUND_UP(gt.depth.height, 32);
+		uint32_t size = tile_stride * tile_height;
+
+		void *hiz = map_gtt_offset(gt.depth.hiz_address, &range);
+		memset(hiz, 0, size);
+		return;
+	}
 
 	switch (gt.depth.format) {
 	case D32_FLOAT:
