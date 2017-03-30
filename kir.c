@@ -331,10 +331,17 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		break;
 	case kir_send:
 	case kir_const_send:
-		len = snprintf(buf, size, "       %ssend src g%d-g%d",
-			       insn->opcode == kir_const_send ? "const_" : "",
-			       insn->send.src, insn->send.src + insn->send.mlen - 1);
-		if (insn->send.rlen > 0)
+		len = snprintf(buf, size, "       %ssend",
+			       insn->opcode == kir_const_send ? "const_" : "");
+		if (insn->send.mlen == 1)
+			len = snprintf(buf, size, " src g%d", insn->send.src);
+		else if (insn->send.mlen > 1)
+			len = snprintf(buf, size, " src g%d-g%d",
+				       insn->send.src, insn->send.src + insn->send.mlen - 1);
+
+		if (insn->send.rlen == 1)
+			len += snprintf(buf + len, size - len, ", dst g%d", insn->send.dst);
+		else if (insn->send.rlen > 1)
 			len += snprintf(buf + len, size - len, ", dst g%d-g%d",
 					insn->send.dst, insn->send.dst + insn->send.rlen - 1);
 		break;
