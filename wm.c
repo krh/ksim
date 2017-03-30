@@ -42,13 +42,13 @@ struct dispatch {
 	struct reg int_w2, int_w1;
 	struct reg w2, w1;
 	struct reg w2_pc, w1_pc;
-	struct reg mask;
 	int x, y;
 };
 
 struct ps_thread {
 	struct thread t;
 	struct reg attribute_deltas[64];
+	struct reg grf0;
 	struct dispatch queue[2];
 
 	void *depth;
@@ -218,36 +218,10 @@ dispatch_ps(struct ps_thread *t)
 	struct dispatch *d = &t->queue[0];
 	int count = t->queue_length;
 	/* Not sure what we should make this. */
-	uint32_t fftid = 0;
 	struct reg *grf = &t->t.grf[0];
 
-	t->t.mask[0].q[0] = d[0].mask.ireg;
-	if (count == 2)
-		t->t.mask[0].q[1] = d[1].mask.ireg;
-
 	/* Fixed function header */
-	grf[0] = (struct reg) {
-		.ud = {
-			/* R0.0 */
-			gt.ia.topology |
-			0 /*  FIXME: More here */,
-			/* R0.1 */
-			gt.cc.state,
-			/* R0.2: MBZ */
-			0,
-			/* R0.3: per-thread scratch space, sampler ptr */
-			gt.ps.sampler_state_address |
-			gt.ps.scratch_size,
-			/* R0.4: binding table pointer */
-			gt.ps.binding_table_address,
-			/* R0.5: fftid, scratch offset */
-			gt.ps.scratch_pointer | fftid,
-			/* R0.6: thread id */
-			gt.ps.tid++ & 0xffffff,
-			/* R0.7: Reserved */
-			0,
-		}
-	};
+	grf[0] = t->grf0;
 
 	uint32_t mask = _mm256_movemask_ps((__m256) t->t.mask[0].q[0]);
 	grf[1] = (struct reg) {
@@ -374,7 +348,8 @@ static void
 fill_dispatch(struct ps_thread *pt,
 	      struct tile_iterator *iter, struct reg mask)
 {
-	struct dispatch *d = &pt->queue[pt->queue_length];
+	uint32_t q = pt->queue_length;
+	struct dispatch *d = &pt->queue[q];
 
 	if (_mm256_movemask_ps(mask.reg) == 0)
 		return;
@@ -393,7 +368,7 @@ fill_dispatch(struct ps_thread *pt,
 				     _mm256_set1_ps(pt->inv_z2));
 #endif
 	
-	d->mask = mask;
+	pt->t.mask[0].q[q] = mask.ireg;
 	d->x = pt->x0 + iter->x;
 	d->y = pt->y0 + iter->y;
 
@@ -797,6 +772,30 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	pt.w2_row_step = _mm256_set1_epi32(pt.e01.b * dy - pt.e01.a * (tile_width - dx));
 	pt.w0_row_step = _mm256_set1_epi32(pt.e12.b * dy - pt.e12.a * (tile_width - dx));
 	pt.w1_row_step = _mm256_set1_epi32(pt.e20.b * dy - pt.e20.a * (tile_width - dx));
+
+	uint32_t fftid = 0;
+	pt.grf0 = (struct reg) {
+		.ud = {
+			/* R0.0 */
+			gt.ia.topology |
+			0 /*  FIXME: More here */,
+			/* R0.1 */
+			gt.cc.state,
+			/* R0.2: MBZ */
+			0,
+			/* R0.3: per-thread scratch space, sampler ptr */
+			gt.ps.sampler_state_address |
+			gt.ps.scratch_size,
+			/* R0.4: binding table pointer */
+			gt.ps.binding_table_address,
+			/* R0.5: fftid, scratch offset */
+			gt.ps.scratch_pointer | fftid,
+			/* R0.6: thread id */
+			gt.ps.tid++ & 0xffffff,
+			/* R0.7: Reserved */
+			0,
+		}
+	};
 
 	switch (topology) {
 	case _3DPRIM_RECTLIST:
