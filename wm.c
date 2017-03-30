@@ -317,8 +317,12 @@ clear_depth_tile(struct ps_thread *pt)
 		ksim_unreachable("invalid depth format");
 	}
 
-	for (uint32_t i = 0; i < 4096; i += 32)
-		_mm256_store_si256((depth + i), clear_value.ireg);
+	for (uint32_t i = 0; i < 4096; i += 128) {
+		_mm256_store_si256((depth + i +   0), clear_value.ireg);
+		_mm256_store_si256((depth + i +  32), clear_value.ireg);
+		_mm256_store_si256((depth + i +  64), clear_value.ireg);
+		_mm256_store_si256((depth + i +  96), clear_value.ireg);
+	}
 }
 
 static void
