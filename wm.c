@@ -50,6 +50,7 @@ struct ps_thread {
 	struct reg attribute_deltas[64];
 	struct reg grf0;
 	struct dispatch queue[2];
+	uint32_t invocation_count;
 
 	void *depth;
 
@@ -245,8 +246,7 @@ dispatch_ps(struct ps_thread *t)
 		}
 	};
 
-	if (gt.ps.statistics)
-		gt.ps_invocation_count++;
+	t->invocation_count++;
 
 	if (count == 1 && gt.ps.enable_simd8) {
 		gt.ps.avx_shader_simd8(&t->t);
@@ -773,6 +773,7 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	pt.w0_row_step = _mm256_set1_epi32(pt.e12.b * dy - pt.e12.a * (tile_width - dx));
 	pt.w1_row_step = _mm256_set1_epi32(pt.e20.b * dy - pt.e20.a * (tile_width - dx));
 
+	pt.invocation_count = 0;
 	uint32_t fftid = 0;
 	pt.grf0 = (struct reg) {
 		.ud = {
@@ -807,6 +808,9 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	default:
 		rasterize_triangle(&pt);
 	}
+
+	if (gt.ps.statistics)
+		gt.ps_invocation_count += pt.invocation_count;
 }
 
 void
