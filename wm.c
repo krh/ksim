@@ -99,6 +99,13 @@ emit_barycentric_conversion(struct kir_program *prog)
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w1_pc), w1);
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2), w2);
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2_pc), w2);
+
+#if 0
+	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
+				     _mm256_set1_ps(pt->inv_z1));
+	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
+				     _mm256_set1_ps(pt->inv_z2));
+#endif
 }
 
 static void
@@ -357,13 +364,6 @@ fill_dispatch(struct ps_thread *pt,
 	 * coordinates.*/
 	d->int_w2.ireg = iter->w2;
 	d->int_w1.ireg = iter->w1;
-
-#if 0
-	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
-				     _mm256_set1_ps(pt->inv_z1));
-	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
-				     _mm256_set1_ps(pt->inv_z2));
-#endif
 	
 	pt->t.mask[0].q[q] = mask.ireg;
 	d->x = pt->x0 + iter->x;
