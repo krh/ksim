@@ -221,9 +221,6 @@ dispatch_ps(struct ps_thread *t)
 	/* Not sure what we should make this. */
 	struct reg *grf = &t->t.grf[0];
 
-	/* Fixed function header */
-	grf[0] = t->grf0;
-
 	uint32_t mask = _mm256_movemask_ps((__m256) t->t.mask[0].q[0]);
 	grf[1] = (struct reg) {
 		.ud = {
@@ -877,6 +874,9 @@ static void
 emit_load_payload(struct kir_program *prog, int width)
 {
 	int g = 2;
+
+	kir_program_load_v8(prog, offsetof(struct ps_thread, grf0));
+	kir_program_store_v8(prog, offsetof(struct thread, grf[0]), prog->dst);
 
 	if (gt.wm.barycentric_mode)
 		kir_program_comment(prog, "load payload: barycentric coordinates");
