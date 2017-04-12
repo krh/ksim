@@ -263,10 +263,10 @@ struct tile_iterator {
 };
 
 static void
-clear_depth_tile(struct ps_thread *pt)
+clear_depth_tile(uint32_t x, uint32_t y)
 {
 	uint32_t tile_stride = DIV_ROUND_UP(gt.depth.width, 32);
-	uint8_t *hiz_tile = gt.depth.hiz_buffer + pt->x0 / 32 + tile_stride * (pt->y0 / 32);
+	uint8_t *hiz_tile = gt.depth.hiz_buffer + x / 32 + tile_stride * (y / 32);
 
 	if (*hiz_tile)
 		return;
@@ -274,7 +274,7 @@ clear_depth_tile(struct ps_thread *pt)
 
 	struct reg clear_value;
 	uint32_t cpp = depth_format_size(gt.depth.format);
-	void *depth = ymajor_offset(gt.depth.buffer, pt->x0, pt->y0, gt.depth.stride, cpp);
+	void *depth = ymajor_offset(gt.depth.buffer, x, y, gt.depth.stride, cpp);
 
 	switch (gt.depth.format) {
 	case D32_FLOAT:
@@ -305,7 +305,7 @@ tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
 
 	if (gt.depth.write_enable || gt.depth.test_enable)
 		if (gt.depth.hiz_enable)
-			clear_depth_tile(pt);
+			clear_depth_tile(pt->x0, pt->y0);
 
 	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
 				    pt->w2_offsets);
