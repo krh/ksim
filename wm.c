@@ -63,10 +63,7 @@ struct ps_thread {
 	void *depth;
 	int queue_length;
 
-	int32_t start_w2, start_w0, start_w1;
-
 	struct rectangle rect;
-	int32_t row_w2, row_w0, row_w1;
 
 	__m256i w2_offsets, w0_offsets, w1_offsets;
 	__m256i w2_step, w0_step, w1_step;
@@ -299,6 +296,8 @@ clear_depth_tile(uint32_t x, uint32_t y)
 struct bbox_iter {
 	uint32_t x, y;
 	struct rectangle rect;
+	int32_t w2, w0, w1;
+	int32_t row_w2, row_w0, row_w1;
 };
 
 static void
@@ -313,13 +312,13 @@ tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt, const struc
 		if (gt.depth.hiz_enable)
 			clear_depth_tile(iter->x0, iter->y0);
 
-	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
+	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w2),
 				    pt->w2_offsets);
 
-	iter->w0 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w0),
+	iter->w0 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w0),
 				    pt->w0_offsets);
 
-	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w1),
+	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w1),
 				    pt->w1_offsets);
 }
 
@@ -475,15 +474,22 @@ eval_edge(struct edge *e, struct point p)
 }
 
 static void
-bbox_iter_init(struct bbox_iter *iter, struct ps_thread *pt)
+bbox_iter_init(struct bbox_iter *iter, struct ps_primitive *p, struct rectangle *rect)
 {
-	iter->x = pt->rect.x0;
-	iter->y = pt->rect.y0;
-	iter->rect = pt->rect;
+	iter->x = rect->x0;
+	iter->y = rect->y0;
+	iter->rect = *rect;
 
-	pt->start_w2 = pt->row_w2;
-	pt->start_w0 = pt->row_w0;
-	pt->start_w1 = pt->row_w1;
+	struct point min = snap_point(rect->x0, rect->y0);
+	min.x += 128;
+	min.y += 128;
+	iter->row_w2 = eval_edge(&p->e01, min);
+	iter->row_w0 = eval_edge(&p->e12, min);
+	iter->row_w1 = eval_edge(&p->e20, min);
+
+	iter->w2 = iter->row_w2;
+	iter->w0 = iter->row_w0;
+	iter->w1 = iter->row_w1;
 }
 
 static bool
@@ -499,16 +505,16 @@ bbox_iter_next(struct bbox_iter *iter, struct ps_thread *pt)
 	if (iter->x == iter->rect.x1) {
 		iter->x = iter->rect.x0;
 		iter->y += tile_height;
-		pt->row_w2 += tile_height * pt->prim.e01.b;
-		pt->row_w0 += tile_height * pt->prim.e12.b;
-		pt->row_w1 += tile_height * pt->prim.e20.b;
-		pt->start_w2 = pt->row_w2;
-		pt->start_w0 = pt->row_w0;
-		pt->start_w1 = pt->row_w1;
+		iter->row_w2 += tile_height * pt->prim.e01.b;
+		iter->row_w0 += tile_height * pt->prim.e12.b;
+		iter->row_w1 += tile_height * pt->prim.e20.b;
+		iter->w2 = iter->row_w2;
+		iter->w0 = iter->row_w0;
+		iter->w1 = iter->row_w1;
 	} else {
-		pt->start_w2 += tile_width * pt->prim.e01.a;
-		pt->start_w0 += tile_width * pt->prim.e12.a;
-		pt->start_w1 += tile_width * pt->prim.e20.a;
+		iter->w2 += tile_width * pt->prim.e01.a;
+		iter->w0 += tile_width * pt->prim.e12.a;
+		iter->w1 += tile_width * pt->prim.e20.a;
 	}
 }
 
@@ -517,7 +523,8 @@ rasterize_rectlist(struct ps_thread *pt)
 {
 	struct bbox_iter iter;
 
-	for (bbox_iter_init(&iter, pt); !bbox_iter_done(&iter); bbox_iter_next(&iter, pt))
+	for (bbox_iter_init(&iter, &pt->prim, &pt->rect);
+	     !bbox_iter_done(&iter); bbox_iter_next(&iter, pt))
 		rasterize_rectlist_tile(pt, &iter);
 }
 
@@ -543,10 +550,11 @@ rasterize_triangle(struct ps_thread *pt)
 	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->prim.e20);
 
 	struct bbox_iter iter;
-	for (bbox_iter_init(&iter, pt); !bbox_iter_done(&iter); bbox_iter_next(&iter, pt)) {
-		int32_t min_w2 = pt->start_w2 + min_w2_delta;
-		int32_t min_w0 = pt->start_w0 + min_w0_delta;
-		int32_t min_w1 = pt->start_w1 + min_w1_delta;
+	for (bbox_iter_init(&iter, &pt->prim, &pt->rect);
+	     !bbox_iter_done(&iter); bbox_iter_next(&iter, pt)) {
+		int32_t min_w2 = iter.w2 + min_w2_delta;
+		int32_t min_w0 = iter.w0 + min_w0_delta;
+		int32_t min_w1 = iter.w1 + min_w1_delta;
 
 		if ((min_w2 & min_w0 & min_w1) < 0)
 			rasterize_triangle_tile(pt, &iter);
@@ -742,13 +750,6 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 
 	if (pt.rect.x1 <= pt.rect.x0 || pt.rect.y1 < pt.rect.y0)
 		return;
-
-	struct point min = snap_point(pt.rect.x0, pt.rect.y0);
-	min.x += 128;
-	min.y += 128;
-	pt.row_w2 = eval_edge(&pt.prim.e01, min);
-	pt.row_w0 = eval_edge(&pt.prim.e12, min);
-	pt.row_w1 = eval_edge(&pt.prim.e20, min);
 
 	pt.queue_length = 0;
 
