@@ -50,6 +50,11 @@ struct ps_primitive {
 	float inv_area;
 	struct edge e01, e12, e20;
 	struct reg attribute_deltas[64];
+
+	/* Tile iterator step values */
+	__m256i w2_offsets, w0_offsets, w1_offsets;
+	__m256i w2_step, w0_step, w1_step;
+	__m256i w2_row_step, w0_row_step, w1_row_step;
 };
 
 struct ps_thread {
@@ -62,10 +67,6 @@ struct ps_thread {
 
 	void *depth;
 	int queue_length;
-
-	__m256i w2_offsets, w0_offsets, w1_offsets;
-	__m256i w2_step, w0_step, w1_step;
-	__m256i w2_row_step, w0_row_step, w1_row_step;
 };
 
 static void
@@ -300,7 +301,8 @@ struct bbox_iter {
 };
 
 static void
-tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt, const struct bbox_iter *bbox_iter)
+tile_iterator_init(struct tile_iterator *iter,
+		   struct ps_primitive *p, const struct bbox_iter *bbox_iter)
 {
 	iter->x = 0;
 	iter->y = 0;
@@ -312,13 +314,13 @@ tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt, const struc
 			clear_depth_tile(iter->x0, iter->y0);
 
 	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w2),
-				    pt->w2_offsets);
+				    p->w2_offsets);
 
 	iter->w0 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w0),
-				    pt->w0_offsets);
+				    p->w0_offsets);
 
 	iter->w1 = _mm256_add_epi32(_mm256_set1_epi32(bbox_iter->w1),
-				    pt->w1_offsets);
+				    p->w1_offsets);
 }
 
 static bool
@@ -328,20 +330,20 @@ tile_iterator_done(struct tile_iterator *iter)
 }
 
 static void
-tile_iterator_next(struct tile_iterator *iter, struct ps_thread *pt)
+tile_iterator_next(struct tile_iterator *iter, struct ps_primitive *p)
 {
 	iter->x += 4;
 	if (iter->x == tile_width) {
 		iter->x = 0;
 		iter->y += 2;
 
-		iter->w2 = _mm256_add_epi32(iter->w2, pt->w2_row_step);
-		iter->w0 = _mm256_add_epi32(iter->w0, pt->w0_row_step);
-		iter->w1 = _mm256_add_epi32(iter->w1, pt->w1_row_step);
+		iter->w2 = _mm256_add_epi32(iter->w2, p->w2_row_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, p->w0_row_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, p->w1_row_step);
 	} else {
-		iter->w2 = _mm256_add_epi32(iter->w2, pt->w2_step);
-		iter->w0 = _mm256_add_epi32(iter->w0, pt->w0_step);
-		iter->w1 = _mm256_add_epi32(iter->w1, pt->w1_step);
+		iter->w2 = _mm256_add_epi32(iter->w2, p->w2_step);
+		iter->w0 = _mm256_add_epi32(iter->w0, p->w0_step);
+		iter->w1 = _mm256_add_epi32(iter->w1, p->w1_step);
 	}
 
 }
@@ -392,9 +394,9 @@ rasterize_rectlist_tile(struct ps_thread *pt, struct bbox_iter *bbox_iter)
 	 * the opposite edge if the original doesn't have bias. */
 	__m256i c = _mm256_set1_epi32(pt->prim.area - 1);
 
-	for (tile_iterator_init(&iter, pt, bbox_iter);
+	for (tile_iterator_init(&iter, &pt->prim, bbox_iter);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, pt)) {
+	     tile_iterator_next(&iter, &pt->prim)) {
 		__m256i w2, w3;
 
 		w2 = _mm256_sub_epi32(c, iter.w2);
@@ -418,9 +420,9 @@ rasterize_triangle_tile(struct ps_thread *pt, const struct bbox_iter *bbox_iter)
 {
 	struct tile_iterator iter;
 
-	for (tile_iterator_init(&iter, pt, bbox_iter);
+	for (tile_iterator_init(&iter, &pt->prim, bbox_iter);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, pt)) {
+	     tile_iterator_next(&iter, &pt->prim)) {
 		struct reg mask;
 		mask.ireg =
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
@@ -760,23 +762,23 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
-	pt.w2_offsets =
+	pt.prim.w2_offsets =
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.a), sx.ireg) +
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.b), sy.ireg);
-	pt.w0_offsets =
+	pt.prim.w0_offsets =
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.a), sx.ireg) +
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.b), sy.ireg);
-	pt.w1_offsets =
+	pt.prim.w1_offsets =
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.a), sx.ireg) +
 		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.b), sy.ireg);
 
-	pt.w2_step = _mm256_set1_epi32(pt.prim.e01.a * dx);
-	pt.w0_step = _mm256_set1_epi32(pt.prim.e12.a * dx);
-	pt.w1_step = _mm256_set1_epi32(pt.prim.e20.a * dx);
+	pt.prim.w2_step = _mm256_set1_epi32(pt.prim.e01.a * dx);
+	pt.prim.w0_step = _mm256_set1_epi32(pt.prim.e12.a * dx);
+	pt.prim.w1_step = _mm256_set1_epi32(pt.prim.e20.a * dx);
 
-	pt.w2_row_step = _mm256_set1_epi32(pt.prim.e01.b * dy - pt.prim.e01.a * (tile_width - dx));
-	pt.w0_row_step = _mm256_set1_epi32(pt.prim.e12.b * dy - pt.prim.e12.a * (tile_width - dx));
-	pt.w1_row_step = _mm256_set1_epi32(pt.prim.e20.b * dy - pt.prim.e20.a * (tile_width - dx));
+	pt.prim.w2_row_step = _mm256_set1_epi32(pt.prim.e01.b * dy - pt.prim.e01.a * (tile_width - dx));
+	pt.prim.w0_row_step = _mm256_set1_epi32(pt.prim.e12.b * dy - pt.prim.e12.a * (tile_width - dx));
+	pt.prim.w1_row_step = _mm256_set1_epi32(pt.prim.e20.b * dy - pt.prim.e20.a * (tile_width - dx));
 
 	pt.invocation_count = 0;
 	uint32_t fftid = 0;
