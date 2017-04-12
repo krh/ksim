@@ -34,7 +34,6 @@
 
 struct edge {
 	int32_t a, b, c, bias;
-	int32_t min_x, min_y;
 };
 
 struct dispatch {
@@ -457,8 +456,6 @@ init_edge(struct edge *e, struct point p0, struct point p1)
 	e->b = (p1.x - p0.x);
 	e->c = ((int64_t) p1.y * p0.x - (int64_t) p1.x * p0.y) >> 8;
 	e->bias = e->a < 0 || (e->a == 0 && e->b < 0);
-	e->min_x = e->a > 0 ? 0 : 1;
-	e->min_y = e->b > 0 ? 0 : 1;
 }
 
 static inline void
@@ -467,8 +464,6 @@ invert_edge(struct edge *e)
 	e->a = -e->a;
 	e->b = -e->b;
 	e->c = -e->c;
-	e->min_x = 1 - e->min_x;
-	e->min_y = 1 - e->min_y;
 	e->bias = 1 - e->bias;
 }
 
@@ -522,19 +517,26 @@ rasterize_rectlist(struct ps_thread *pt)
 		rasterize_rectlist_tile(pt);
 }
 
-
-void
-rasterize_triangle(struct ps_thread *pt)
+static int32_t
+edge_delta_to_tile_min(struct edge *e)
 {
-	int min_w0_delta, min_w1_delta, min_w2_delta;
+	const int32_t sign_x = (uint32_t) e->a >> 31;
+	const int32_t sign_y = (uint32_t) e->b >> 31;
 
 	const int tile_max_x = tile_width - 1;
 	const int tile_max_y = tile_height - 1;
 
-	/* delta from w in top-left corner to minimum w in tile */
-	min_w2_delta = pt->e01.a * pt->e01.min_x * tile_max_x + pt->e01.b * pt->e01.min_y * tile_max_y;
-	min_w0_delta = pt->e12.a * pt->e12.min_x * tile_max_x + pt->e12.b * pt->e12.min_y * tile_max_y;
-	min_w1_delta = pt->e20.a * pt->e20.min_x * tile_max_x + pt->e20.b * pt->e20.min_y * tile_max_y;
+	/* This is the delta from w in top-left corner to minimum w in tile. */
+
+	return e->a * sign_x * tile_max_x + e->b * sign_y * tile_max_y;
+}
+
+void
+rasterize_triangle(struct ps_thread *pt)
+{
+	int32_t min_w2_delta = edge_delta_to_tile_min(&pt->e01);
+	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->e12);
+	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->e20);
 
 	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt)) {
 		int32_t min_w2 = pt->start_w2 + min_w2_delta;
