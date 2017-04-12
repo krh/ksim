@@ -44,23 +44,27 @@ struct dispatch {
 	int x, y;
 };
 
+struct ps_primitive {
+	float w_deltas[4];
+	int32_t area;
+	float inv_area;
+	struct edge e01, e12, e20;
+	struct reg attribute_deltas[64];
+};
+
 struct ps_thread {
 	struct thread t;
-	struct reg attribute_deltas[64];
 	struct reg grf0;
 	struct dispatch queue[2];
 	uint32_t invocation_count;
 
-	void *depth;
+	struct ps_primitive prim;
 
-	float w_deltas[4];
+	void *depth;
 	int queue_length;
 
 	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
-	int32_t area;
-	float inv_area;
-	struct edge e01, e12, e20;
 
 	struct rectangle rect;
 	int32_t row_w2, row_w0, row_w1;
@@ -68,8 +72,6 @@ struct ps_thread {
 	__m256i w2_offsets, w0_offsets, w1_offsets;
 	__m256i w2_step, w0_step, w1_step;
 	__m256i w2_row_step, w0_row_step, w1_row_step;
-
-	float inv_z1, inv_z2;
 };
 
 static void
@@ -77,11 +79,11 @@ emit_barycentric_conversion(struct kir_program *prog)
 {
 	kir_program_comment(prog, "compute barycentric coordinates");
 	struct kir_reg inv_area =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, inv_area));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.inv_area));
 	struct kir_reg e01_bias =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, e01.bias));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.e01.bias));
 	struct kir_reg e20_bias =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, e20.bias));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.e20.bias));
 	struct kir_reg w2 =
 		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].int_w2));
 	struct kir_reg w1 =
@@ -98,13 +100,6 @@ emit_barycentric_conversion(struct kir_program *prog)
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w1_pc), w1);
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2), w2);
 	kir_program_store_v8(prog, offsetof(struct ps_thread, queue[0].w2_pc), w2);
-
-#if 0
-	d->w1_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w1.reg),
-				     _mm256_set1_ps(pt->inv_z1));
-	d->w2_pc.reg = _mm256_mul_ps(_mm256_mul_ps(d->z.reg, d->w2.reg),
-				     _mm256_set1_ps(pt->inv_z2));
-#endif
 }
 
 static void
@@ -114,14 +109,14 @@ emit_depth_test(struct kir_program *prog)
 
 	kir_program_comment(prog, "compute depth");
 	struct kir_reg b =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[1]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[1]));
 	struct kir_reg c =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[3]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[3]));
 	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w2));
 	struct kir_reg d = kir_program_alu(prog, kir_maddf, b, prog->dst, c);
 
 	struct kir_reg a =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[0]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[0]));
 	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w1));
 	struct kir_reg w =
 		kir_program_alu(prog, kir_maddf, a, prog->dst, d);
@@ -397,7 +392,7 @@ rasterize_rectlist_tile(struct ps_thread *pt)
 		 * the area. We also subtract 1 to either cancel out
 		 * the bias on the original edge, or to add it to the
 		 * opposite edge if the original doesn't have bias. */
-		c = _mm256_set1_epi32(pt->area - 1);
+		c = _mm256_set1_epi32(pt->prim.area - 1);
 		w2 = _mm256_sub_epi32(c, iter.w2);
 		w3 = _mm256_sub_epi32(c, iter.w0);
 
@@ -497,16 +492,16 @@ bbox_iter_next(struct ps_thread *pt)
 	if (pt->x0 == pt->rect.x1) {
 		pt->x0 = pt->rect.x0;
 		pt->y0 += tile_height;
-		pt->row_w2 += tile_height * pt->e01.b;
-		pt->row_w0 += tile_height * pt->e12.b;
-		pt->row_w1 += tile_height * pt->e20.b;
+		pt->row_w2 += tile_height * pt->prim.e01.b;
+		pt->row_w0 += tile_height * pt->prim.e12.b;
+		pt->row_w1 += tile_height * pt->prim.e20.b;
 		pt->start_w2 = pt->row_w2;
 		pt->start_w0 = pt->row_w0;
 		pt->start_w1 = pt->row_w1;
 	} else {
-		pt->start_w2 += tile_width * pt->e01.a;
-		pt->start_w0 += tile_width * pt->e12.a;
-		pt->start_w1 += tile_width * pt->e20.a;
+		pt->start_w2 += tile_width * pt->prim.e01.a;
+		pt->start_w0 += tile_width * pt->prim.e12.a;
+		pt->start_w1 += tile_width * pt->prim.e20.a;
 	}
 }
 
@@ -534,9 +529,9 @@ edge_delta_to_tile_min(struct edge *e)
 void
 rasterize_triangle(struct ps_thread *pt)
 {
-	int32_t min_w2_delta = edge_delta_to_tile_min(&pt->e01);
-	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->e12);
-	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->e20);
+	int32_t min_w2_delta = edge_delta_to_tile_min(&pt->prim.e01);
+	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->prim.e12);
+	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->prim.e20);
 
 	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt)) {
 		int32_t min_w2 = pt->start_w2 + min_w2_delta;
@@ -636,23 +631,23 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	struct point p1 = snap_point(v[1].x, v[1].y);
 	struct point p2 = snap_point(v[2].x, v[2].y);
 
-	init_edge(&pt.e01, p0, p1);
-	init_edge(&pt.e12, p1, p2);
-	init_edge(&pt.e20, p2, p0);
-	pt.area = eval_edge(&pt.e01, p2);
+	init_edge(&pt.prim.e01, p0, p1);
+	init_edge(&pt.prim.e12, p1, p2);
+	init_edge(&pt.prim.e20, p2, p0);
+	pt.prim.area = eval_edge(&pt.prim.e01, p2);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
 	    (gt.wm.front_winding == Clockwise &&
 	     gt.wm.cull_mode == CULLMODE_BACK) ||
-	    (gt.wm.cull_mode == CULLMODE_NONE && pt.area > 0)) {
-		invert_edge(&pt.e01);
-		invert_edge(&pt.e12);
-		invert_edge(&pt.e20);
-		pt.area = -pt.area;
+	    (gt.wm.cull_mode == CULLMODE_NONE && pt.prim.area > 0)) {
+		invert_edge(&pt.prim.e01);
+		invert_edge(&pt.prim.e12);
+		invert_edge(&pt.prim.e20);
+		pt.prim.area = -pt.prim.area;
 	}
 
-	if (pt.area >= 0)
+	if (pt.prim.area >= 0)
 		return;
 
 	switch (topology) {
@@ -680,27 +675,25 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 		return;
 	}
 
-	pt.inv_area = 1.0f / pt.area;
+	pt.prim.inv_area = 1.0f / pt.prim.area;
 
 	float w[3] = {
 		1.0f / v[0].z,
 		1.0f / v[1].z,
 		1.0f / v[2].z
 	};
-	pt.inv_z1 = 1.0 / v[1].z;
-	pt.inv_z2 = 1.0 / v[2].z;
 
-	pt.w_deltas[0] = w[1] - w[0];
-	pt.w_deltas[1] = w[2] - w[0];
-	pt.w_deltas[2] = 0.0f;
-	pt.w_deltas[3] = w[0];
+	pt.prim.w_deltas[0] = w[1] - w[0];
+	pt.prim.w_deltas[1] = w[2] - w[0];
+	pt.prim.w_deltas[2] = 0.0f;
+	pt.prim.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
 		const struct value a0 = vue[0][i + 2];
 		const struct value a1 = vue[1][i + 2];
 		const struct value a2 = vue[2][i + 2];
 
-		pt.attribute_deltas[i * 2] = (struct reg) {
+		pt.prim.attribute_deltas[i * 2] = (struct reg) {
 			.f = {
 				a1.vec4.x - a0.vec4.x,
 				a2.vec4.x - a0.vec4.x,
@@ -712,7 +705,7 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 				a0.vec4.y,
 			}
 		};
-		pt.attribute_deltas[i * 2 + 1] = (struct reg) {
+		pt.prim.attribute_deltas[i * 2 + 1] = (struct reg) {
 			.f = {
 				a1.vec4.z - a0.vec4.z,
 				a2.vec4.z - a0.vec4.z,
@@ -743,9 +736,9 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	struct point min = snap_point(pt.rect.x0, pt.rect.y0);
 	min.x += 128;
 	min.y += 128;
-	pt.row_w2 = eval_edge(&pt.e01, min);
-	pt.row_w0 = eval_edge(&pt.e12, min);
-	pt.row_w1 = eval_edge(&pt.e20, min);
+	pt.row_w2 = eval_edge(&pt.prim.e01, min);
+	pt.row_w0 = eval_edge(&pt.prim.e12, min);
+	pt.row_w1 = eval_edge(&pt.prim.e20, min);
 
 	pt.queue_length = 0;
 
@@ -755,22 +748,22 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
 	pt.w2_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e01.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e01.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.b), sy.ireg);
 	pt.w0_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e12.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e12.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.b), sy.ireg);
 	pt.w1_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e20.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.e20.b), sy.ireg);
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.b), sy.ireg);
 
-	pt.w2_step = _mm256_set1_epi32(pt.e01.a * dx);
-	pt.w0_step = _mm256_set1_epi32(pt.e12.a * dx);
-	pt.w1_step = _mm256_set1_epi32(pt.e20.a * dx);
+	pt.w2_step = _mm256_set1_epi32(pt.prim.e01.a * dx);
+	pt.w0_step = _mm256_set1_epi32(pt.prim.e12.a * dx);
+	pt.w1_step = _mm256_set1_epi32(pt.prim.e20.a * dx);
 
-	pt.w2_row_step = _mm256_set1_epi32(pt.e01.b * dy - pt.e01.a * (tile_width - dx));
-	pt.w0_row_step = _mm256_set1_epi32(pt.e12.b * dy - pt.e12.a * (tile_width - dx));
-	pt.w1_row_step = _mm256_set1_epi32(pt.e20.b * dy - pt.e20.a * (tile_width - dx));
+	pt.w2_row_step = _mm256_set1_epi32(pt.prim.e01.b * dy - pt.prim.e01.a * (tile_width - dx));
+	pt.w0_row_step = _mm256_set1_epi32(pt.prim.e12.b * dy - pt.prim.e12.a * (tile_width - dx));
+	pt.w1_row_step = _mm256_set1_epi32(pt.prim.e20.b * dy - pt.prim.e20.a * (tile_width - dx));
 
 	pt.invocation_count = 0;
 	uint32_t fftid = 0;
@@ -867,7 +860,7 @@ emit_load_attributes_deltas(struct kir_program *prog, int g)
 {
 	kir_program_comment(prog, "load attribute deltas");
 	for (uint32_t i = 0; i < gt.sbe.num_attributes * 2; i++) {
-		kir_program_load_v8(prog, offsetof(struct ps_thread, attribute_deltas[i]));
+		kir_program_load_v8(prog, offsetof(struct ps_thread, prim.attribute_deltas[i]));
 		kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
 	}
 }
