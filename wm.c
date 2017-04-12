@@ -380,19 +380,19 @@ rasterize_rectlist_tile(struct ps_thread *pt)
 {
 	struct tile_iterator iter;
 
+	/* To determine coverage, we compute the edge function for all
+	 * edges in the rectangle. We only have two of the four edges,
+	 * but we can compute the edge function from the opposite edge
+	 * by subtracting from the area. We also subtract 1 to either
+	 * cancel out the bias on the original edge, or to add it to
+	 * the opposite edge if the original doesn't have bias. */
+	__m256i c = _mm256_set1_epi32(pt->prim.area - 1);
+
 	for (tile_iterator_init(&iter, pt);
 	     !tile_iterator_done(&iter);
 	     tile_iterator_next(&iter, pt)) {
-		__m256i w2, w3, c;
+		__m256i w2, w3;
 
-		/* To determine coverage, we compute the edge function
-		 * for all edges in the rectangle. We only have two of
-		 * the four edges, but we can compute the edge
-		 * function from the opposite edge by subtracting from
-		 * the area. We also subtract 1 to either cancel out
-		 * the bias on the original edge, or to add it to the
-		 * opposite edge if the original doesn't have bias. */
-		c = _mm256_set1_epi32(pt->prim.area - 1);
 		w2 = _mm256_sub_epi32(c, iter.w2);
 		w3 = _mm256_sub_epi32(c, iter.w0);
 
