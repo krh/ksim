@@ -63,8 +63,6 @@ struct ps_thread {
 	void *depth;
 	int queue_length;
 
-	struct rectangle rect;
-
 	__m256i w2_offsets, w0_offsets, w1_offsets;
 	__m256i w2_step, w0_step, w1_step;
 	__m256i w2_row_step, w0_row_step, w1_row_step;
@@ -297,7 +295,8 @@ struct bbox_iter {
 	uint32_t x, y;
 	struct rectangle rect;
 	int32_t w2, w0, w1;
-	int32_t row_w2, row_w0, row_w1;
+	int32_t w2_step, w0_step, w1_step;
+	int32_t w2_row_step, w0_row_step, w1_row_step;
 };
 
 static void
@@ -483,13 +482,18 @@ bbox_iter_init(struct bbox_iter *iter, struct ps_primitive *p, struct rectangle 
 	struct point min = snap_point(rect->x0, rect->y0);
 	min.x += 128;
 	min.y += 128;
-	iter->row_w2 = eval_edge(&p->e01, min);
-	iter->row_w0 = eval_edge(&p->e12, min);
-	iter->row_w1 = eval_edge(&p->e20, min);
+	iter->w2 = eval_edge(&p->e01, min);
+	iter->w0 = eval_edge(&p->e12, min);
+	iter->w1 = eval_edge(&p->e20, min);
 
-	iter->w2 = iter->row_w2;
-	iter->w0 = iter->row_w0;
-	iter->w1 = iter->row_w1;
+	iter->w2_step = tile_width * p->e01.a;
+	iter->w0_step = tile_width * p->e12.a;
+	iter->w1_step = tile_width * p->e20.a;
+
+	int32_t w = rect->x1 - rect->x0 - tile_width;
+	iter->w2_row_step = tile_height * p->e01.b - w * p->e01.a;
+	iter->w0_row_step = tile_height * p->e12.b - w * p->e12.a;
+	iter->w1_row_step = tile_height * p->e20.b - w * p->e20.a;
 }
 
 static bool
@@ -499,32 +503,29 @@ bbox_iter_done(struct bbox_iter *iter)
 }
 
 static void
-bbox_iter_next(struct bbox_iter *iter, struct ps_thread *pt)
+bbox_iter_next(struct bbox_iter *iter)
 {
 	iter->x += tile_width;
 	if (iter->x == iter->rect.x1) {
 		iter->x = iter->rect.x0;
 		iter->y += tile_height;
-		iter->row_w2 += tile_height * pt->prim.e01.b;
-		iter->row_w0 += tile_height * pt->prim.e12.b;
-		iter->row_w1 += tile_height * pt->prim.e20.b;
-		iter->w2 = iter->row_w2;
-		iter->w0 = iter->row_w0;
-		iter->w1 = iter->row_w1;
+		iter->w2 += iter->w2_row_step;
+		iter->w0 += iter->w0_row_step;
+		iter->w1 += iter->w1_row_step;
 	} else {
-		iter->w2 += tile_width * pt->prim.e01.a;
-		iter->w0 += tile_width * pt->prim.e12.a;
-		iter->w1 += tile_width * pt->prim.e20.a;
+		iter->w2 += iter->w2_step;
+		iter->w0 += iter->w0_step;
+		iter->w1 += iter->w1_step;
 	}
 }
 
 void
-rasterize_rectlist(struct ps_thread *pt)
+rasterize_rectlist(struct ps_thread *pt, struct rectangle *rect)
 {
 	struct bbox_iter iter;
 
-	for (bbox_iter_init(&iter, &pt->prim, &pt->rect);
-	     !bbox_iter_done(&iter); bbox_iter_next(&iter, pt))
+	for (bbox_iter_init(&iter, &pt->prim, rect);
+	     !bbox_iter_done(&iter); bbox_iter_next(&iter))
 		rasterize_rectlist_tile(pt, &iter);
 }
 
@@ -543,15 +544,15 @@ edge_delta_to_tile_min(struct edge *e)
 }
 
 void
-rasterize_triangle(struct ps_thread *pt)
+rasterize_triangle(struct ps_thread *pt, struct rectangle *rect)
 {
 	int32_t min_w2_delta = edge_delta_to_tile_min(&pt->prim.e01);
 	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->prim.e12);
 	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->prim.e20);
 
 	struct bbox_iter iter;
-	for (bbox_iter_init(&iter, &pt->prim, &pt->rect);
-	     !bbox_iter_done(&iter); bbox_iter_next(&iter, pt)) {
+	for (bbox_iter_init(&iter, &pt->prim, rect);
+	     !bbox_iter_done(&iter); bbox_iter_next(&iter)) {
 		int32_t min_w2 = iter.w2 + min_w2_delta;
 		int32_t min_w0 = iter.w0 + min_w0_delta;
 		int32_t min_w1 = iter.w1 + min_w1_delta;
@@ -737,18 +738,19 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 		};
 	}
 
-	compute_bounding_box(&pt.rect, v, 3);
-	intersect_rectangle(&pt.rect, &gt.drawing_rectangle.rect);
+	struct rectangle rect;
+	compute_bounding_box(&rect, v, 3);
+	intersect_rectangle(&rect, &gt.drawing_rectangle.rect);
 
 	if (gt.wm.scissor_rectangle_enable)
-		intersect_rectangle(&pt.rect, &gt.wm.scissor_rect);
+		intersect_rectangle(&rect, &gt.wm.scissor_rect);
 
-	pt.rect.x0 = pt.rect.x0 & ~(tile_width - 1);
-	pt.rect.y0 = pt.rect.y0 & ~(tile_height - 1);
-	pt.rect.x1 = (pt.rect.x1 + tile_width - 1) & ~(tile_width - 1);
-	pt.rect.y1 = (pt.rect.y1 + tile_height - 1) & ~(tile_height - 1);
+	rect.x0 = rect.x0 & ~(tile_width - 1);
+	rect.y0 = rect.y0 & ~(tile_height - 1);
+	rect.x1 = (rect.x1 + tile_width - 1) & ~(tile_width - 1);
+	rect.y1 = (rect.y1 + tile_height - 1) & ~(tile_height - 1);
 
-	if (pt.rect.x1 <= pt.rect.x0 || pt.rect.y1 < pt.rect.y0)
+	if (rect.x1 <= rect.x0 || rect.y1 < rect.y0)
 		return;
 
 	pt.queue_length = 0;
@@ -806,10 +808,10 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
-		rasterize_rectlist(&pt);
+		rasterize_rectlist(&pt, &rect);
 		break;
 	default:
-		rasterize_triangle(&pt);
+		rasterize_triangle(&pt, &rect);
 	}
 
 	if (gt.ps.statistics)
