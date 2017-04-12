@@ -47,7 +47,6 @@ struct dispatch {
 struct ps_primitive {
 	float w_deltas[4];
 	int32_t area;
-	float inv_area;
 	struct edge e01, e12, e20;
 	struct reg attribute_deltas[64];
 
@@ -61,12 +60,16 @@ struct ps_thread {
 	struct thread t;
 	struct reg grf0;
 	struct dispatch queue[2];
-	uint32_t invocation_count;
-
-	struct ps_primitive prim;
-
-	void *depth;
 	int queue_length;
+
+	float inv_area;
+	float w_deltas[4];
+	void *depth;
+	int32_t e01_bias;
+	int32_t e20_bias;
+	struct reg attribute_deltas[64];
+
+	uint32_t invocation_count;
 };
 
 static void
@@ -74,11 +77,11 @@ emit_barycentric_conversion(struct kir_program *prog)
 {
 	kir_program_comment(prog, "compute barycentric coordinates");
 	struct kir_reg inv_area =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.inv_area));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, inv_area));
 	struct kir_reg e01_bias =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.e01.bias));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, e01_bias));
 	struct kir_reg e20_bias =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.e20.bias));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, e20_bias));
 	struct kir_reg w2 =
 		kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].int_w2));
 	struct kir_reg w1 =
@@ -104,14 +107,14 @@ emit_depth_test(struct kir_program *prog)
 
 	kir_program_comment(prog, "compute depth");
 	struct kir_reg b =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[1]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[1]));
 	struct kir_reg c =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[3]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[3]));
 	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w2));
 	struct kir_reg d = kir_program_alu(prog, kir_maddf, b, prog->dst, c);
 
 	struct kir_reg a =
-		kir_program_load_uniform(prog, offsetof(struct ps_thread, prim.w_deltas[0]));
+		kir_program_load_uniform(prog, offsetof(struct ps_thread, w_deltas[0]));
 	kir_program_load_v8(prog, offsetof(struct ps_thread, queue[0].w1));
 	struct kir_reg w =
 		kir_program_alu(prog, kir_maddf, a, prog->dst, d);
@@ -382,9 +385,59 @@ fill_dispatch(struct ps_thread *pt,
 }
 
 static void
-rasterize_rectlist_tile(struct ps_thread *pt, struct bbox_iter *bbox_iter)
+init_ps_thread(struct ps_thread *pt, struct ps_primitive *p)
+{
+	pt->queue_length = 0;
+	pt->invocation_count = 0;
+	pt->inv_area = 1.0f / p->area;
+	memcpy(pt->w_deltas, p->w_deltas, sizeof(pt->w_deltas));
+	pt->e01_bias = p->e01.bias;
+	pt->e20_bias = p->e20.bias;
+
+	for (uint32_t i = 0; i < gt.sbe.num_attributes * 2; i++)
+		pt->attribute_deltas[i] = p->attribute_deltas[i];
+
+	uint32_t fftid = 0;
+	pt->grf0 = (struct reg) {
+		.ud = {
+			/* R0.0 */
+			gt.ia.topology |
+			0 /*  FIXME: More here */,
+			/* R0.1 */
+			gt.cc.state,
+			/* R0.2: MBZ */
+			0,
+			/* R0.3: per-thread scratch space, sampler ptr */
+			gt.ps.sampler_state_address |
+			gt.ps.scratch_size,
+			/* R0.4: binding table pointer */
+			gt.ps.binding_table_address,
+			/* R0.5: fftid, scratch offset */
+			gt.ps.scratch_pointer | fftid,
+			/* R0.6: thread id */
+			gt.ps.tid++ & 0xffffff,
+			/* R0.7: Reserved */
+			0,
+		}
+	};
+}
+
+static void
+finish_ps_thread(struct ps_thread *pt)
+{
+	if (pt->queue_length > 0)
+		dispatch_ps(pt);
+	if (gt.ps.statistics)
+		gt.ps_invocation_count += pt->invocation_count;
+}
+
+static void
+rasterize_rectlist_tile(struct ps_primitive *p, struct bbox_iter *bbox_iter)
 {
 	struct tile_iterator iter;
+	struct ps_thread pt;
+
+	init_ps_thread(&pt, p);
 
 	/* To determine coverage, we compute the edge function for all
 	 * edges in the rectangle. We only have two of the four edges,
@@ -392,11 +445,11 @@ rasterize_rectlist_tile(struct ps_thread *pt, struct bbox_iter *bbox_iter)
 	 * by subtracting from the area. We also subtract 1 to either
 	 * cancel out the bias on the original edge, or to add it to
 	 * the opposite edge if the original doesn't have bias. */
-	__m256i c = _mm256_set1_epi32(pt->prim.area - 1);
+	__m256i c = _mm256_set1_epi32(p->area - 1);
 
-	for (tile_iterator_init(&iter, &pt->prim, bbox_iter);
+	for (tile_iterator_init(&iter, p, bbox_iter);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, &pt->prim)) {
+	     tile_iterator_next(&iter, p)) {
 		__m256i w2, w3;
 
 		w2 = _mm256_sub_epi32(c, iter.w2);
@@ -406,35 +459,32 @@ rasterize_rectlist_tile(struct ps_thread *pt, struct bbox_iter *bbox_iter)
 		mask.ireg = _mm256_and_si256(_mm256_and_si256(iter.w2, iter.w0),
 					     _mm256_and_si256(w2, w3));
 
-		fill_dispatch(pt, &iter, mask);
+		fill_dispatch(&pt, &iter, mask);
 	}
 
-	if (pt->queue_length > 0) {
-		dispatch_ps(pt);
-		pt->queue_length = 0;
-	}
+	finish_ps_thread(&pt);
 }
 
 static void
-rasterize_triangle_tile(struct ps_thread *pt, const struct bbox_iter *bbox_iter)
+rasterize_triangle_tile(struct ps_primitive *p, const struct bbox_iter *bbox_iter)
 {
 	struct tile_iterator iter;
+	struct ps_thread pt;
 
-	for (tile_iterator_init(&iter, &pt->prim, bbox_iter);
+	init_ps_thread(&pt, p);
+
+	for (tile_iterator_init(&iter, p, bbox_iter);
 	     !tile_iterator_done(&iter);
-	     tile_iterator_next(&iter, &pt->prim)) {
+	     tile_iterator_next(&iter, p)) {
 		struct reg mask;
 		mask.ireg =
 			_mm256_and_si256(_mm256_and_si256(iter.w1,
 							  iter.w0), iter.w2);
 
-		fill_dispatch(pt, &iter, mask);
+		fill_dispatch(&pt, &iter, mask);
 	}
 
-	if (pt->queue_length > 0) {
-		dispatch_ps(pt);
-		pt->queue_length = 0;
-	}
+	finish_ps_thread(&pt);
 }
 
 struct point {
@@ -522,13 +572,13 @@ bbox_iter_next(struct bbox_iter *iter)
 }
 
 void
-rasterize_rectlist(struct ps_thread *pt, struct rectangle *rect)
+rasterize_rectlist(struct ps_primitive *p, struct rectangle *rect)
 {
 	struct bbox_iter iter;
 
-	for (bbox_iter_init(&iter, &pt->prim, rect);
+	for (bbox_iter_init(&iter, p, rect);
 	     !bbox_iter_done(&iter); bbox_iter_next(&iter))
-		rasterize_rectlist_tile(pt, &iter);
+		rasterize_rectlist_tile(p, &iter);
 }
 
 static int32_t
@@ -546,21 +596,21 @@ edge_delta_to_tile_min(struct edge *e)
 }
 
 void
-rasterize_triangle(struct ps_thread *pt, struct rectangle *rect)
+rasterize_triangle(struct ps_primitive *p, struct rectangle *rect)
 {
-	int32_t min_w2_delta = edge_delta_to_tile_min(&pt->prim.e01);
-	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->prim.e12);
-	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->prim.e20);
+	int32_t min_w2_delta = edge_delta_to_tile_min(&p->e01);
+	int32_t min_w0_delta = edge_delta_to_tile_min(&p->e12);
+	int32_t min_w1_delta = edge_delta_to_tile_min(&p->e20);
 
 	struct bbox_iter iter;
-	for (bbox_iter_init(&iter, &pt->prim, rect);
+	for (bbox_iter_init(&iter, p, rect);
 	     !bbox_iter_done(&iter); bbox_iter_next(&iter)) {
 		int32_t min_w2 = iter.w2 + min_w2_delta;
 		int32_t min_w0 = iter.w0 + min_w0_delta;
 		int32_t min_w1 = iter.w1 + min_w1_delta;
 
 		if ((min_w2 & min_w0 & min_w1) < 0)
-			rasterize_triangle_tile(pt, &iter);
+			rasterize_triangle_tile(p, &iter);
 	}
 }
 
@@ -632,7 +682,7 @@ rewrite_to_rectlist(struct value **vue, struct vec4 *v)
 void
 rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 {
-	struct ps_thread pt;
+	struct ps_primitive p;
 	struct vec4 v[3];
 
 	switch (topology) {
@@ -652,23 +702,23 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	struct point p1 = snap_point(v[1].x, v[1].y);
 	struct point p2 = snap_point(v[2].x, v[2].y);
 
-	init_edge(&pt.prim.e01, p0, p1);
-	init_edge(&pt.prim.e12, p1, p2);
-	init_edge(&pt.prim.e20, p2, p0);
-	pt.prim.area = eval_edge(&pt.prim.e01, p2);
+	init_edge(&p.e01, p0, p1);
+	init_edge(&p.e12, p1, p2);
+	init_edge(&p.e20, p2, p0);
+	p.area = eval_edge(&p.e01, p2);
 
 	if ((gt.wm.front_winding == CounterClockwise &&
 	     gt.wm.cull_mode == CULLMODE_FRONT) ||
 	    (gt.wm.front_winding == Clockwise &&
 	     gt.wm.cull_mode == CULLMODE_BACK) ||
-	    (gt.wm.cull_mode == CULLMODE_NONE && pt.prim.area > 0)) {
-		invert_edge(&pt.prim.e01);
-		invert_edge(&pt.prim.e12);
-		invert_edge(&pt.prim.e20);
-		pt.prim.area = -pt.prim.area;
+	    (gt.wm.cull_mode == CULLMODE_NONE && p.area > 0)) {
+		invert_edge(&p.e01);
+		invert_edge(&p.e12);
+		invert_edge(&p.e20);
+		p.area = -p.area;
 	}
 
-	if (pt.prim.area >= 0)
+	if (p.area >= 0)
 		return;
 
 	switch (topology) {
@@ -696,25 +746,23 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 		return;
 	}
 
-	pt.prim.inv_area = 1.0f / pt.prim.area;
-
 	float w[3] = {
 		1.0f / v[0].z,
 		1.0f / v[1].z,
 		1.0f / v[2].z
 	};
 
-	pt.prim.w_deltas[0] = w[1] - w[0];
-	pt.prim.w_deltas[1] = w[2] - w[0];
-	pt.prim.w_deltas[2] = 0.0f;
-	pt.prim.w_deltas[3] = w[0];
+	p.w_deltas[0] = w[1] - w[0];
+	p.w_deltas[1] = w[2] - w[0];
+	p.w_deltas[2] = 0.0f;
+	p.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
 		const struct value a0 = vue[0][i + 2];
 		const struct value a1 = vue[1][i + 2];
 		const struct value a2 = vue[2][i + 2];
 
-		pt.prim.attribute_deltas[i * 2] = (struct reg) {
+		p.attribute_deltas[i * 2] = (struct reg) {
 			.f = {
 				a1.vec4.x - a0.vec4.x,
 				a2.vec4.x - a0.vec4.x,
@@ -726,7 +774,7 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 				a0.vec4.y,
 			}
 		};
-		pt.prim.attribute_deltas[i * 2 + 1] = (struct reg) {
+		p.attribute_deltas[i * 2 + 1] = (struct reg) {
 			.f = {
 				a1.vec4.z - a0.vec4.z,
 				a2.vec4.z - a0.vec4.z,
@@ -755,69 +803,39 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	if (rect.x1 <= rect.x0 || rect.y1 < rect.y0)
 		return;
 
-	pt.queue_length = 0;
-
 	const uint32_t dx = 4;
 	const uint32_t dy = 2;
 	static const struct reg sx = { .d = {  0, 1, 0, 1, 2, 3, 2, 3 } };
 	static const struct reg sy = { .d = {  0, 0, 1, 1, 0, 0, 1, 1 } };
 
-	pt.prim.w2_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e01.b), sy.ireg);
-	pt.prim.w0_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e12.b), sy.ireg);
-	pt.prim.w1_offsets =
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.a), sx.ireg) +
-		_mm256_mullo_epi32(_mm256_set1_epi32(pt.prim.e20.b), sy.ireg);
+	p.w2_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e01.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e01.b), sy.ireg);
+	p.w0_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e12.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e12.b), sy.ireg);
+	p.w1_offsets =
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e20.a), sx.ireg) +
+		_mm256_mullo_epi32(_mm256_set1_epi32(p.e20.b), sy.ireg);
 
-	pt.prim.w2_step = _mm256_set1_epi32(pt.prim.e01.a * dx);
-	pt.prim.w0_step = _mm256_set1_epi32(pt.prim.e12.a * dx);
-	pt.prim.w1_step = _mm256_set1_epi32(pt.prim.e20.a * dx);
+	p.w2_step = _mm256_set1_epi32(p.e01.a * dx);
+	p.w0_step = _mm256_set1_epi32(p.e12.a * dx);
+	p.w1_step = _mm256_set1_epi32(p.e20.a * dx);
 
-	pt.prim.w2_row_step = _mm256_set1_epi32(pt.prim.e01.b * dy - pt.prim.e01.a * (tile_width - dx));
-	pt.prim.w0_row_step = _mm256_set1_epi32(pt.prim.e12.b * dy - pt.prim.e12.a * (tile_width - dx));
-	pt.prim.w1_row_step = _mm256_set1_epi32(pt.prim.e20.b * dy - pt.prim.e20.a * (tile_width - dx));
-
-	pt.invocation_count = 0;
-	uint32_t fftid = 0;
-	pt.grf0 = (struct reg) {
-		.ud = {
-			/* R0.0 */
-			gt.ia.topology |
-			0 /*  FIXME: More here */,
-			/* R0.1 */
-			gt.cc.state,
-			/* R0.2: MBZ */
-			0,
-			/* R0.3: per-thread scratch space, sampler ptr */
-			gt.ps.sampler_state_address |
-			gt.ps.scratch_size,
-			/* R0.4: binding table pointer */
-			gt.ps.binding_table_address,
-			/* R0.5: fftid, scratch offset */
-			gt.ps.scratch_pointer | fftid,
-			/* R0.6: thread id */
-			gt.ps.tid++ & 0xffffff,
-			/* R0.7: Reserved */
-			0,
-		}
-	};
+	p.w2_row_step = _mm256_set1_epi32(p.e01.b * dy - p.e01.a * (tile_width - dx));
+	p.w0_row_step = _mm256_set1_epi32(p.e12.b * dy - p.e12.a * (tile_width - dx));
+	p.w1_row_step = _mm256_set1_epi32(p.e20.b * dy - p.e20.a * (tile_width - dx));
 
 	switch (topology) {
 	case _3DPRIM_RECTLIST:
 	case _3DPRIM_LINELOOP:
 	case _3DPRIM_LINELIST:
 	case _3DPRIM_LINESTRIP:
-		rasterize_rectlist(&pt, &rect);
+		rasterize_rectlist(&p, &rect);
 		break;
 	default:
-		rasterize_triangle(&pt, &rect);
+		rasterize_triangle(&p, &rect);
 	}
-
-	if (gt.ps.statistics)
-		gt.ps_invocation_count += pt.invocation_count;
 }
 
 void
@@ -875,7 +893,7 @@ emit_load_attributes_deltas(struct kir_program *prog, int g)
 {
 	kir_program_comment(prog, "load attribute deltas");
 	for (uint32_t i = 0; i < gt.sbe.num_attributes * 2; i++) {
-		kir_program_load_v8(prog, offsetof(struct ps_thread, prim.attribute_deltas[i]));
+		kir_program_load_v8(prog, offsetof(struct ps_thread, attribute_deltas[i]));
 		kir_program_store_v8(prog, offsetof(struct thread, grf[g++]), prog->dst);
 	}
 }
