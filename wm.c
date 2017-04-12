@@ -63,7 +63,6 @@ struct ps_thread {
 	void *depth;
 	int queue_length;
 
-	int x0, y0;
 	int32_t start_w2, start_w0, start_w1;
 
 	struct rectangle rect;
@@ -258,7 +257,7 @@ const int tile_width = 128 / 4;
 const int tile_height = 32;
 
 struct tile_iterator {
-	int x, y;
+	int x, y, x0, y0;
 	__m256i w2, w0, w1;
 };
 
@@ -297,15 +296,22 @@ clear_depth_tile(uint32_t x, uint32_t y)
 	}
 }
 
+struct bbox_iter {
+	uint32_t x, y;
+	struct rectangle rect;
+};
+
 static void
-tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt)
+tile_iterator_init(struct tile_iterator *iter, struct ps_thread *pt, const struct bbox_iter *bbox_iter)
 {
 	iter->x = 0;
 	iter->y = 0;
+	iter->x0 = bbox_iter->x;
+	iter->y0 = bbox_iter->y;
 
 	if (gt.depth.write_enable || gt.depth.test_enable)
 		if (gt.depth.hiz_enable)
-			clear_depth_tile(pt->x0, pt->y0);
+			clear_depth_tile(iter->x0, iter->y0);
 
 	iter->w2 = _mm256_add_epi32(_mm256_set1_epi32(pt->start_w2),
 				    pt->w2_offsets);
@@ -360,8 +366,8 @@ fill_dispatch(struct ps_thread *pt,
 	d->int_w1.ireg = iter->w1;
 	
 	pt->t.mask[0].q[q] = mask.ireg;
-	d->x = pt->x0 + iter->x;
-	d->y = pt->y0 + iter->y;
+	d->x = iter->x0 + iter->x;
+	d->y = iter->y0 + iter->y;
 
 	if (gt.depth.write_enable || gt.depth.test_enable) {
 		uint32_t cpp = depth_format_size(gt.depth.format);
@@ -376,7 +382,7 @@ fill_dispatch(struct ps_thread *pt,
 }
 
 static void
-rasterize_rectlist_tile(struct ps_thread *pt)
+rasterize_rectlist_tile(struct ps_thread *pt, struct bbox_iter *bbox_iter)
 {
 	struct tile_iterator iter;
 
@@ -388,7 +394,7 @@ rasterize_rectlist_tile(struct ps_thread *pt)
 	 * the opposite edge if the original doesn't have bias. */
 	__m256i c = _mm256_set1_epi32(pt->prim.area - 1);
 
-	for (tile_iterator_init(&iter, pt);
+	for (tile_iterator_init(&iter, pt, bbox_iter);
 	     !tile_iterator_done(&iter);
 	     tile_iterator_next(&iter, pt)) {
 		__m256i w2, w3;
@@ -410,11 +416,11 @@ rasterize_rectlist_tile(struct ps_thread *pt)
 }
 
 static void
-rasterize_triangle_tile(struct ps_thread *pt)
+rasterize_triangle_tile(struct ps_thread *pt, const struct bbox_iter *bbox_iter)
 {
 	struct tile_iterator iter;
 
-	for (tile_iterator_init(&iter, pt);
+	for (tile_iterator_init(&iter, pt, bbox_iter);
 	     !tile_iterator_done(&iter);
 	     tile_iterator_next(&iter, pt)) {
 		struct reg mask;
@@ -469,10 +475,11 @@ eval_edge(struct edge *e, struct point p)
 }
 
 static void
-bbox_iter_init(struct ps_thread *pt)
+bbox_iter_init(struct bbox_iter *iter, struct ps_thread *pt)
 {
-	pt->x0 = pt->rect.x0;
-	pt->y0 = pt->rect.y0;
+	iter->x = pt->rect.x0;
+	iter->y = pt->rect.y0;
+	iter->rect = pt->rect;
 
 	pt->start_w2 = pt->row_w2;
 	pt->start_w0 = pt->row_w0;
@@ -480,18 +487,18 @@ bbox_iter_init(struct ps_thread *pt)
 }
 
 static bool
-bbox_iter_done(struct ps_thread *pt)
+bbox_iter_done(struct bbox_iter *iter)
 {
-	return pt->y0 == pt->rect.y1;
+	return iter->y == iter->rect.y1;
 }
 
 static void
-bbox_iter_next(struct ps_thread *pt)
+bbox_iter_next(struct bbox_iter *iter, struct ps_thread *pt)
 {
-	pt->x0 += tile_width;
-	if (pt->x0 == pt->rect.x1) {
-		pt->x0 = pt->rect.x0;
-		pt->y0 += tile_height;
+	iter->x += tile_width;
+	if (iter->x == iter->rect.x1) {
+		iter->x = iter->rect.x0;
+		iter->y += tile_height;
 		pt->row_w2 += tile_height * pt->prim.e01.b;
 		pt->row_w0 += tile_height * pt->prim.e12.b;
 		pt->row_w1 += tile_height * pt->prim.e20.b;
@@ -508,8 +515,10 @@ bbox_iter_next(struct ps_thread *pt)
 void
 rasterize_rectlist(struct ps_thread *pt)
 {
-	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt))
-		rasterize_rectlist_tile(pt);
+	struct bbox_iter iter;
+
+	for (bbox_iter_init(&iter, pt); !bbox_iter_done(&iter); bbox_iter_next(&iter, pt))
+		rasterize_rectlist_tile(pt, &iter);
 }
 
 static int32_t
@@ -533,13 +542,14 @@ rasterize_triangle(struct ps_thread *pt)
 	int32_t min_w0_delta = edge_delta_to_tile_min(&pt->prim.e12);
 	int32_t min_w1_delta = edge_delta_to_tile_min(&pt->prim.e20);
 
-	for (bbox_iter_init(pt); !bbox_iter_done(pt); bbox_iter_next(pt)) {
+	struct bbox_iter iter;
+	for (bbox_iter_init(&iter, pt); !bbox_iter_done(&iter); bbox_iter_next(&iter, pt)) {
 		int32_t min_w2 = pt->start_w2 + min_w2_delta;
 		int32_t min_w0 = pt->start_w0 + min_w0_delta;
 		int32_t min_w1 = pt->start_w1 + min_w1_delta;
 
 		if ((min_w2 & min_w0 & min_w1) < 0)
-			rasterize_triangle_tile(pt);
+			rasterize_triangle_tile(pt, &iter);
 	}
 }
 
