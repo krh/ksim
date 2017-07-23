@@ -142,12 +142,11 @@ create_bo(uint64_t size)
 static struct stub_bo *
 get_bo(int handle)
 {
-	struct stub_bo *bo;
+	if (0 < handle && handle < next_handle &&
+            bos[handle].gtt_offset != FREED)
+                return &bos[handle];
 
-	ksim_assert(0 < handle && handle < next_handle);
-	bo = &bos[handle];
-
-	return bo;
+	return NULL;
 }
 
 static inline uint32_t
@@ -183,6 +182,7 @@ map_gtt_offset(uint64_t offset, uint64_t *range)
 	entry = gtt[offset >> 12];
 	bo = get_bo(entry.handle);
 
+	ksim_assert(bo != NULL);
 	ksim_assert(bo->gtt_offset != NOT_BOUND && bo->size > 0);
 	ksim_assert(bo->gtt_offset <= offset);
 	ksim_assert(offset < bo->gtt_offset + bo->size);
@@ -223,6 +223,7 @@ close_bo(struct stub_bo *bo)
 	if (bo->offset != STUB_BO_USERPTR)
 		munmap(bo->map, bo->size);
 
+	bo->gtt_offset = FREED;
 	bo->next = bo_free_list;
 	bo_free_list = bo;
 }
@@ -467,6 +468,23 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	bool all_matches = true, all_bound = true;
 	for (uint32_t i = 0; i < count; i++) {
 		struct stub_bo *bo = get_bo(buffers[i].handle);
+
+		/* Userspace can use an invalid BOs to check for
+		 * supported features (it is assumed that the kernel
+		 * will return an error if a flag is unsupported,
+		 * meaning it will fail before checking that the BO
+		 * used doesn't exist) :
+		 *
+		 * https://cgit.freedesktop.org/mesa/mesa/tree/src/intel/vulkan/anv_gem.c#n338
+		 *
+		 * The following implementation will report unknown
+		 * BOs, meaning we make ksim support any feature.
+		 */
+		if (bo == NULL) {
+			errno = ENOENT;
+			return -1;
+		}
+
 		trace(TRACE_GEM, "    bo %d, size %ld, ",
 		      buffers[i].handle, bo->size);
 
@@ -521,6 +539,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 			}
 
 			target = get_bo(handle);
+			ksim_assert(target != NULL);
 			ksim_assert(relocs[j].offset + sizeof(*dst) < bo->size);
 
 			dst = bo->map + relocs[j].offset;
@@ -539,6 +558,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 	}
 
 	struct stub_bo *bo = get_bo(buffers[count - 1].handle);
+	ksim_assert(bo != NULL);
 	uint64_t offset = bo->gtt_offset + execbuffer2->batch_start_offset;
 	start_batch_buffer(offset, ring);
 
@@ -576,6 +596,11 @@ dispatch_pread(int fd, unsigned long request,
 {
 	struct stub_bo *bo = get_bo(gem_pread->handle);
 
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
+
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_PREAD\n");
 
 	/* Check for integer overflow */
@@ -591,6 +616,11 @@ dispatch_pwrite(int fd, unsigned long request,
 		struct drm_i915_gem_pwrite *gem_pwrite)
 {
 	struct stub_bo *bo = get_bo(gem_pwrite->handle);
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_PWRITE: "
 	      "bo %d, offset %d, size %d, bo size %ld\n",
@@ -612,6 +642,11 @@ dispatch_mmap(int fd, unsigned long request,
 	void *p;
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP\n");
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
 
 	ksim_assert(bo->offset != STUB_BO_USERPTR);
 
@@ -640,6 +675,11 @@ dispatch_mmap_gtt(int fd, unsigned long request,
 
 	trace(TRACE_GEM, "DRM_IOCTL_I915_GEM_MMAP_GTT: handle %d\n",
 	      map_gtt->handle);
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
 
 	uint32_t tiling = bo->stride & 3;
 	uint32_t stride = bo->stride & ~3u;
@@ -673,6 +713,11 @@ dispatch_set_tiling(int fd, unsigned long request,
 {
 	struct stub_bo *bo = get_bo(set_tiling->handle);
 
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
+
 	ksim_assert((set_tiling->stride & 3u) == 0);
 	ksim_assert((set_tiling->tiling_mode & ~3u) == 0);
 	bo->stride = set_tiling->stride | set_tiling->tiling_mode;
@@ -689,6 +734,11 @@ dispatch_get_tiling(int fd, unsigned long request,
 		    struct drm_i915_gem_get_tiling *get_tiling)
 {
 	struct stub_bo *bo = get_bo(get_tiling->handle);
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
 
 	get_tiling->tiling_mode = bo->stride & 3u;
 	get_tiling->swizzle_mode = 0;
@@ -730,6 +780,12 @@ dispatch_close(int fd, unsigned long request,
 	struct stub_bo *bo = get_bo(gem_close->handle);
 
 	trace(TRACE_GEM, "DRM_IOCTL_GEM_CLOSE\n");
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
+
 	close_bo(bo);
 
 	return 0;
@@ -787,6 +843,11 @@ dispatch_prime_handle_to_fd(int fd, unsigned long request,
 	struct stub_bo *bo = get_bo(prime->handle);
 	struct drm_prime_handle p;
 	int ret;
+
+	if (bo == NULL) {
+		errno = ENOENT;
+		return -1;
+	}
 
 	p.handle = get_kernel_handle(bo);
 	p.flags = prime->flags;

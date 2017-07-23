@@ -607,6 +607,7 @@ struct gt {
 extern struct gt gt;
 
 #define NOT_BOUND 1
+#define FREED     2
 void *map_gtt_offset(uint64_t offset, uint64_t *range);
 
 static inline void *
