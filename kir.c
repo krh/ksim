@@ -1573,7 +1573,7 @@ emit_region_load(struct builder *bld, const struct eu_region *region, int reg)
 		builder_emit_vinserti128(bld, reg, tmp1_reg, reg, 1);
 
 		builder_emit_vpblendd(bld, reg, 0xcc, reg, tmp0_reg);
-	} else if (region->hstride == 1 && region->width * region->type_size) {
+	} else if (region->hstride == 1 && region->width * region->type_size == 64) {
 		for (int i = 0; i < region->exec_size / region->width; i++) {
 			int offset = region->offset + i * region->vstride * region->type_size;
 			builder_emit_vpinsrq_rdi_relative(bld, reg, reg, offset, i & 1);
