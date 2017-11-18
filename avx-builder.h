@@ -8,6 +8,7 @@ struct builder {
 
 	/* Disassembly fields */
 	struct disassemble_info info;
+	disassembler_ftype disasm_fn;
 	int disasm_last;
 	int disasm_tail;
 	char disasm_output[128];

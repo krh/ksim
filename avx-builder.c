@@ -92,6 +92,10 @@ builder_init(struct builder *bld)
 	bld->info.buffer = shader_pool;
 	bld->info.section = NULL;
 	disassemble_init_for_target(&bld->info);
+
+	bld->disasm_fn =
+		disassembler(bld->info.arch,
+			     FALSE, bld->info.mach, NULL);
 }
 
 shader_t
@@ -117,7 +121,7 @@ builder_disasm(struct builder *bld)
 					       "%08x  ", bld->disasm_tail);
 
 		bld->disasm_tail +=
-			print_insn_i386(bld->disasm_tail, &bld->info);
+			bld->disasm_fn(bld->disasm_tail, &bld->info);
 		return true;
 	} else {
 		return false;
