@@ -27,6 +27,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/sysmacros.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
