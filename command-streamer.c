@@ -784,7 +784,7 @@ handle_3dstate_vs(uint32_t *p)
 	gt.vs.vue_read_offset = v.VertexURBEntryReadOffset;
 	gt.vs.statistics = v.StatisticsEnable;
 	gt.vs.simd8 = v.SIMD8DispatchEnable;
-	gt.vs.enable = v.FunctionEnable;
+	gt.vs.enable = v.Enable;
 }
 
 static void
@@ -795,7 +795,7 @@ handle_3dstate_gs(uint32_t *p)
 	struct GEN9_3DSTATE_GS v;
 	GEN9_3DSTATE_GS_unpack(p, &v);
 
-	gt.gs.enable = v.FunctionEnable;
+	gt.gs.enable = v.Enable;
 	gt.gs.ksp = v.KernelStartPointer;
 	gt.gs.dispatch_mode = v.DispatchMode;
 	gt.gs.include_primitive_id = v.IncludePrimitiveID;
@@ -959,7 +959,7 @@ handle_3dstate_ds(uint32_t *p)
 	GEN9_3DSTATE_DS_unpack(p, &v);
 
 	gt.ds.ksp = v.KernelStartPointer;
-	gt.ds.enable = v.FunctionEnable;
+	gt.ds.enable = v.Enable;
 	gt.ds.statistics = v.StatisticsEnable;
 	gt.ds.urb_start_grf = v.DispatchGRFStartRegisterForURBData;
 	gt.ds.pue_read_length = v.PatchURBEntryReadLength;

@@ -779,7 +779,7 @@ struct surface {
 	int cpp;
 	int qpitch;
 	int minimum_array_element;
-	enum GEN9_TILE_MODE tile_mode;
+	uint32_t tile_mode;
 };
 
 bool get_surface(uint32_t binding_table_offset, int i, struct surface *s);
