@@ -860,15 +860,13 @@ handle_3dstate_wm(uint32_t *p)
 static void
 fill_curbe(struct curbe *c, uint32_t *p)
 {
-	c->buffer[0].length = field(p[1], 0, 15);
-	c->buffer[1].length = field(p[1], 16, 31);
-	c->buffer[2].length = field(p[2], 0, 15);
-	c->buffer[3].length = field(p[2], 16, 31);
+	struct GEN9_3DSTATE_CONSTANT_BODY v;
+	GEN9_3DSTATE_CONSTANT_BODY_unpack(&p[1], &v);
 
-	c->buffer[0].address = get_u64(&p[3]);
-	c->buffer[1].address = get_u64(&p[5]);
-	c->buffer[2].address = get_u64(&p[7]);
-	c->buffer[3].address = get_u64(&p[9]);
+	for (uint32_t i = 0; i < 4; i++) {
+		c->buffer[i].length = v.ReadLength[i];
+		c->buffer[i].address = v.Buffer[i];
+	}
 }
 
 static void
