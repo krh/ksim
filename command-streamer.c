@@ -977,7 +977,12 @@ handle_3dstate_sbe(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SBE\n");
 
-	gt.sbe.num_attributes = field(p[1], 22, 27);
+	struct GEN9_3DSTATE_SBE v;
+	GEN9_3DSTATE_SBE_unpack(p, &v);
+
+	gt.sbe.read_offset = v.VertexURBEntryReadOffset;
+	gt.sbe.num_attributes = v.NumberofSFOutputAttributes;
+	gt.sbe.swiz_enable = v.AttributeSwizzleEnable;
 }
 
 static void
@@ -1367,6 +1372,12 @@ static void
 handle_3dstate_sbe_swiz(uint32_t *p)
 {
 	ksim_trace(TRACE_CS, "3DSTATE_SBE_SWIZ\n");
+
+	struct GEN9_3DSTATE_SBE_SWIZ v;
+	GEN9_3DSTATE_SBE_SWIZ_unpack(p, &v);
+
+	for (uint32_t i = 0; i < 16; i++)
+		gt.sbe.swiz[i] = v.Attribute[i].SourceAttribute;
 }
 
 static void

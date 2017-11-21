@@ -758,9 +758,15 @@ rasterize_primitive(struct value **vue, enum GEN9_3D_Prim_Topo_Type topology)
 	p.w_deltas[3] = w[0];
 
 	for (uint32_t i = 0; i < gt.sbe.num_attributes; i++) {
-		const struct value a0 = vue[0][i + 2];
-		const struct value a1 = vue[1][i + 2];
-		const struct value a2 = vue[2][i + 2];
+		uint32_t read_index;
+		if (gt.sbe.swiz_enable)
+			read_index = gt.sbe.read_offset * 2 + gt.sbe.swiz[i];
+		else
+			read_index = gt.sbe.read_offset * 2 + i;
+
+		const struct value a0 = vue[0][read_index];
+		const struct value a1 = vue[1][read_index];
+		const struct value a2 = vue[2][read_index];
 
 		p.attribute_deltas[i * 2] = (struct reg) {
 			.f = {

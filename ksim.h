@@ -442,6 +442,9 @@ struct gt {
 
 	struct {
 		uint32_t num_attributes;
+		uint32_t read_offset;
+		bool swiz_enable;
+		uint32_t swiz[16];
 	} sbe;
 
 	struct {
