@@ -263,7 +263,7 @@ struct thread {
 	struct reg32 f[2];
 	struct reg32 mask[2];
 	__m256i constants[32];
-	__m256i spill[64]; /* Needs to be dynamically determined */
+	__m256i spill[128]; /* Needs to be dynamically determined */
 };
 
 typedef void (*shader_t)(struct thread *t);
