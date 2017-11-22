@@ -242,6 +242,11 @@ struct inst_common {
 	uint32_t mask_control;
 };
 
+struct inst_jump {
+	int32_t uip;
+	int32_t jip;
+};
+
 struct inst_dst {
 	uint32_t type;
 	uint32_t file;
@@ -426,6 +431,15 @@ unpack_inst_send(struct inst *packed)
 		.rlen                     = get_inst_bits(packed,  116,  120),
 		.mlen                     = get_inst_bits(packed,  121,  124),
 		.eot                      = get_inst_bits(packed,  127,  127),
+	};
+}
+
+static inline struct inst_jump
+unpack_inst_jump(struct inst *packed)
+{
+	return (struct inst_jump) {
+		.uip                      = get_inst_bits(packed,   64,   95),
+		.jip                      = get_inst_bits(packed,   96,  127),
 	};
 }
 
