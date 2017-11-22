@@ -101,10 +101,14 @@ enum kir_opcode {
 	kir_asr,
 
 	kir_maxd,
+	kir_maxud,
 	kir_maxw,
+	kir_maxuw,
 	kir_maxf,
 	kir_mind,
+	kir_minud,
 	kir_minw,
+	kir_minuw,
 	kir_minf,
 
 	kir_divf,

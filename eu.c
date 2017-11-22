@@ -533,20 +533,57 @@ compile_inst(struct kir_program *prog, struct inst *inst)
 		kir_program_emit_dst_store(prog, src0_reg, inst, &dst);
 		break;
 	case BRW_OPCODE_SEL: {
-		ksim_assert(dst.type == BRW_HW_REG_TYPE_F);
 		int modifier = unpack_inst_common(inst).cond_modifier;
-		if (modifier == BRW_CONDITIONAL_GE) {
-			kir_program_alu(prog, kir_maxf, src0_reg, src1_reg);
+		switch (modifier) {
+		case BRW_CONDITIONAL_GE:
+			switch (dst.type) {
+			case BRW_HW_REG_TYPE_F:
+				kir_program_alu(prog, kir_maxf, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_D:
+				kir_program_alu(prog, kir_maxd, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_UD:
+				kir_program_alu(prog, kir_maxud, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_W:
+				kir_program_alu(prog, kir_maxw, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_UW:
+				kir_program_alu(prog, kir_maxuw, src0_reg, src1_reg);
+				break;
+			default:
+				ksim_unreachable("unhandled max type");
+				break;
+			}
+		case BRW_CONDITIONAL_L:
+			switch (dst.type) {
+			case BRW_HW_REG_TYPE_F:
+				kir_program_alu(prog, kir_minf, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_D:
+				kir_program_alu(prog, kir_mind, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_UD:
+				kir_program_alu(prog, kir_minud, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_W:
+				kir_program_alu(prog, kir_minw, src0_reg, src1_reg);
+				break;
+			case BRW_HW_REG_TYPE_UW:
+				kir_program_alu(prog, kir_minuw, src0_reg, src1_reg);
+				break;
+			default:
+				ksim_unreachable("unhandled min type");
+				break;
+			}
+		default:
+			emit_cmp(prog, src0.file, src0.type, modifier, src0_reg, src1_reg);
+			/* AVX2 blendv is opposite of the EU sel order, so we
+			 * swap src0 and src1 operands. */
+			kir_program_alu(prog, kir_blend, src0_reg, src1_reg, prog->dst);
 			break;
 		}
-		if (modifier == BRW_CONDITIONAL_L) {
-			kir_program_alu(prog, kir_minf, src0_reg, src1_reg);
-			break;
-		}
-		emit_cmp(prog, src0.file, src0.type, modifier, src0_reg, src1_reg);
-		/* AVX2 blendv is opposite of the EU sel order, so we
-		 * swap src0 and src1 operands. */
-		kir_program_alu(prog, kir_blend, src0_reg, src1_reg, prog->dst);
 		break;
 	}
 	case BRW_OPCODE_NOT: {

@@ -437,8 +437,16 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "r%-3d = maxd r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
+	case kir_maxud:
+		snprintf(buf, size, "r%-3d = maxud r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
+		break;
 	case kir_maxw:
 		snprintf(buf, size, "r%-3d = maxw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
+		break;
+	case kir_maxuw:
+		snprintf(buf, size, "r%-3d = maxuw r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
 	case kir_maxf:
@@ -449,7 +457,15 @@ kir_insn_format(struct kir_insn *insn, char *buf, size_t size)
 		snprintf(buf, size, "r%-3d = mind r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
+	case kir_minud:
+		snprintf(buf, size, "r%-3d = minud r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
+		break;
 	case kir_minw:
+		snprintf(buf, size, "r%-3d = minw r%d, r%d", insn->dst.n,
+			 insn->alu.src0.n, insn->alu.src1.n);
+		break;
+	case kir_minuw:
 		snprintf(buf, size, "r%-3d = minw r%d, r%d", insn->dst.n,
 			 insn->alu.src0.n, insn->alu.src1.n);
 		break;
@@ -788,10 +804,14 @@ kir_program_compute_live_ranges(struct kir_program *prog)
 		case kir_shl:
 		case kir_asr:
 		case kir_maxd:
+		case kir_maxud:
 		case kir_maxw:
+		case kir_maxuw:
 		case kir_maxf:
 		case kir_mind:
+		case kir_minud:
 		case kir_minw:
+		case kir_minuw:
 		case kir_minf:
 		case kir_divf:
 		case kir_addd:
@@ -1016,10 +1036,14 @@ kir_program_copy_propagation(struct kir_program *prog)
 		case kir_shl:
 		case kir_asr:
 		case kir_maxd:
+		case kir_maxud:
 		case kir_maxw:
+		case kir_maxuw:
 		case kir_maxf:
 		case kir_mind:
+		case kir_minud:
 		case kir_minw:
+		case kir_minuw:
 		case kir_minf:
 		case kir_divf:
 		case kir_addd:
@@ -1395,10 +1419,14 @@ kir_program_allocate_registers(struct kir_program *prog)
 		case kir_shl:
 		case kir_asr:
 		case kir_maxd:
+		case kir_maxud:
 		case kir_maxw:
+		case kir_maxuw:
 		case kir_maxf:
 		case kir_mind:
+		case kir_minud:
 		case kir_minw:
+		case kir_minuw:
 		case kir_minf:
 		case kir_divf:
 		case kir_addd:
@@ -1830,8 +1858,14 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		case kir_maxd:
 			ksim_unreachable("maxd");
 			break;
+		case kir_maxud:
+			ksim_unreachable("maxud");
+			break;
 		case kir_maxw:
 			ksim_unreachable("maxw");
+			break;
+		case kir_maxuw:
+			ksim_unreachable("maxuw");
 			break;
 		case kir_maxf:
 			builder_emit_vmaxps(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
@@ -1839,8 +1873,14 @@ kir_program_emit(struct kir_program *prog, struct builder *bld)
 		case kir_mind:
 			ksim_unreachable("mind");
 			break;
+		case kir_minud:
+			ksim_unreachable("minud");
+			break;
 		case kir_minw:
 			ksim_unreachable("minw");
+			break;
+		case kir_minuw:
+			ksim_unreachable("minuw");
 			break;
 		case kir_minf:
 			builder_emit_vminps(bld, insn->dst.n, insn->alu.src0.n, insn->alu.src1.n);
