@@ -141,6 +141,7 @@ emit_depth_test(struct kir_program *prog)
 		break;
 	case D16_UNORM:
 		stub("D16_UNORM");
+		break;
 	default:
 		ksim_unreachable("invalid depth format");
 	}
@@ -281,7 +282,8 @@ clear_depth_tile(uint32_t x, uint32_t y)
 		clear_value.ireg = _mm256_set1_epi32(gt.depth.clear_value * 16777215.0f);
 		break;
 	case D16_UNORM:
-		stub("D16_UNORM clear");
+		clear_value.ireg = _mm256_set1_epi16(gt.depth.clear_value * 65535.0f);
+		break;
 	default:
 		ksim_unreachable("invalid depth format");
 	}
@@ -879,7 +881,8 @@ depth_clear(void)
 		clear_value.ireg = _mm256_set1_epi32(gt.depth.clear_value * 16777215.0f);
 		break;
 	case D16_UNORM:
-		stub("D16_UNORM clear");
+		clear_value.ireg = _mm256_set1_epi16(gt.depth.clear_value * 65535.0f);
+		break;
 	default:
 		ksim_unreachable("invalid depth format");
 	}
