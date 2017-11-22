@@ -541,7 +541,7 @@ dispatch_execbuffer2(int fd, unsigned long request,
 
 			target = get_bo(handle);
 			ksim_assert(target != NULL);
-			ksim_assert(relocs[j].offset + sizeof(*dst) < bo->size);
+			ksim_assert(relocs[j].offset + sizeof(*dst) <= bo->size);
 
 			dst = bo->map + relocs[j].offset;
 			if (relocs[j].presumed_offset != target->gtt_offset)
