@@ -246,8 +246,7 @@ dispatch_ps(struct ps_thread *t)
 
 	if (count == 1 && gt.ps.enable_simd8) {
 		gt.ps.avx_shader_simd8(&t->t);
-	} else {
-		ksim_assert(gt.ps.enable_simd16);
+	} else if (gt.ps.enable_simd16) {
 		gt.ps.avx_shader_simd16(&t->t);
 	}
 }
