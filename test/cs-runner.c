@@ -32,7 +32,8 @@
 #include <errno.h>
 #include <error.h>
 #include <assert.h>
-#include <i915_drm.h>
+
+#include "../drm_uapi/i915_drm.h"
 
 #define ARRAY_LENGTH(a) ( sizeof(a) / sizeof((a)[0]) )
 

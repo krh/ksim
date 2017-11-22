@@ -3,8 +3,6 @@ project('ksim', 'c')
 c = meson.get_compiler('c')
 opcodes = c.find_library('opcodes')
 
-libdrm = dependency('libdrm')
-libdrm_intel = dependency('libdrm_intel')
 libpng16 = dependency('libpng16')
 threads = dependency('threads')
 # This is the portable way of using mathlib, it does
@@ -62,7 +60,7 @@ shared_library('ksim-stub',
 	ksim_files, disasm_files,
 	c_args : [ '-fvisibility=hidden', '-march=core-avx2', '-D_GNU_SOURCE',
 		   '-DKSIM_BUILD_' + get_option('buildtype').to_upper() ],
-	dependencies : [ libdrm, libdrm_intel, libpng16, opcodes, threads, mathlib ],
+	dependencies : [ libpng16, opcodes, threads, mathlib ],
 	link_args : [ '-ldl' ],
 	name_prefix : '',
 	install : true)
@@ -70,7 +68,7 @@ shared_library('ksim-stub',
 executable('cs-runner',
 	files('test/cs-runner.c'),
 	c_args : [ '-fvisibility=hidden', '-march=native', '-mrtm' ],
-	dependencies : [ libdrm_intel, mathlib ],
+	dependencies : [ mathlib ],
 	install : false)
 
 avxbuilder_test = executable('test-avx-builder',

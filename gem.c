@@ -41,7 +41,7 @@
 #include <dlfcn.h>
 #include <sys/prctl.h>
 
-#include <i915_drm.h>
+#include "drm_uapi/i915_drm.h"
 
 #include "ksim.h"
 
@@ -317,6 +317,7 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_HAS_WT:
 	case I915_PARAM_HAS_COHERENT_PHYS_GTT:
 	case I915_PARAM_HAS_EXEC_SOFTPIN:
+	case I915_PARAM_HAS_EXEC_ASYNC:
 		*getparam->value = 1;
 		return 0;
 
@@ -325,6 +326,9 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_HAS_VEBOX:
 	case I915_PARAM_HAS_BSD2:
 	case I915_PARAM_HAS_RESOURCE_STREAMER:
+	case I915_PARAM_HAS_EXEC_FENCE:
+	case I915_PARAM_HAS_EXEC_BATCH_FIRST:
+	case I915_PARAM_HAS_EXEC_FENCE_ARRAY:
 		*getparam->value = 0;
 		return 0;
 
@@ -344,9 +348,6 @@ dispatch_getparam(int fd, unsigned long request,
 		return 0;
 	case I915_PARAM_EU_TOTAL:
 		*getparam->value = 24;
-		return 0;
-	case I915_PARAM_HAS_EXEC_ASYNC:
-		*getparam->value = 1;
 		return 0;
 	case I915_PARAM_MMAP_GTT_VERSION:
 		*getparam->value = 1;
