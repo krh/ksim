@@ -426,8 +426,11 @@ init_ps_thread(struct ps_thread *pt, struct ps_primitive *p)
 static void
 finish_ps_thread(struct ps_thread *pt)
 {
-	if (pt->queue_length > 0)
+	if (pt->queue_length > 0) {
+		ksim_assert(pt->queue_length == 1 && !gt.ps.enable_simd8);
+		pt->t.mask[0].q[1] = _mm256_set1_epi32(0);
 		dispatch_ps(pt);
+	}
 	if (gt.ps.statistics)
 		gt.ps_invocation_count += pt->invocation_count;
 }
