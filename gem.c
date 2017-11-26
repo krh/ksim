@@ -775,6 +775,26 @@ dispatch_userptr(int fd, unsigned long request,
 }
 
 static int
+dispatch_context_getparam(int fd, unsigned long request,
+			  struct drm_i915_gem_context_param *param)
+{
+	switch (param->param) {
+	case I915_CONTEXT_PARAM_GTT_SIZE:
+		param->value = 4245561344;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int
+dispatch_context_setparam(int fd, unsigned long request,
+			  struct drm_i915_gem_userptr *userptr)
+{
+	return 0;
+}
+
+static int
 dispatch_close(int fd, unsigned long request,
 	       struct drm_gem_close *gem_close)
 {
@@ -982,14 +1002,10 @@ ioctl(int fd, unsigned long request, ...)
 		return 0;
 	case DRM_IOCTL_I915_GEM_USERPTR:
 		return dispatch_userptr(fd, request, argp);
-
 	case DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM:
-		stub("DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM");
-		return 0;
+		return dispatch_context_getparam(fd, request, argp);
 	case DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM:
-		stub("DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM");
-		return 0;
-
+		return dispatch_context_setparam(fd, request, argp);
 	case DRM_IOCTL_GET_CAP:
 		stub("DRM_IOCTL_GET_CAP");
 		return 0;
