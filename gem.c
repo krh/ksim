@@ -336,10 +336,6 @@ dispatch_getparam(int fd, unsigned long request,
 		*getparam->value = 0;
 		return 0;
 
-	case I915_PARAM_MMAP_VERSION:
-		*getparam->value = 0;
-		return 0;
-
 	case I915_PARAM_REVISION:
 		*getparam->value = 0;
 		return 0;
@@ -349,8 +345,11 @@ dispatch_getparam(int fd, unsigned long request,
 	case I915_PARAM_EU_TOTAL:
 		*getparam->value = 24;
 		return 0;
-	case I915_PARAM_MMAP_GTT_VERSION:
+	case I915_PARAM_MMAP_VERSION:
 		*getparam->value = 1;
+		return 0;
+	case I915_PARAM_MMAP_GTT_VERSION:
+		*getparam->value = 2;
 		return 0;
 	default:
 		trace(TRACE_WARN, "unhandled getparam %d\n",
